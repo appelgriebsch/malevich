@@ -2,7 +2,7 @@
 //!
 //! Eight marks ([`Line`], [`Points`], [`Bars`], [`Area`], [`Cells`], [`Range`],
 //! [`Rule`], [`Text`]) compose over shared scales into the basic chart catalog;
-//! presets like [`line`], [`hist`], [`box_plot`], and [`violin`] are one-line fronts
+//! presets like [`line()`], [`hist`], [`box_plot`], and [`violin`] are one-line fronts
 //! over that grammar. Large series aggregate to the raster before drawing (M4 —
 //! pixel-exact for lines), axes use extended-Wilkinson tick placement with
 //! exact-decimal labels, and everything renders to a plain `String` — colored for
