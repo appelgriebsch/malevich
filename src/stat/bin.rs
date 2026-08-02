@@ -74,11 +74,7 @@ impl Bins {
         // so bin boundaries land on readable numbers.
         let cap = limit.max(1);
         let ticks = Ticks::linear(min, max, target.min(50));
-        let mut width = if ticks.step() > 0.0 {
-            ticks.step()
-        } else {
-            (max - min) / target as f64
-        };
+        let mut width = ticks.step().unwrap_or((max - min) / target as f64);
         let mut start = (min / width).floor() * width;
         let mut bins = (((max - start) / width).ceil() as usize).max(1);
         // Never drop data to honor the cap: if the nice width needs more bins than
@@ -160,9 +156,10 @@ impl Bins {
     }
 }
 
-/// The result of [`bins2`]: a density grid plus the data extents it covers.
+/// The result of [`bins2`]: a 2D histogram — a density grid plus the data extents
+/// it covers. Named to distinguish it from [`crate::Grid`], which is small multiples.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Grid {
+pub struct Histogram2d {
     /// Row-major counts, row 0 at the bottom.
     pub counts: Vec<f64>,
     /// Columns per row.
@@ -179,7 +176,7 @@ pub struct Grid {
 /// # Panics
 ///
 /// Panics if the series lengths differ or the grid is empty.
-pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Grid> {
+pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Histogram2d> {
     assert_eq!(x.len(), y.len(), "bins2 requires series of equal length");
     assert!(columns > 0 && rows > 0, "bins2 requires a non-empty grid");
     let mut x_extent: Option<(f64, f64)> = None;
@@ -214,7 +211,7 @@ pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Grid> 
         let row = (((yv - y_extent.0) / height) * rows as f64) as usize;
         counts[row.min(rows - 1) * columns + column.min(columns - 1)] += 1.0;
     }
-    Some(Grid {
+    Some(Histogram2d {
         counts,
         columns,
         x: widen(x_extent),

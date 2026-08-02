@@ -19,7 +19,7 @@ mod stack;
 mod window;
 
 pub use agg::Agg;
-pub use bin::{Bins, Grid, bins2};
+pub use bin::{Bins, Histogram2d, bins2};
 pub use box_stats::BoxStats;
 pub use contour::{Contour, contours};
 pub use ecdf::ecdf;

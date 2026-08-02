@@ -32,7 +32,7 @@ fn equal_bounds_yield_a_single_tick() {
     let ticks = Ticks::linear(5.0, 5.0, 7);
     assert_eq!(labels(&ticks), ["5"]);
     assert_eq!(ticks.as_slice()[0].value, 5.0);
-    assert_eq!(ticks.step(), 0.0);
+    assert_eq!(ticks.step(), None);
 }
 
 #[test]
@@ -64,6 +64,7 @@ fn sweep() -> Vec<(f64, f64, usize)> {
 fn ticks_are_ascending_and_uniformly_spaced() {
     for (lo, hi, target) in sweep() {
         let ticks = Ticks::linear(lo, hi, target);
+        let step = ticks.step().expect("linear ticks have a uniform step");
         let values: Vec<f64> = ticks.iter().map(|tick| tick.value).collect();
         for pair in values.windows(2) {
             let diff = pair[1] - pair[0];
@@ -71,9 +72,9 @@ fn ticks_are_ascending_and_uniformly_spaced() {
             // Values are correctly rounded individually, so their differences can
             // wobble by a few ulps of the value magnitude (visible when a tiny range
             // sits at a large offset). The decimal spacing itself is exact.
-            let tolerance = 8.0 * f64::EPSILON * pair[0].abs().max(pair[1].abs()).max(ticks.step());
+            let tolerance = 8.0 * f64::EPSILON * pair[0].abs().max(pair[1].abs()).max(step);
             assert!(
-                (diff - ticks.step()).abs() <= tolerance,
+                (diff - step).abs() <= tolerance,
                 "non-uniform spacing in [{lo}, {hi}]"
             );
         }
@@ -168,7 +169,7 @@ fn ticks_stay_within_one_step_of_the_data_range() {
         let ticks = Ticks::linear(lo, hi, target);
         let first = ticks.as_slice().first().unwrap().value;
         let last = ticks.as_slice().last().unwrap().value;
-        let step = ticks.step();
+        let step = ticks.step().expect("linear ticks have a uniform step");
         // The near side is guaranteed by construction; overshoot is a scored
         // trade-off, so it gets a looser bound.
         assert!(
@@ -190,7 +191,7 @@ fn the_step_is_a_preferred_mantissa_times_a_small_skip() {
     // and a small integer skip (skip > 1 is a heavily penalized last resort).
     for (lo, hi, target) in sweep() {
         let ticks = Ticks::linear(lo, hi, target);
-        let step = ticks.step();
+        let step = ticks.step().expect("linear ticks have a uniform step");
         let magnitude = 10f64.powi(step.log10().floor() as i32);
         let mantissa = step / magnitude;
         let preferred = [1.0, 2.0, 2.5, 3.0, 4.0, 5.0, 10.0];

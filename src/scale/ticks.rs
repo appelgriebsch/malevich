@@ -51,7 +51,7 @@ pub struct Tick {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ticks {
     ticks: Vec<Tick>,
-    step: f64,
+    step: Option<f64>,
 }
 
 impl Ticks {
@@ -80,7 +80,7 @@ impl Ticks {
                     value: lo,
                     label: lo.to_string(),
                 }],
-                step: 0.0,
+                step: None,
             };
         }
         match search(lo, hi, target) {
@@ -96,7 +96,7 @@ impl Ticks {
                         label: hi.to_string(),
                     },
                 ],
-                step: hi - lo,
+                step: Some(hi - lo),
             },
         }
     }
@@ -131,12 +131,12 @@ impl Ticks {
                 label: power_of_ten_label(power),
             })
             .collect();
-        Ticks { ticks, step: 0.0 }
+        Ticks { ticks, step: None }
     }
 
     /// Builds a set from precomputed ticks (time axes build these); no uniform step.
     pub(crate) fn from_time(ticks: Vec<Tick>) -> Ticks {
-        Ticks { ticks, step: 0.0 }
+        Ticks { ticks, step: None }
     }
 
     /// The ticks, ascending.
@@ -159,8 +159,11 @@ impl Ticks {
         self.ticks.is_empty()
     }
 
-    /// The spacing between adjacent ticks in data coordinates; 0 for a single tick.
-    pub fn step(&self) -> f64 {
+    /// The spacing between adjacent ticks in data coordinates, or `None` when there
+    /// is no single spacing: a lone tick, or the non-uniform ticks of a log or time
+    /// axis. Returned as an option rather than a sentinel `0`, which a caller could
+    /// mistake for a real spacing.
+    pub fn step(&self) -> Option<f64> {
         self.step
     }
 }
@@ -299,7 +302,10 @@ fn materialize(candidate: &Candidate) -> Ticks {
     // Computed from the integer mantissa difference, so the step itself is
     // decimal-exact (0.8, never 0.8000000000000003).
     let step = value_of(mantissas[1] - mantissas[0], exp10);
-    Ticks { ticks, step }
+    Ticks {
+        ticks,
+        step: Some(step),
+    }
 }
 
 /// Formats `10^power` with Unicode superscripts: `1`, `10`, `10²`, `10⁻³`.

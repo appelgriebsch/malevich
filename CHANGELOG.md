@@ -5,6 +5,12 @@ without apology.
 
 ## Unreleased (toward 0.11.0 — Polish)
 
+- Renames (breaking, landed early so downstream churn is minimal):
+  - `stat::Grid` → `stat::Histogram2d` — it was a second public `Grid`, unrelated to
+    the small-multiples `Grid` at the crate root; the name now says what it is.
+  - `Ticks::step()` returns `Option<f64>` instead of `f64` — `None` for a lone tick or
+    the non-uniform ticks of a log/time axis, rather than a `0.0` sentinel a caller
+    could mistake for a real spacing.
 - M4 is pixel-exact again — and honestly so. Large lines are now reduced in *mapped
   raster space*: a cheap min/max probe fixes the layout, then M4 buckets by the exact
   column each point renders into, so the downsampled raster is bit-identical to
