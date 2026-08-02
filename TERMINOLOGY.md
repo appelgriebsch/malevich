@@ -36,9 +36,10 @@ methods *(planned)*.
 ## Series
 
 One column of scalar data after ingestion: contiguous `f64`, where `NaN` is a gap (see
-Gap). The ingestion boundary is the `IntoSeries` trait — slices, iterators, and
-closures convert exactly once at the rim; the core is monomorphic `f64`. Maps to
-`Series` and `IntoSeries` *(planned)*.
+Gap). The ingestion boundary is the `IntoSeries` trait — slices, arrays, and vectors of
+any primitive numeric type convert exactly once at the rim (borrowed `f64` slices are
+zero-copy), iterators arrive via `FromIterator`, and function sampling arrives with the
+marks. The core is monomorphic `f64`. Maps to `data::Series` and `data::IntoSeries`.
 
 ## Stat
 

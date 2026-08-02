@@ -6,4 +6,5 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod data;
 pub mod scale;
