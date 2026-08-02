@@ -39,3 +39,21 @@ pub fn bar<'a>(
 ) -> Plot<'a> {
     Plot::new().layer(Bars::new(categories, values))
 }
+
+/// A histogram: `values` binned automatically (Sturges/Freedman–Diaconis, nice
+/// decimal edges) and drawn as contiguous bars from zero.
+///
+/// ```
+/// let samples = [1.0, 2.0, 2.5, 2.7, 3.0, 3.1, 3.2, 4.0, 5.5];
+/// println!("{}", malevich::hist(&samples[..]).render(&malevich::Frame::plain(40, 10)));
+/// ```
+pub fn hist<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    let series = values.into_series();
+    match crate::stat::Bins::auto(series.as_slice(), 60) {
+        Some(bins) => {
+            let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
+            Plot::new().layer(Bars::spans(bins.start(), bins.width(), counts))
+        }
+        None => Plot::new(),
+    }
+}

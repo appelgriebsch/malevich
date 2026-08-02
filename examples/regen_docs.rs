@@ -36,6 +36,15 @@ const GALLERY: &[(&str, &str)] = &[
         "Ten million points through the auto-inserted M4 aggregation — pixel-identical \
          to drawing every point, in tens of milliseconds.",
     ),
+    (
+        "distribution",
+        "A histogram via the Bin stat: automatic bin count, nice decimal edges, \
+         contiguous bars from zero.",
+    ),
+    (
+        "powerlaw",
+        "Log-log axes: power laws render straight, with decade ticks on both axes.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

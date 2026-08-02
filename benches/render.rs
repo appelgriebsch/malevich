@@ -62,11 +62,24 @@ fn ten_million_points(c: &mut Criterion) {
     });
 }
 
+fn histogram_binning(c: &mut Criterion) {
+    let values: Vec<f64> = (0..1_000_000)
+        .map(|i| {
+            let i = i as f64;
+            ((i * 0.731).sin() + (i * 1.13).sin()) * 4.0 + 20.0
+        })
+        .collect();
+    c.bench_function("stat/bins_auto_1m", |b| {
+        b.iter(|| black_box(malevich::stat::Bins::auto(black_box(&values[..]), 60)));
+    });
+}
+
 criterion_group!(
     benches,
     line_render,
     scatter_render,
     ansi_encoding,
-    ten_million_points
+    ten_million_points,
+    histogram_binning
 );
 criterion_main!(benches);

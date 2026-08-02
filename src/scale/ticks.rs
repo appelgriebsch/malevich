@@ -101,6 +101,39 @@ impl Ticks {
         }
     }
 
+    /// Places decade ticks (`10²`-style labels) over the positive range
+    /// `[min, max]`, striding decades when there are many more than `target`.
+    ///
+    /// Ranges narrower than one full decade fall back to [`Ticks::linear`] —
+    /// value labels read better than fractional powers there.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bounds are not finite and positive.
+    pub fn log10(min: f64, max: f64, target: usize) -> Ticks {
+        assert!(
+            min.is_finite() && max.is_finite() && min > 0.0 && max > 0.0,
+            "Ticks::log10 requires finite positive bounds, got {min} and {max}"
+        );
+        let (lo, hi) = if min <= max { (min, max) } else { (max, min) };
+        let target = target.max(2);
+        let first = lo.log10().ceil() as i32;
+        let last = hi.log10().floor() as i32;
+        if last - first < 1 {
+            return Ticks::linear(lo, hi, target);
+        }
+        let decades = (last - first + 1) as usize;
+        let stride = decades.div_ceil(target).max(1) as i32;
+        let ticks: Vec<Tick> = (first..=last)
+            .step_by(stride as usize)
+            .map(|power| Tick {
+                value: 10f64.powi(power),
+                label: power_of_ten_label(power),
+            })
+            .collect();
+        Ticks { ticks, step: 0.0 }
+    }
+
     /// The ticks, ascending.
     pub fn as_slice(&self) -> &[Tick] {
         &self.ticks
@@ -249,6 +282,29 @@ fn materialize(candidate: &Candidate) -> Ticks {
     // decimal-exact (0.8, never 0.8000000000000003).
     let step = value_of(mantissas[1] - mantissas[0], exp10);
     Ticks { ticks, step }
+}
+
+/// Formats `10^power` with Unicode superscripts: `1`, `10`, `10²`, `10⁻³`.
+fn power_of_ten_label(power: i32) -> String {
+    const DIGITS: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    match power {
+        0 => "1".to_string(),
+        1 => "10".to_string(),
+        _ => {
+            let mut label = String::from("10");
+            if power < 0 {
+                label.push('⁻');
+            }
+            let mut digits = Vec::new();
+            let mut remaining = power.unsigned_abs();
+            while remaining > 0 {
+                digits.push(DIGITS[(remaining % 10) as usize]);
+                remaining /= 10;
+            }
+            label.extend(digits.into_iter().rev());
+            label
+        }
+    }
 }
 
 /// Chooses one SI prefix for a whole axis, from the magnitude of its largest tick:

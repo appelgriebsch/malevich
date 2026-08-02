@@ -135,6 +135,53 @@ fn negative_bars_hang_below_the_baseline_in_the_snapshot() {
 }
 
 #[test]
+fn log_axes_straighten_exponentials_and_drop_nonpositives() {
+    let steps: Vec<f64> = (0..40).map(f64::from).collect();
+    let decay: Vec<f64> = steps.iter().map(|s| 100.0 * (-0.3 * s).exp()).collect();
+    let text = Plot::new()
+        .layer(Line::xy(&steps[..], &decay[..]))
+        .log_y()
+        .render(&Frame::plain(40, 10));
+    assert!(
+        text.contains("10\u{2077}") || text.contains("10\u{207B}"),
+        "no decade labels: {text}"
+    );
+
+    let with_zeroes = Plot::new()
+        .layer(Line::y(&[1.0, 0.0, -5.0, 100.0][..]))
+        .log_y()
+        .render(&Frame::plain(40, 10));
+    assert!(!with_zeroes.is_empty());
+}
+
+#[test]
+fn the_hist_preset_equals_its_grammar_expansion() {
+    let samples: Vec<f64> = (0..500).map(|i| ((i * 37) % 100) as f64 / 10.0).collect();
+    let frame = Frame::plain(50, 12);
+    let preset = crate::hist(&samples[..]).render(&frame);
+    let bins = crate::stat::Bins::auto(&samples, 60).unwrap();
+    let counts: Vec<f64> = bins.counts().iter().map(|&c| c as f64).collect();
+    let grammar = Plot::new()
+        .layer(crate::mark::Bars::spans(
+            bins.start(),
+            bins.width(),
+            &counts[..],
+        ))
+        .render(&frame);
+    assert_eq!(preset, grammar);
+}
+
+#[test]
+fn span_bars_sit_contiguously_on_a_numeric_axis() {
+    let text = Plot::new()
+        .layer(crate::mark::Bars::spans(0.0, 1.0, &[2.0, 5.0, 3.0][..]))
+        .render(&Frame::plain(40, 10));
+    // A numeric axis (ticks, not category labels) under contiguous bars.
+    assert!(text.contains('\u{252C}'), "missing numeric ticks: {text}");
+    assert!(text.contains('\u{2588}'), "missing bar fills: {text}");
+}
+
+#[test]
 fn rendering_is_deterministic() {
     let plot = Plot::new().layer(Line::y(&[1.0, 5.0, 2.0, 8.0][..]));
     let frame = Frame::plain(40, 10);

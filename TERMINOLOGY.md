@@ -51,8 +51,9 @@ A data transform that runs before scales see the data: `Bin`, `Agg`, `Window`, `
 seaborn.objects (`Stat`) and ggplot (`stat_*`). Stats are mergeable: two partial results
 combine associatively, which is what makes host-side parallelism and streaming
 compositions rather than features. Maps to the `stat` module — currently `stat::M4`
-(with `stat::m4`, auto-inserted for large line layers), `stat::lttb`, and
-`stat::Moments`; the rest of the family follows.
+(with `stat::m4`, auto-inserted for large line layers), `stat::Bins` (histograms,
+feeding `malevich::hist`), `stat::Agg` (group-by with the shared reducer vocabulary),
+`stat::lttb`, and `stat::Moments`; the rest of the family follows.
 
 ## Reducer
 
@@ -66,8 +67,10 @@ A mapping from data domain to raster range with the d3-scale contract: `nice`,
 `ticks(n)`, `invert`, and a tick formatter. Position scales: `Linear`, `Log`, `Time`,
 `Band`; color scales: sequential, diverging, categorical. Maps to the `scale`
 module — currently `scale::Linear` (the affine map, including the raster y-flip),
-`scale::Band` (categories across a range, d3 padding model), and `scale::Ticks`; the
-richer contract grows with the log and time work.
+`scale::Band` (categories across a range, d3 padding model), and `scale::Ticks`
+(extended-Wilkinson linear placement plus `Ticks::log10` decades); log axes are
+enabled per plot with `Plot::log_x`/`Plot::log_y`, and the richer scale-spec API
+arrives with the time work.
 
 ## Ticks
 

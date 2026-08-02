@@ -10,6 +10,7 @@ mod line;
 mod points;
 
 pub use bars::Bars;
+pub(crate) use bars::Placement;
 pub use line::Line;
 pub(crate) use line::Source;
 pub use points::Points;

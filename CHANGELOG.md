@@ -3,8 +3,18 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased (toward 0.3.0)
+## 0.3.0 (Airplane Flying) — 2026-08-01
 
+The pipeline release: the stat layer lands, and ten million points become cheap.
+
+- Histograms (`stat::Bins`, `mark::Bars::spans`, `malevich::hist`): automatic bin
+  counts (Sturges/Freedman–Diaconis) with nice decimal edges, mergeable bin counts,
+  and contiguous span bars on a numeric axis.
+- Group-by (`stat::Agg`): string-keyed grouping with the shared reducer vocabulary —
+  `count`, `sum`, `mean`, `min`, `max`, `median` — feeding `Bars::new` directly.
+- Log axes (`Plot::log_x`, `Plot::log_y`, `Ticks::log10`): decade ticks with
+  superscript labels; values at or below zero become gaps, because a log axis cannot
+  place them honestly.
 - The aggregation pipeline (`stat`): M4 downsampling (`stat::M4`, `stat::m4`) —
   min/max/first/last per raster column, pixel-exact for line rendering, mergeable
   across chunks, gap-preserving — inserted automatically for line layers past four

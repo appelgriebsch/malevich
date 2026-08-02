@@ -12,10 +12,17 @@ use crate::render::Color;
 /// `1.0` the second, and so on.
 #[derive(Clone)]
 pub struct Bars<'a> {
-    pub(crate) categories: Vec<String>,
+    pub(crate) placement: Placement,
     pub(crate) values: Series<'a>,
     pub(crate) color: Option<Color>,
     pub(crate) label: Option<String>,
+}
+
+/// Where bars sit on the x axis: named bands, or contiguous numeric spans.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Placement {
+    Bands(Vec<String>),
+    Spans { start: f64, width: f64 },
 }
 
 impl<'a> Bars<'a> {
@@ -36,8 +43,28 @@ impl<'a> Bars<'a> {
             "Bars::new requires one category per value"
         );
         Bars {
-            categories,
+            placement: Placement::Bands(categories),
             values,
+            color: None,
+            label: None,
+        }
+    }
+
+    /// Bars over contiguous numeric spans: bar `i` covers
+    /// `[start + i * width, start + (i + 1) * width)` on a continuous x axis.
+    /// This is the histogram shape — see [`crate::hist`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `width` is not finite and positive or `start` is not finite.
+    pub fn spans(start: f64, width: f64, values: impl IntoSeries<'a>) -> Bars<'a> {
+        assert!(
+            start.is_finite() && width.is_finite() && width > 0.0,
+            "Bars::spans requires a finite start and a positive width"
+        );
+        Bars {
+            placement: Placement::Spans { start, width },
+            values: values.into_series(),
             color: None,
             label: None,
         }
@@ -61,7 +88,7 @@ impl<'a> Bars<'a> {
     /// Detaches from any borrowed storage, making the mark `'static`.
     pub fn into_owned(self) -> Bars<'static> {
         Bars {
-            categories: self.categories,
+            placement: self.placement,
             values: self.values.into_owned(),
             color: self.color,
             label: self.label,
@@ -72,7 +99,7 @@ impl<'a> Bars<'a> {
 impl std::fmt::Debug for Bars<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Bars")
-            .field("bars", &self.categories.len())
+            .field("bars", &self.values.len())
             .field("color", &self.color)
             .finish()
     }

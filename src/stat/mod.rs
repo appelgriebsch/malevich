@@ -6,10 +6,14 @@
 //! plot pipeline inserts [`m4`] automatically for large line layers; everything is
 //! also public API for direct use.
 
+mod agg;
+mod bin;
 mod lttb;
 mod m4;
 mod moments;
 
+pub use agg::Agg;
+pub use bin::Bins;
 pub use lttb::lttb;
 pub(crate) use m4::m4_indexed;
 pub use m4::{M4, m4};

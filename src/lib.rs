@@ -17,6 +17,6 @@ mod theme;
 
 pub use mark::{Bars, Line, Mark, Points};
 pub use plot::{Frame, Plot};
-pub use presets::{bar, line, scatter};
+pub use presets::{bar, hist, line, scatter};
 pub use render::{Charset, Color, ColorMode};
 pub use theme::Theme;

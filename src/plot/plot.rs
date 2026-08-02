@@ -4,7 +4,7 @@
 use std::borrow::Cow;
 
 use super::frame::Frame;
-use crate::mark::{Mark, Source};
+use crate::mark::{Mark, Placement, Source};
 use crate::render::{Charset, Color, Surface, display_width, fit_width};
 use crate::scale::{Band, Linear, Ticks};
 
@@ -28,6 +28,8 @@ use crate::scale::{Band, Linear, Ticks};
 pub struct Plot<'a> {
     layers: Vec<Mark<'a>>,
     title: Option<String>,
+    log_x: bool,
+    log_y: bool,
 }
 
 impl<'a> Plot<'a> {
@@ -36,7 +38,27 @@ impl<'a> Plot<'a> {
         Plot {
             layers: Vec::new(),
             title: None,
+            log_x: false,
+            log_y: false,
         }
+    }
+
+    /// Puts the x axis on a base-10 logarithmic scale: decade ticks (`10²`-style),
+    /// and values at or below zero become gaps — a log axis cannot place them
+    /// honestly. Ignored when a bars layer owns the x axis.
+    #[must_use]
+    pub fn log_x(mut self) -> Plot<'a> {
+        self.log_x = true;
+        self
+    }
+
+    /// Puts the y axis on a base-10 logarithmic scale: decade ticks (`10²`-style),
+    /// and values at or below zero become gaps — a log axis cannot place them
+    /// honestly.
+    #[must_use]
+    pub fn log_y(mut self) -> Plot<'a> {
+        self.log_y = true;
+        self
     }
 
     /// Adds a mark as the next layer. Layers share scales: domains are the union of
@@ -61,6 +83,8 @@ impl<'a> Plot<'a> {
         Plot {
             layers: self.layers.into_iter().map(Mark::into_owned).collect(),
             title: self.title,
+            log_x: self.log_x,
+            log_y: self.log_y,
         }
     }
 
@@ -78,13 +102,29 @@ impl<'a> Plot<'a> {
 
         let layers = self.resolve(frame.width * px, &frame.theme.palette);
         let categories: Option<&[String]> = layers.iter().find_map(|layer| match layer {
-            ResolvedLayer::Bars { categories, .. } if !categories.is_empty() => Some(*categories),
+            ResolvedLayer::Bars {
+                placement: Placement::Bands(categories),
+                ..
+            } if !categories.is_empty() => Some(categories.as_slice()),
             _ => None,
         });
+        let has_bars = layers
+            .iter()
+            .any(|layer| matches!(layer, ResolvedLayer::Bars { .. }));
 
-        let x_data = union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0));
-        let mut y_data = union(layers.iter().map(ResolvedLayer::y_extent)).unwrap_or((0.0, 1.0));
-        if categories.is_some() {
+        let log_x = self.log_x && categories.is_none();
+        let log_y = self.log_y;
+        let x_data = if log_x {
+            union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
+        } else {
+            union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0))
+        };
+        let mut y_data = if log_y {
+            union(layers.iter().map(ResolvedLayer::y_extent_positive)).unwrap_or((1.0, 100.0))
+        } else {
+            union(layers.iter().map(ResolvedLayer::y_extent)).unwrap_or((0.0, 1.0))
+        };
+        if has_bars && !log_y {
             // Bar length is the encoding, so the baseline must be in view.
             y_data = (y_data.0.min(0.0), y_data.1.max(0.0));
         }
@@ -108,7 +148,11 @@ impl<'a> Plot<'a> {
         // Horizontal layout: the y-label gutter is measured, not fixed — and shed
         // entirely when it would eat the plot.
         let target = (plot_rows / 2).clamp(2, 8);
-        let y_ticks = Ticks::linear(y_data.0, y_data.1, target);
+        let y_ticks = if log_y {
+            Ticks::log10(y_data.0, y_data.1, target)
+        } else {
+            Ticks::linear(y_data.0, y_data.1, target)
+        };
         let mut label_width = y_ticks
             .iter()
             .map(|tick| display_width(&tick.label))
@@ -128,7 +172,15 @@ impl<'a> Plot<'a> {
         // The x axis: a band scale when a bars layer is present, ticks otherwise.
         let band = categories.map(|c| Band::new(c.len(), (0.0, (plot_sub_w - 1) as f64)));
         let x_ticks = if band.is_none() && axis_rows == 2 {
-            fit_x_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
+            if log_x {
+                Some(Ticks::log10(
+                    x_data.0,
+                    x_data.1,
+                    (plot_cols / 10).clamp(2, 8),
+                ))
+            } else {
+                fit_x_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
+            }
         } else {
             None
         };
@@ -141,8 +193,8 @@ impl<'a> Plot<'a> {
             Some(band) => (band.center(0), band.center(band.count() - 1)),
             None => (0.0, (plot_sub_w - 1) as f64),
         };
-        let x_scale = Linear::new(x_domain, x_range);
-        let y_scale = Linear::new(y_domain, ((plot_sub_h - 1) as f64, 0.0));
+        let x_scale = Map::build(x_domain, x_range, log_x);
+        let y_scale = Map::build(y_domain, ((plot_sub_h - 1) as f64, 0.0), log_y);
 
         // Chrome first, marks last: marks own the plot area, chrome owns the rest.
         if title_rows == 1
@@ -263,11 +315,39 @@ impl<'a> Plot<'a> {
                         (x_offset, y_offset),
                     );
                 }
-                ResolvedLayer::Bars { values, color, .. } => {
-                    if let Some(band) = &band {
+                ResolvedLayer::Bars {
+                    placement,
+                    values,
+                    color,
+                    ..
+                } => match placement {
+                    Placement::Bands(_) => {
+                        if let Some(band) = &band {
+                            draw_bars(
+                                &mut surface,
+                                &|index| {
+                                    (
+                                        band.position(index),
+                                        band.position(index) + band.bandwidth(),
+                                    )
+                                },
+                                &y_scale,
+                                values,
+                                *color,
+                                (gutter, plot_top, plot_rows),
+                                (px, py),
+                                frame.charset,
+                            );
+                        }
+                    }
+                    Placement::Spans { start, width } => {
                         draw_bars(
                             &mut surface,
-                            band,
+                            &|index| {
+                                let left = x_scale.map(start + width * index as f64);
+                                let right = x_scale.map(start + width * (index + 1) as f64);
+                                (left, right)
+                            },
                             &y_scale,
                             values,
                             *color,
@@ -276,7 +356,7 @@ impl<'a> Plot<'a> {
                             frame.charset,
                         );
                     }
-                }
+                },
             }
         }
 
@@ -359,7 +439,7 @@ impl<'a> Plot<'a> {
                         label: points.label.as_deref(),
                     },
                     Mark::Bars(bars) => ResolvedLayer::Bars {
-                        categories: &bars.categories,
+                        placement: &bars.placement,
                         values: bars.values.as_slice(),
                         color: assigned(bars.color),
                         label: bars.label.as_deref(),
@@ -384,6 +464,33 @@ enum Kind {
     Points,
 }
 
+/// A position scale resolved for drawing: linear, or linear over `log10`.
+///
+/// The log arm maps `value.log10()`, so zero and negative values become `NaN` — and
+/// `NaN` is already the gap encoding, which is exactly the honest behavior.
+#[derive(Debug, Clone, Copy)]
+enum Map {
+    Linear(Linear),
+    Log(Linear),
+}
+
+impl Map {
+    fn build(domain: (f64, f64), range: (f64, f64), log: bool) -> Map {
+        if log {
+            Map::Log(Linear::new((domain.0.log10(), domain.1.log10()), range))
+        } else {
+            Map::Linear(Linear::new(domain, range))
+        }
+    }
+
+    fn map(&self, value: f64) -> f64 {
+        match self {
+            Map::Linear(linear) => linear.map(value),
+            Map::Log(linear) => linear.map(value.log10()),
+        }
+    }
+}
+
 /// One layer, resolved to drawable data.
 enum ResolvedLayer<'p> {
     Series {
@@ -394,7 +501,7 @@ enum ResolvedLayer<'p> {
         label: Option<&'p str>,
     },
     Bars {
-        categories: &'p [String],
+        placement: &'p Placement,
         values: &'p [f64],
         color: Color,
         label: Option<&'p str>,
@@ -407,6 +514,11 @@ impl ResolvedLayer<'_> {
     fn x_extent(&self) -> Option<(f64, f64)> {
         match self {
             ResolvedLayer::Series { x, .. } => extent(x),
+            ResolvedLayer::Bars {
+                placement: Placement::Spans { start, width },
+                values,
+                ..
+            } => Some((*start, start + width * values.len() as f64)),
             ResolvedLayer::Bars { .. } => None,
         }
     }
@@ -416,6 +528,22 @@ impl ResolvedLayer<'_> {
         match self {
             ResolvedLayer::Series { y, .. } => extent(y),
             ResolvedLayer::Bars { values, .. } => extent(values),
+        }
+    }
+
+    /// [`ResolvedLayer::x_extent`] over strictly positive values (log axes).
+    fn x_extent_positive(&self) -> Option<(f64, f64)> {
+        match self {
+            ResolvedLayer::Series { x, .. } => extent_positive(x),
+            ResolvedLayer::Bars { .. } => None,
+        }
+    }
+
+    /// [`ResolvedLayer::y_extent`] over strictly positive values (log axes).
+    fn y_extent_positive(&self) -> Option<(f64, f64)> {
+        match self {
+            ResolvedLayer::Series { y, .. } => extent_positive(y),
+            ResolvedLayer::Bars { values, .. } => extent_positive(values),
         }
     }
 
@@ -450,8 +578,8 @@ fn draw_series(
     x: &[f64],
     y: &[f64],
     color: Color,
-    x_scale: &Linear,
-    y_scale: &Linear,
+    x_scale: &Map,
+    y_scale: &Map,
     offset: (f64, f64),
 ) {
     match kind {
@@ -490,8 +618,8 @@ fn draw_series(
 #[allow(clippy::too_many_arguments)]
 fn draw_bars(
     surface: &mut Surface,
-    band: &Band,
-    y_scale: &Linear,
+    span: &dyn Fn(usize) -> (f64, f64),
+    y_scale: &Map,
     values: &[f64],
     color: Color,
     place: (usize, usize, usize),
@@ -505,13 +633,16 @@ fn draw_bars(
     let baseline = y_scale.map(0.0) / py as f64;
     let mut buffer = [0u8; 4];
 
-    for (index, &value) in values.iter().enumerate().take(band.count()) {
+    for (index, &value) in values.iter().enumerate() {
         if !value.is_finite() || value == 0.0 {
             continue;
         }
-        let left = (band.position(index) / px as f64).round() as i64;
-        let right =
-            (((band.position(index) + band.bandwidth()) / px as f64).round() as i64).max(left + 1);
+        let (left_sub, right_sub) = span(index);
+        if !left_sub.is_finite() || !right_sub.is_finite() {
+            continue;
+        }
+        let left = (left_sub / px as f64).round() as i64;
+        let right = ((right_sub / px as f64).round() as i64).max(left + 1);
         let end = y_scale.map(value) / py as f64;
 
         for column in left..right {
@@ -579,6 +710,21 @@ fn index_or_borrow<'p>(x: Option<&'p crate::data::Series<'_>>, len: usize) -> Co
         Some(series) => Cow::Borrowed(series.as_slice()),
         None => Cow::Owned((0..len).map(|i| i as f64).collect()),
     }
+}
+
+/// The finite `(min, max)` over strictly positive values, or `None` without any.
+fn extent_positive(values: &[f64]) -> Option<(f64, f64)> {
+    let mut extent: Option<(f64, f64)> = None;
+    for &value in values
+        .iter()
+        .filter(|value| value.is_finite() && **value > 0.0)
+    {
+        extent = match extent {
+            None => Some((value, value)),
+            Some((min, max)) => Some((min.min(value), max.max(value))),
+        };
+    }
+    extent
 }
 
 /// The finite `(min, max)` of a column, or `None` without finite values.
