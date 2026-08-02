@@ -95,8 +95,8 @@ draws nothing, the last write owns a shared cell's color. Maps to `render::Surfa
 
 A glyph tier used to encode the surface: `Ascii`, `Blocks`, `Braille`, `Sextants`,
 `Octants`, or `Auto` (environment-sniffed, never probed). Glyph tables are data, not
-code. Maps to `render::Charset` — currently `Ascii` and `Braille`; the richer tiers
-and `Auto` arrive with the capability ladder.
+code. Maps to `render::Charset` — currently `Ascii`, `HalfBlocks`, `Quadrants`, and
+`Braille`; sextants, octants, and `Auto` arrive with the capability ladder.
 
 ## Theme
 

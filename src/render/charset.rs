@@ -12,10 +12,21 @@
 pub enum Charset {
     /// Pure ASCII: one pixel per cell, drawn as `*`. Works on any terminal.
     Ascii,
+    /// Half blocks (`▀▄█`): 1×2 pixels per cell. Solid, ancient, everywhere.
+    HalfBlocks,
+    /// Quadrants (`▘▚▟`…): 2×2 pixels per cell. Solid blocks at four pixels a cell.
+    Quadrants,
     /// Braille patterns (U+2800–U+28FF): 2×4 pixels per cell. Universally available
     /// in monospace fonts; the default for lines and scatter.
     Braille,
 }
+
+/// Quadrant glyphs indexed by bit pattern: bit 0 top-left, bit 1 top-right,
+/// bit 2 bottom-left, bit 3 bottom-right.
+const QUADRANTS: [char; 16] = [
+    ' ', '\u{2598}', '\u{259D}', '\u{2580}', '\u{2596}', '\u{258C}', '\u{259E}', '\u{259B}',
+    '\u{2597}', '\u{259A}', '\u{2590}', '\u{259C}', '\u{2584}', '\u{2599}', '\u{259F}', '\u{2588}',
+];
 
 /// Braille dot masks in row-major subpixel order: index `row * 2 + column`.
 ///
@@ -28,6 +39,8 @@ impl Charset {
     pub fn pixels_per_cell(self) -> (usize, usize) {
         match self {
             Charset::Ascii => (1, 1),
+            Charset::HalfBlocks => (1, 2),
+            Charset::Quadrants => (2, 2),
             Charset::Braille => (2, 4),
         }
     }
@@ -36,6 +49,8 @@ impl Charset {
     pub(crate) fn bit(self, column: usize, row: usize) -> u8 {
         match self {
             Charset::Ascii => 1,
+            Charset::HalfBlocks => 1 << row,
+            Charset::Quadrants => 1 << (row * 2 + column),
             Charset::Braille => BRAILLE_DOTS[row * 2 + column],
         }
     }
@@ -60,6 +75,12 @@ impl Charset {
         }
         match self {
             Charset::Ascii => '*',
+            Charset::HalfBlocks => match bits {
+                1 => '\u{2580}',
+                2 => '\u{2584}',
+                _ => '\u{2588}',
+            },
+            Charset::Quadrants => QUADRANTS[usize::from(bits & 0x0F)],
             Charset::Braille => {
                 char::from_u32(0x2800 + u32::from(bits)).expect("braille block is contiguous")
             }

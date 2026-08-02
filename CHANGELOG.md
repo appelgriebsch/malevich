@@ -3,8 +3,13 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased (toward 0.2.0)
+## 0.2.0 (Red Square) — 2026-08-01
 
+Color and the next two marks: the chart, the dots, and the bars now look considered
+at every color tier.
+
+- Half-block (`▀▄█`, 1×2) and quadrant (`▘▚▟`…, 2×2) charsets: solid-block
+  alternatives to braille, selectable per frame.
 - Legends: `.label("…")` on any mark grows a legend row with per-kind colored
   swatches, shed first when the frame is short.
 - Themes (`Theme`, `Frame::theme`): the palette as a value — `DARK` (default),
