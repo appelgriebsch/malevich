@@ -223,6 +223,7 @@ impl Surface {
     /// Every printable cell as `(column, row, glyph, color)`, skipping wide-glyph
     /// continuations (the glyph to their left covers them). For adapters that write
     /// into cell buffers instead of strings.
+    #[cfg_attr(not(feature = "ratatui"), allow(dead_code))]
     pub(crate) fn cells(&self) -> impl Iterator<Item = (usize, usize, char, Color)> + '_ {
         self.cells.iter().enumerate().filter_map(|(index, cell)| {
             let (row, column) = (index / self.width.max(1), index % self.width.max(1));
