@@ -358,3 +358,34 @@ fn a_sampled_function_matches_its_snapshot() {
         .title("sin");
     assert_eq!(plot.render(&Frame::plain(26, 7)), SINE);
 }
+
+#[test]
+fn a_well_formed_plot_validates_and_try_renders() {
+    let plot = crate::scatter(&[1.0, 2.0, 3.0][..], &[3.0, 1.0, 2.0][..]).title("ok");
+    assert!(plot.validate().is_ok());
+    assert!(plot.try_render(&Frame::plain(40, 10)).is_ok());
+}
+
+#[test]
+fn a_log_axis_with_a_non_positive_domain_is_rejected() {
+    let plot = crate::line(&[1.0, 10.0, 100.0][..])
+        .y_domain(-1.0, 100.0)
+        .log_y();
+    assert!(matches!(
+        plot.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+    // render still succeeds — it clamps rather than fails.
+    assert!(!plot.render(&Frame::plain(40, 10)).is_empty());
+    assert!(plot.try_render(&Frame::plain(40, 10)).is_err());
+}
+
+#[test]
+fn validation_reaches_into_every_layer() {
+    // A ragged range built by round-tripping through into_owned keeps its lengths,
+    // so a valid multi-layer plot validates; the layer walk visits each mark.
+    let plot = Plot::new()
+        .layer(Line::xy(&[0.0, 1.0][..], &[2.0, 3.0][..]))
+        .layer(crate::mark::Bars::new(["a", "b"], &[1.0, 2.0][..]));
+    assert!(plot.validate().is_ok());
+}

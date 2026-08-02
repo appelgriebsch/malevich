@@ -176,6 +176,57 @@ impl<'a> Plot<'a> {
         self.rasterize(frame).encode(frame.color)
     }
 
+    /// Checks the spec against the invariants the constructors enforce — paired
+    /// channel lengths, rectangular grids, valid colormaps — plus finite manual
+    /// domains and scale/domain compatibility, without rendering. Returns the first
+    /// problem as an [`Error`](crate::Error).
+    ///
+    /// [`Plot::render`] never fails: it sheds whatever it cannot draw. `validate` is
+    /// the strict counterpart for a spec that arrived by deserialization or
+    /// configuration, where you want a typed error rather than a quietly dropped
+    /// mark. [`Plot::try_render`] does both in one call.
+    ///
+    /// ```
+    /// let plot = malevich::line(&[1.0, 2.0, 3.0][..]);
+    /// assert!(plot.validate().is_ok());
+    /// ```
+    pub fn validate(&self) -> crate::Result<()> {
+        for layer in &self.layers {
+            layer.validate()?;
+        }
+        for (axis, domain) in [("x", self.x_domain), ("y", self.y_domain)] {
+            if let Some((lo, hi)) = domain
+                && !(lo.is_finite() && hi.is_finite())
+            {
+                return Err(crate::Error::NonFiniteDomain { axis });
+            }
+        }
+        if matches!(self.x, Scale::Log)
+            && let Some((lo, _)) = self.x_domain
+            && lo <= 0.0
+        {
+            return Err(crate::Error::IncompatibleScale {
+                detail: "a log x axis needs a positive domain",
+            });
+        }
+        if matches!(self.y, Scale::Log)
+            && let Some((lo, _)) = self.y_domain
+            && lo <= 0.0
+        {
+            return Err(crate::Error::IncompatibleScale {
+                detail: "a log y axis needs a positive domain",
+            });
+        }
+        Ok(())
+    }
+
+    /// [`Plot::validate`] then [`Plot::render`]: a rendered string, or the first
+    /// invalidity as a typed [`Error`](crate::Error).
+    pub fn try_render(&self, frame: &Frame) -> crate::Result<String> {
+        self.validate()?;
+        Ok(self.render(frame))
+    }
+
     pub(crate) fn rasterize(&self, frame: &Frame) -> Surface {
         self.rasterize_with(frame, true)
     }

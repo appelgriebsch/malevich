@@ -3,6 +3,14 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## Unreleased (toward 0.11.0 — Polish)
+
+- A fallible validation boundary: `Plot::validate` checks a spec's invariants
+  (paired channel lengths, rectangular grids, valid colormaps, finite manual
+  domains, scale/domain compatibility) and returns the first problem as a typed
+  `Error`; `Plot::try_render` validates then renders. `render` stays infallible and
+  lenient — this is the strict counterpart for deserialized or configured specs.
+
 ## 0.10.1
 
 Correctness hardening from an external audit. Most fixes make existing guarantees

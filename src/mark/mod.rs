@@ -66,6 +66,92 @@ impl<'a> Mark<'a> {
             Mark::Text(text) => Mark::Text(text),
         }
     }
+
+    /// Checks this mark's channel invariants, returning the first violation.
+    ///
+    /// The constructors enforce these already; this re-checks a mark that arrived
+    /// another way (deserialization) so the fallible API can report bad specs.
+    pub(crate) fn validate(&self) -> Result<(), crate::Error> {
+        match self {
+            Mark::Line(line) => {
+                if let Source::Points { x: Some(x), y } = &line.source {
+                    pair("Line: x and y", x.len(), y.len())?;
+                }
+            }
+            Mark::Points(points) => {
+                if let Some(x) = &points.x {
+                    pair("Points: x and y", x.len(), points.y.len())?;
+                }
+            }
+            Mark::Bars(bars) => {
+                if let Placement::Bands(categories) = &bars.placement {
+                    pair(
+                        "Bars: categories and values",
+                        categories.len(),
+                        bars.values.len(),
+                    )?;
+                }
+            }
+            Mark::Area(area) => {
+                if let Some(x) = &area.x {
+                    pair("Area: x and high", x.len(), area.high.len())?;
+                }
+                if let Some(low) = &area.low {
+                    pair("Area: low and high", low.len(), area.high.len())?;
+                }
+            }
+            Mark::Cells(cells) => {
+                if cells.columns == 0 {
+                    return Err(crate::Error::EmptyDimension {
+                        what: "Cells columns",
+                    });
+                }
+                if !cells.values.len().is_multiple_of(cells.columns) {
+                    return Err(crate::Error::NonRectangular {
+                        mark: "Cells",
+                        shape: (cells.values.len(), cells.columns),
+                    });
+                }
+                if cells.colormap.stop_count() < 2 {
+                    return Err(crate::Error::EmptyDimension {
+                        what: "Colormap stops",
+                    });
+                }
+            }
+            Mark::Range(range) => {
+                let n = range.low.len();
+                pair("Range: low and high", n, range.high.len())?;
+                match &range.placement {
+                    RangePlacement::Numeric(Some(x)) => pair("Range: x and low", x.len(), n)?,
+                    RangePlacement::Bands(categories) => {
+                        pair("Range: categories and low", categories.len(), n)?
+                    }
+                    RangePlacement::Numeric(None) => {}
+                }
+                if let Some((low, high)) = &range.body {
+                    pair("Range: body low and high", low.len(), high.len())?;
+                    pair("Range: body and low", low.len(), n)?;
+                }
+                if let Some(marker) = &range.marker {
+                    pair("Range: marker and low", marker.len(), n)?;
+                }
+            }
+            Mark::Rule(_) | Mark::Text(_) => {}
+        }
+        Ok(())
+    }
+}
+
+/// Errors unless the two channel lengths match.
+fn pair(mark: &'static str, a: usize, b: usize) -> Result<(), crate::Error> {
+    if a == b {
+        Ok(())
+    } else {
+        Err(crate::Error::UnequalChannels {
+            mark,
+            lengths: (a, b),
+        })
+    }
 }
 
 impl<'a> From<Line<'a>> for Mark<'a> {

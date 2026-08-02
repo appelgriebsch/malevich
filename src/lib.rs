@@ -21,7 +21,11 @@
 //! ```
 //!
 //! A plot is a plain value: `Clone + Send + Sync`, no global state, rendering is a
-//! pure function of plot and frame. The modules follow the concepts (each defined in
+//! pure function of plot and frame. [`Plot::render`] never fails — it sheds what it
+//! cannot draw — so building a plot inline needs no error handling. For a spec that
+//! arrives from deserialization or configuration, [`Plot::validate`] and
+//! [`Plot::try_render`] report the first problem as a typed [`Error`] instead.
+//! The modules follow the concepts (each defined in
 //! the repository's `TERMINOLOGY.md`): [`mark`] for the primitives, [`stat`] for
 //! transforms (binning, KDE, rolling windows, downsampling — all mergeable),
 //! [`scale`] for ticks and colormaps, [`render`] for the subpixel surface and
@@ -46,6 +50,7 @@
 #[cfg(feature = "ratatui")]
 mod adapter;
 pub mod data;
+mod error;
 pub mod mark;
 pub mod plot;
 mod presets;
@@ -59,6 +64,7 @@ mod theme;
 
 #[cfg(feature = "ratatui")]
 pub use adapter::PlotWidget;
+pub use error::{Error, Result};
 pub use mark::{Area, Bars, Cells, Line, LineStyle, Mark, Points, Range, Rule, Text};
 pub use plot::{Frame, Grid, Plot};
 pub use presets::{

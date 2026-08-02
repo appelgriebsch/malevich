@@ -86,6 +86,22 @@ fn malformed_payloads_render_without_panicking() {
 }
 
 #[test]
+fn validate_rejects_the_malformed_payloads_render_tolerates() {
+    // The strict boundary reports what the lenient renderer sheds.
+    let ragged: Plot = serde_json::from_str(
+        r#"{"layers":[{"Cells":{"columns":0,"values":[1.0,2.0,3.0],"extents":null,"colormap":{"stops":[[0,0,0],[255,255,255]]}}}],"title":null,"x":"Linear","y":"Linear","x_label":null,"y_label":null,"x_domain":null,"y_domain":null}"#,
+    )
+    .expect("zero-column cells deserializes");
+    assert!(matches!(
+        ragged.validate(),
+        Err(crate::Error::EmptyDimension { .. })
+    ));
+    assert!(ragged.try_render(&frame()).is_err());
+    // Rendering the same spec still does not panic.
+    let _ = ragged.render(&frame());
+}
+
+#[test]
 fn a_function_line_refuses_to_serialize() {
     let plot = Plot::new().layer(Line::function(0.0..10.0, f64::sin));
     let error = serde_json::to_string(&plot).expect_err("closures have no data form");

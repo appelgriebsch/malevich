@@ -41,6 +41,11 @@ impl Colormap {
         }
     }
 
+    /// The number of stops. A valid colormap has at least two.
+    pub(crate) fn stop_count(&self) -> usize {
+        self.stops.len()
+    }
+
     /// The color at `position` in `[0, 1]` (clamped; `NaN` maps to the low end).
     ///
     /// A colormap built through [`Colormap::new`] always has at least two stops;

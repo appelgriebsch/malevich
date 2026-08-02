@@ -1,0 +1,73 @@
+//! The error type for the fallible API.
+
+use std::fmt;
+
+/// Why a plot spec is invalid.
+///
+/// Returned by the fallible entry points — [`Plot::validate`](crate::Plot::validate)
+/// and [`Plot::try_render`](crate::Plot::try_render) — so a spec that arrives from
+/// deserialization, configuration, or untrusted input can be checked before it is
+/// drawn. The panicking constructors stay for specs built inline, where a length
+/// mismatch is a programmer bug; the infallible [`Plot::render`](crate::Plot::render)
+/// also stays, and never fails — it sheds whatever it cannot draw. `validate` is the
+/// strict counterpart: it reports the first problem instead of quietly shedding it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Error {
+    /// Two channels of one mark that must pair up have different lengths.
+    UnequalChannels {
+        /// The mark and the channels involved, e.g. `"Line: x and y"`.
+        mark: &'static str,
+        /// The two lengths, in the order named.
+        lengths: (usize, usize),
+    },
+    /// A gridded mark's value count is not a whole number of rows.
+    NonRectangular {
+        /// The mark, e.g. `"Cells"`.
+        mark: &'static str,
+        /// The value count and the column count that does not divide it.
+        shape: (usize, usize),
+    },
+    /// A required dimension is empty — zero columns, or a colormap with too few stops.
+    EmptyDimension {
+        /// What was empty, e.g. `"Cells columns"` or `"Colormap stops"`.
+        what: &'static str,
+    },
+    /// A manual axis domain bound is not finite.
+    NonFiniteDomain {
+        /// The axis, `"x"` or `"y"`.
+        axis: &'static str,
+    },
+    /// A scale cannot describe the data on its axis.
+    IncompatibleScale {
+        /// What conflicts, e.g. `"a log y axis needs a positive domain"`.
+        detail: &'static str,
+    },
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::UnequalChannels { mark, lengths } => {
+                write!(
+                    f,
+                    "{mark}: channels differ in length ({} and {})",
+                    lengths.0, lengths.1
+                )
+            }
+            Error::NonRectangular { mark, shape } => write!(
+                f,
+                "{mark}: {} values do not fill rows of {} columns",
+                shape.0, shape.1
+            ),
+            Error::EmptyDimension { what } => write!(f, "{what} is empty"),
+            Error::NonFiniteDomain { axis } => write!(f, "the {axis} domain is not finite"),
+            Error::IncompatibleScale { detail } => write!(f, "incompatible scale: {detail}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+/// A [`Result`](std::result::Result) whose error is malevich's [`Error`].
+pub type Result<T> = std::result::Result<T, Error>;
