@@ -8,7 +8,9 @@
 
 mod agg;
 mod bin;
+mod box_stats;
 mod ecdf;
+mod kde;
 mod lttb;
 mod m4;
 mod moments;
@@ -16,7 +18,9 @@ mod stack;
 
 pub use agg::Agg;
 pub use bin::{Bins, Grid, bins2};
+pub use box_stats::BoxStats;
 pub use ecdf::ecdf;
+pub use kde::kde;
 pub use lttb::lttb;
 pub(crate) use m4::m4_indexed;
 pub use m4::{M4, m4};

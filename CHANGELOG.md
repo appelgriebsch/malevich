@@ -3,6 +3,22 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## 0.5.0 (Sportsmen) — 2026-08-01
+
+The statistics release: the mark family is complete, and the statistical charts no
+terminal library ships are here.
+
+- Range (`mark::Range`): the eighth and final mark — vertical intervals with
+  optional `body` and `marker` channels, so error bars, boxes, and candles are one
+  mark with channels, not three marks. Band placement (`Range::over`) shares the
+  categorical axis machinery with bars.
+- Box plots (`stat::BoxStats`, `malevich::box_plot`): type-7 quartiles, Tukey 1.5×IQR
+  whiskers, outliers as dots.
+- Densities (`stat::kde`, `malevich::density`, `malevich::violin`): Gaussian KDE with
+  Silverman bandwidth over linear binning (no FFT); violins as mirrored densities via
+  the new horizontal area orientation (`Area::horizontal`).
+- Error bars (`malevich::error_bars`): capped Range intervals around measured points.
+
 ## 0.4.0 (Suprematist Composition) — 2026-08-01
 
 The daily driver: the mark family grows to seven, and the statistical presets with it.

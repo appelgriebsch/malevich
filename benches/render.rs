@@ -97,8 +97,21 @@ fn pathological_layout(c: &mut Criterion) {
     });
 }
 
+fn kde_density(c: &mut Criterion) {
+    let values: Vec<f64> = (0..1_000_000)
+        .map(|i| {
+            let i = i as f64;
+            ((i * 0.731).sin() + (i * 1.13).sin()) * 4.0
+        })
+        .collect();
+    c.bench_function("stat/kde_1m_512", |b| {
+        b.iter(|| black_box(malevich::stat::kde(black_box(&values[..]), 512)));
+    });
+}
+
 criterion_group!(
     benches,
+    kde_density,
     line_render,
     scatter_render,
     ansi_encoding,

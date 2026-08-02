@@ -61,6 +61,18 @@ const GALLERY: &[(&str, &str)] = &[
         "density2d",
         "A 2D histogram: point density on a grid, empty bins honestly blank.",
     ),
+    (
+        "boxes",
+        "Box plots: type-7 quartiles, Tukey whiskers, outliers — one Range mark with          body and marker channels per category.",
+    ),
+    (
+        "violins",
+        "Violin plots: mirrored kernel densities over band centers.",
+    ),
+    (
+        "measurements",
+        "Error bars: a Range interval around each measured point.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

@@ -4,7 +4,7 @@
 //! does is beyond reach of the grammar, and each returns the [`Plot`] for refinement.
 
 use crate::data::IntoSeries;
-use crate::mark::{Bars, Cells, Line, Points};
+use crate::mark::{Area, Bars, Cells, Line, Points, Range};
 use crate::plot::Plot;
 
 /// A line chart of `values` plotted against their indices.
@@ -135,4 +135,154 @@ pub fn hist2d<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
         }
         None => Plot::new(),
     }
+}
+
+/// Box plots: one five-number box per category (type-7 quartiles, Tukey whiskers),
+/// with outliers as dots.
+///
+/// ```
+/// let a = [1.0, 2.0, 3.0, 4.0, 9.0];
+/// let b = [2.0, 4.0, 5.0, 6.0, 7.0];
+/// let chart = malevich::box_plot(["a", "b"], [&a[..], &b[..]]);
+/// println!("{}", chart.render(&malevich::Frame::plain(40, 12)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if the number of categories differs from the number of groups.
+pub fn box_plot<'a>(
+    categories: impl IntoIterator<Item = impl Into<String>>,
+    groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
+) -> Plot<'a> {
+    let categories: Vec<String> = categories.into_iter().map(Into::into).collect();
+    let stats: Vec<Option<crate::stat::BoxStats>> = groups
+        .into_iter()
+        .map(|group| crate::stat::BoxStats::of(group.into_series().as_slice()))
+        .collect();
+    assert_eq!(
+        categories.len(),
+        stats.len(),
+        "box_plot requires one category per group"
+    );
+    let pick = |f: &dyn Fn(&crate::stat::BoxStats) -> f64| -> Vec<f64> {
+        stats
+            .iter()
+            .map(|s| s.as_ref().map_or(f64::NAN, f))
+            .collect()
+    };
+    let mut outlier_x = Vec::new();
+    let mut outlier_y = Vec::new();
+    for (index, stat) in stats.iter().enumerate() {
+        if let Some(stat) = stat {
+            for &outlier in &stat.outliers {
+                outlier_x.push(index as f64);
+                outlier_y.push(outlier);
+            }
+        }
+    }
+    let plot = Plot::new().layer(
+        Range::over(
+            categories,
+            pick(&|s| s.whisker_low),
+            pick(&|s| s.whisker_high),
+        )
+        .body(pick(&|s| s.q1), pick(&|s| s.q3))
+        .marker(pick(&|s| s.median)),
+    );
+    if outlier_x.is_empty() {
+        plot
+    } else {
+        plot.layer(Points::xy(outlier_x, outlier_y))
+    }
+}
+
+/// Error bars: points with symmetric `error` intervals around each `y`.
+///
+/// ```
+/// let x = [1.0, 2.0, 3.0];
+/// let y = [4.0, 6.0, 5.0];
+/// let e = [0.5, 1.0, 0.4];
+/// println!("{}", malevich::error_bars(&x[..], &y[..], &e[..]).render(&malevich::Frame::plain(40, 10)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if the series have different lengths.
+pub fn error_bars<'a>(
+    x: impl IntoSeries<'a>,
+    y: impl IntoSeries<'a>,
+    error: impl IntoSeries<'a>,
+) -> Plot<'a> {
+    let x = x.into_series();
+    let y = y.into_series();
+    let error = error.into_series();
+    assert!(
+        x.len() == y.len() && y.len() == error.len(),
+        "error_bars requires series of equal length"
+    );
+    let low: Vec<f64> = y.iter().zip(error.iter()).map(|(y, e)| y - e).collect();
+    let high: Vec<f64> = y.iter().zip(error.iter()).map(|(y, e)| y + e).collect();
+    let xs = x.as_slice().to_vec();
+    Plot::new()
+        .layer(Range::xy(xs.clone(), low, high))
+        .layer(Points::xy(xs, y.as_slice().to_vec()))
+}
+
+/// A density chart: the Gaussian KDE of `values` as a smooth line.
+///
+/// ```
+/// let samples = [1.0, 2.0, 2.5, 2.7, 3.0, 3.2, 4.0];
+/// println!("{}", malevich::density(&samples[..]).render(&malevich::Frame::plain(40, 10)));
+/// ```
+pub fn density<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    let series = values.into_series();
+    match crate::stat::kde(series.as_slice(), 256) {
+        Some((positions, densities)) => Plot::new().layer(Line::xy(positions, densities)),
+        None => Plot::new(),
+    }
+}
+
+/// Violin plots: one mirrored density per category, each scaled to the same width.
+///
+/// ```
+/// let a = [1.0, 2.0, 2.5, 3.0, 3.5];
+/// let b = [4.0, 5.0, 5.5, 6.0, 8.0];
+/// let chart = malevich::violin(["a", "b"], [&a[..], &b[..]]);
+/// println!("{}", chart.render(&malevich::Frame::plain(44, 12)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if the number of categories differs from the number of groups.
+pub fn violin<'a>(
+    categories: impl IntoIterator<Item = impl Into<String>>,
+    groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
+) -> Plot<'a> {
+    let categories: Vec<String> = categories.into_iter().map(Into::into).collect();
+    let densities: Vec<Option<(Vec<f64>, Vec<f64>)>> = groups
+        .into_iter()
+        .map(|group| crate::stat::kde(group.into_series().as_slice(), 128))
+        .collect();
+    assert_eq!(
+        categories.len(),
+        densities.len(),
+        "violin requires one category per group"
+    );
+    let count = categories.len();
+    // A data-free band-placed range declares the categorical axis; the violins
+    // themselves are horizontal areas over the band centers.
+    let gaps = vec![f64::NAN; count];
+    let mut plot = Plot::new().layer(Range::over(categories, gaps.clone(), gaps));
+    for (index, density) in densities.into_iter().enumerate() {
+        let Some((positions, values)) = density else {
+            continue;
+        };
+        let peak = values.iter().copied().fold(f64::MIN_POSITIVE, f64::max);
+        let center = index as f64;
+        let half: Vec<f64> = values.iter().map(|v| v / peak * 0.35).collect();
+        let left: Vec<f64> = half.iter().map(|w| center - w).collect();
+        let right: Vec<f64> = half.iter().map(|w| center + w).collect();
+        plot = plot.layer(Area::horizontal(positions, left, right));
+    }
+    plot
 }

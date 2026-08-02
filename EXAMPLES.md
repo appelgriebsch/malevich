@@ -265,3 +265,70 @@ Source: [examples/density2d.rs](examples/density2d.rs)
   └┬───────┬──────┬───────┬───────┬───────┬───────┬───────┬─
    1       2      3       4       5       6       7       8
 ```
+
+## boxes
+
+Box plots: type-7 quartiles, Tukey whiskers, outliers — one Range mark with          body and marker channels per category.
+Source: [examples/boxes.rs](examples/boxes.rs)
+
+```text
+          three groups, summarized (synthetic)
+8 ┤                        ⠉⠉⢹⠉⠉
+  │        ⣀⣀⣀⣀⣀         ⢰⣶⣶⣶⣾⣶⣶⣶⡆         ⣀⣀⣀⣀⣀
+  │          ⡇           ⠘━━━━━━━━           ⢸
+6 ┤      ⢀⣀⣀⣀⣇⣀⣀⣀          ⠒⠒⠚⠒⠒             ⢸
+  │      ⢸⣿⣿⣿⣿⣿⣿⣿                         ⣀⣀⣀⣸⣀⣀⣀⡀
+  │      ━━━━━━━━━                        ⣿⣿⣿⣿⣿⣿⣿⡇
+4 ┤          ⡇                            ━━━━━━━━
+  │        ⠒⠒⠓⠒⠒                          ⠛⠛⠛⢻⠛⠛⠛⠃
+  │                                          ⢸
+2 ┤                                          ⢸
+  │                                        ⠒⠒⠚⠒⠒
+0 ┤
+  └─────────────────────────────────────────────────────
+           alpha           beta            gamma
+```
+
+## violins
+
+Violin plots: mirrored kernel densities over band centers.
+Source: [examples/violins.rs](examples/violins.rs)
+
+```text
+    the same three groups, as densities (synthetic)
+8 ┤                         ⣠⣿⣄              ⢀
+  │          ⡆          ⢀⣠⣶⣿⣿⣿⣿⣿⣶⣄⡀          ⣸
+  │         ⣰⣿⣄        ⠘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃        ⢀⣿⡆
+6 ┤      ⣠⣶⣿⣿⣿⣿⣷⣦⡀       ⠈⠉⠛⢿⣿⡿⠛⠉⠁         ⣠⣾⣿⣿⣦⡀
+  │    ⢰⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡀         ⠛           ⢀⣾⣿⣿⣿⣿⣿⣿⡄
+  │    ⠘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟                     ⣠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀
+4 ┤      ⠉⠻⣿⣿⣿⣿⡿⠋⠁                      ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
+  │        ⠈⢻⣿⠟                         ⠙⢿⣿⣿⣿⣿⣿⣿⣿⣿⠟
+  │          ⠏                            ⠻⣿⣿⣿⣿⣿⠟⠁
+2 ┤                                        ⠘⢿⣿⣿⠏
+  │                                         ⠈⢿⠃
+0 ┤                                          ⢸
+  └─────────────────────────────────────────────────────
+           alpha           beta            gamma
+```
+
+## measurements
+
+Error bars: a Range interval around each measured point.
+Source: [examples/measurements.rs](examples/measurements.rs)
+
+```text
+     measurements with uncertainty (synthetic)
+6 ┤           ⠐⡖
+5 ┤            ⡇
+  │     ⠈⡏     ⡇    ⠈⡏⠁
+4 ┤     ⠐⠓    ⠈⠉    ⠠⠧⠄   ⢀⣀⡀                      ⢤
+  │                        ⢸                       ⢸
+3 ┤                        ⢸                 ⣀⡀    ⠼
+2 ┤                       ⠐⠚⠂   ⠐⢲⠂          ⢸
+  │                              ⢸     ⢹⠁    ⢸
+1 ┤                             ⠐⠚⠂    ⢸     ⠉⠁
+0 ┤                                    ⠚⠂
+  └┬───────────┬───────────┬───────────┬───────────┬
+   0           2           4           6           8
+```

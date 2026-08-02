@@ -28,9 +28,10 @@ Chart types are compositions of marks, never peers of them. Maps to the `mark`
 module — currently `mark::Line` (points, paired series, or a sampled function),
 `mark::Points`, `mark::Bars` (bands or numeric spans, zero-baseline), `mark::Area`
 (baseline fills and bands), `mark::Rule` (reference lines), and `mark::Text`
-(annotations at data coordinates), and `mark::Cells` (value grids as shade ramp plus
-colormap), joined under the closed `mark::Mark` enum; `Range` completes the family
-next.
+(annotations at data coordinates), `mark::Cells` (value grids as shade ramp plus
+colormap), and `mark::Range` (intervals with optional body and marker channels —
+error bars, boxes, event ticks), joined under the closed `mark::Mark` enum. The
+family is complete.
 
 ## Channel
 
@@ -53,10 +54,12 @@ A data transform that runs before scales see the data: `Bin`, `Agg`, `Window`, `
 `Normalize`, `Density`, `Ecdf`, `BoxStats`, `Downsample`, `Contour`. The word follows
 seaborn.objects (`Stat`) and ggplot (`stat_*`). Stats are mergeable: two partial results
 combine associatively, which is what makes host-side parallelism and streaming
-compositions rather than features. Maps to the `stat` module — currently `stat::M4`
-(with `stat::m4`, auto-inserted for large line layers), `stat::Bins` (histograms,
-feeding `malevich::hist`), `stat::Agg` (group-by with the shared reducer vocabulary),
-`stat::lttb`, and `stat::Moments`; the rest of the family follows.
+compositions rather than features. Maps to the `stat` module: `stat::M4` (with
+`stat::m4`, auto-inserted for large line layers), `stat::Bins`/`stat::bins2`
+(histograms), `stat::Agg` (group-by with the shared reducer vocabulary),
+`stat::BoxStats` (type-7 quartiles, Tukey whiskers), `stat::kde` (Silverman
+bandwidth, linear binning), `stat::ecdf`, `stat::stack`, `stat::lttb`, and
+`stat::Moments`.
 
 ## Reducer
 

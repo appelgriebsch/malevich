@@ -15,8 +15,10 @@ pub mod scale;
 pub mod stat;
 mod theme;
 
-pub use mark::{Area, Bars, Cells, Line, Mark, Points, Rule, Text};
+pub use mark::{Area, Bars, Cells, Line, Mark, Points, Range, Rule, Text};
 pub use plot::{Frame, Plot};
-pub use presets::{bar, ecdf, heatmap, hist, hist2d, line, scatter, stairs};
+pub use presets::{
+    bar, box_plot, density, ecdf, error_bars, heatmap, hist, hist2d, line, scatter, stairs, violin,
+};
 pub use render::{Charset, Color, ColorMode};
 pub use theme::Theme;

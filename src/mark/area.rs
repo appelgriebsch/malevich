@@ -12,6 +12,7 @@ pub struct Area<'a> {
     pub(crate) x: Option<Series<'a>>,
     pub(crate) low: Option<Series<'a>>,
     pub(crate) high: Series<'a>,
+    pub(crate) horizontal: bool,
     pub(crate) color: Option<Color>,
     pub(crate) label: Option<String>,
 }
@@ -23,6 +24,7 @@ impl<'a> Area<'a> {
             x: None,
             low: None,
             high: values.into_series(),
+            horizontal: false,
             color: None,
             label: None,
         }
@@ -41,6 +43,7 @@ impl<'a> Area<'a> {
             x: Some(x),
             low: None,
             high: y,
+            horizontal: false,
             color: None,
             label: None,
         }
@@ -68,6 +71,35 @@ impl<'a> Area<'a> {
             x: Some(x),
             low: Some(low),
             high,
+            horizontal: false,
+            color: None,
+            label: None,
+        }
+    }
+
+    /// A horizontal band: for each `y`, a fill between `x_low` and `x_high` — the
+    /// shape of violins and horizontal envelopes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the three series have different lengths.
+    pub fn horizontal(
+        y: impl IntoSeries<'a>,
+        x_low: impl IntoSeries<'a>,
+        x_high: impl IntoSeries<'a>,
+    ) -> Area<'a> {
+        let y = y.into_series();
+        let x_low = x_low.into_series();
+        let x_high = x_high.into_series();
+        assert!(
+            y.len() == x_low.len() && x_low.len() == x_high.len(),
+            "Area::horizontal requires series of equal length"
+        );
+        Area {
+            x: Some(y),
+            low: Some(x_low),
+            high: x_high,
+            horizontal: true,
             color: None,
             label: None,
         }
@@ -93,6 +125,7 @@ impl<'a> Area<'a> {
             x: self.x.map(Series::into_owned),
             low: self.low.map(Series::into_owned),
             high: self.high.into_owned(),
+            horizontal: self.horizontal,
             color: self.color,
             label: self.label,
         }

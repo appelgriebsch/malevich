@@ -4,7 +4,7 @@
 use std::borrow::Cow;
 
 use super::frame::Frame;
-use crate::mark::{Mark, Orientation, Placement, Source};
+use crate::mark::{Mark, Orientation, Placement, RangePlacement, Source};
 use crate::render::{Charset, Color, Surface, display_width, fit_width};
 use crate::scale::{Band, Colormap, Linear, Ticks};
 
@@ -106,6 +106,10 @@ impl<'a> Plot<'a> {
                 placement: Placement::Bands(categories),
                 ..
             } if !categories.is_empty() => Some(categories.as_slice()),
+            ResolvedLayer::Range {
+                categories: Some(categories),
+                ..
+            } if !categories.is_empty() => Some(*categories),
             _ => None,
         });
         let has_bars = layers
@@ -319,6 +323,7 @@ impl<'a> Plot<'a> {
                     x,
                     low,
                     high,
+                    horizontal,
                     color,
                     ..
                 } => {
@@ -327,6 +332,7 @@ impl<'a> Plot<'a> {
                         x,
                         *low,
                         high,
+                        *horizontal,
                         *color,
                         &x_scale,
                         &y_scale,
@@ -349,6 +355,33 @@ impl<'a> Plot<'a> {
                         &y_scale,
                         (gutter, plot_top, plot_cols, plot_rows),
                         (px, py),
+                    );
+                }
+                ResolvedLayer::Range {
+                    x,
+                    low,
+                    high,
+                    body,
+                    marker,
+                    color,
+                    ..
+                } => {
+                    let half_width = match &band {
+                        Some(band) => band.bandwidth() * 0.3,
+                        None => px as f64,
+                    };
+                    draw_ranges(
+                        &mut surface,
+                        x,
+                        low,
+                        high,
+                        *body,
+                        *marker,
+                        *color,
+                        &x_scale,
+                        &y_scale,
+                        (x_offset, y_offset),
+                        (half_width, px as f64, py as f64),
                     );
                 }
                 ResolvedLayer::Rule {
@@ -525,6 +558,7 @@ impl<'a> Plot<'a> {
                         x: index_or_borrow(area.x.as_ref(), area.high.len()),
                         low: area.low.as_ref().map(|series| series.as_slice()),
                         high: area.high.as_slice(),
+                        horizontal: area.horizontal,
                         color: assigned(area.color),
                         label: area.label.as_deref(),
                     },
@@ -534,6 +568,30 @@ impl<'a> Plot<'a> {
                         extents: cells.extents,
                         colormap: cells.colormap,
                     },
+                    Mark::Range(range) => {
+                        let (x, categories): (Cow<'_, [f64]>, _) = match &range.placement {
+                            RangePlacement::Numeric(x) => {
+                                (index_or_borrow(x.as_ref(), range.low.len()), None)
+                            }
+                            RangePlacement::Bands(categories) => (
+                                Cow::Owned((0..categories.len()).map(|i| i as f64).collect()),
+                                Some(categories.as_slice()),
+                            ),
+                        };
+                        ResolvedLayer::Range {
+                            x,
+                            categories,
+                            low: range.low.as_slice(),
+                            high: range.high.as_slice(),
+                            body: range
+                                .body
+                                .as_ref()
+                                .map(|(low, high)| (low.as_slice(), high.as_slice())),
+                            marker: range.marker.as_ref().map(|m| m.as_slice()),
+                            color: assigned(range.color),
+                            label: range.label.as_deref(),
+                        }
+                    }
                     Mark::Rule(rule) => ResolvedLayer::Rule {
                         orientation: rule.orientation,
                         color: rule.color.unwrap_or(Color::Default),
@@ -611,6 +669,7 @@ enum ResolvedLayer<'p> {
         x: Cow<'p, [f64]>,
         low: Option<&'p [f64]>,
         high: &'p [f64],
+        horizontal: bool,
         color: Color,
         label: Option<&'p str>,
     },
@@ -619,6 +678,16 @@ enum ResolvedLayer<'p> {
         values: &'p [f64],
         extents: Option<((f64, f64), (f64, f64))>,
         colormap: Colormap,
+    },
+    Range {
+        x: Cow<'p, [f64]>,
+        categories: Option<&'p [String]>,
+        low: &'p [f64],
+        high: &'p [f64],
+        body: Option<(&'p [f64], &'p [f64])>,
+        marker: Option<&'p [f64]>,
+        color: Color,
+        label: Option<&'p str>,
     },
     Rule {
         orientation: Orientation,
@@ -645,7 +714,19 @@ impl ResolvedLayer<'_> {
                 ..
             } => Some((*start, start + width * values.len() as f64)),
             ResolvedLayer::Bars { .. } => None,
-            ResolvedLayer::Area { x, .. } => extent(x),
+            ResolvedLayer::Area {
+                x,
+                low,
+                high,
+                horizontal,
+                ..
+            } => {
+                if *horizontal {
+                    union([low.and_then(extent), extent(high)].into_iter())
+                } else {
+                    extent(x)
+                }
+            }
             ResolvedLayer::Rule {
                 orientation: Orientation::Vertical(x),
                 ..
@@ -658,6 +739,13 @@ impl ResolvedLayer<'_> {
                 Some((x, _)) => *x,
                 None => (0.0, *columns as f64),
             }),
+            ResolvedLayer::Range { x, categories, .. } => {
+                if categories.is_some() {
+                    None
+                } else {
+                    extent(x)
+                }
+            }
         }
     }
 
@@ -666,14 +754,24 @@ impl ResolvedLayer<'_> {
         match self {
             ResolvedLayer::Series { y, .. } => extent(y),
             ResolvedLayer::Bars { values, .. } => extent(values),
-            ResolvedLayer::Area { low, high, .. } => {
-                let highs = extent(high);
-                let lows = match low {
-                    Some(low) => extent(low),
-                    // A baseline fill keeps zero in view, like bars.
-                    None => Some((0.0, 0.0)),
-                };
-                union([highs, lows].into_iter())
+            ResolvedLayer::Area {
+                x,
+                low,
+                high,
+                horizontal,
+                ..
+            } => {
+                if *horizontal {
+                    extent(x)
+                } else {
+                    let highs = extent(high);
+                    let lows = match low {
+                        Some(low) => extent(low),
+                        // A baseline fill keeps zero in view, like bars.
+                        None => Some((0.0, 0.0)),
+                    };
+                    union([highs, lows].into_iter())
+                }
             }
             ResolvedLayer::Rule {
                 orientation: Orientation::Horizontal(y),
@@ -690,6 +788,9 @@ impl ResolvedLayer<'_> {
                 Some((_, y)) => *y,
                 None => (0.0, (values.len() / (*columns).max(1)) as f64),
             }),
+            ResolvedLayer::Range {
+                low, high, marker, ..
+            } => union([extent(low), extent(high), marker.and_then(extent)].into_iter()),
         }
     }
 
@@ -697,13 +798,30 @@ impl ResolvedLayer<'_> {
     fn x_extent_positive(&self) -> Option<(f64, f64)> {
         match self {
             ResolvedLayer::Series { x, .. } => extent_positive(x),
-            ResolvedLayer::Area { x, .. } => extent_positive(x),
+            ResolvedLayer::Area {
+                x,
+                low,
+                high,
+                horizontal,
+                ..
+            } => {
+                if *horizontal {
+                    union([low.and_then(extent_positive), extent_positive(high)].into_iter())
+                } else {
+                    extent_positive(x)
+                }
+            }
             ResolvedLayer::Rule {
                 orientation: Orientation::Vertical(x),
                 ..
             } if *x > 0.0 => Some((*x, *x)),
             ResolvedLayer::Text { x, .. } if *x > 0.0 => Some((*x, *x)),
             ResolvedLayer::Cells { .. } => self.x_extent().filter(|(lo, _)| *lo > 0.0),
+            ResolvedLayer::Range {
+                x,
+                categories: None,
+                ..
+            } => extent_positive(x),
             _ => None,
         }
     }
@@ -713,10 +831,18 @@ impl ResolvedLayer<'_> {
         match self {
             ResolvedLayer::Series { y, .. } => extent_positive(y),
             ResolvedLayer::Bars { values, .. } => extent_positive(values),
-            ResolvedLayer::Area { low, high, .. } => {
-                let highs = extent_positive(high);
-                let lows = low.and_then(extent_positive);
-                union([highs, lows].into_iter())
+            ResolvedLayer::Area {
+                x,
+                low,
+                high,
+                horizontal,
+                ..
+            } => {
+                if *horizontal {
+                    extent_positive(x)
+                } else {
+                    union([extent_positive(high), low.and_then(extent_positive)].into_iter())
+                }
             }
             ResolvedLayer::Rule {
                 orientation: Orientation::Horizontal(y),
@@ -724,6 +850,9 @@ impl ResolvedLayer<'_> {
             } if *y > 0.0 => Some((*y, *y)),
             ResolvedLayer::Text { y, .. } if *y > 0.0 => Some((*y, *y)),
             ResolvedLayer::Cells { .. } => self.y_extent().filter(|(lo, _)| *lo > 0.0),
+            ResolvedLayer::Range { low, high, .. } => {
+                union([extent_positive(low), extent_positive(high)].into_iter())
+            }
             _ => None,
         }
     }
@@ -752,6 +881,10 @@ impl ResolvedLayer<'_> {
             }
             ResolvedLayer::Rule { color, label, .. } => {
                 let swatch = if ascii { "--" } else { "\u{2500}\u{2500}" };
+                (swatch, *color, *label)
+            }
+            ResolvedLayer::Range { color, label, .. } => {
+                let swatch = if ascii { "||" } else { "\u{2503}\u{2503}" };
                 (swatch, *color, *label)
             }
             ResolvedLayer::Text { .. } | ResolvedLayer::Cells { .. } => return None,
@@ -894,6 +1027,67 @@ fn draw_bars(
     }
 }
 
+/// Draws one range layer: per interval, a thin capped whisker from `low` to
+/// `high`, an optional thick body (filled with vertical subpixel runs, like areas),
+/// and an optional marker crossbar written as text so it stays visible over the
+/// fill in every charset.
+#[allow(clippy::too_many_arguments)]
+fn draw_ranges(
+    surface: &mut Surface,
+    x: &[f64],
+    low: &[f64],
+    high: &[f64],
+    body: Option<(&[f64], &[f64])>,
+    marker: Option<&[f64]>,
+    color: Color,
+    x_scale: &Map,
+    y_scale: &Map,
+    offset: (f64, f64),
+    geometry: (f64, f64, f64),
+) {
+    let (half_width, px, py) = geometry;
+    let cap = (half_width * 0.6).max(1.0);
+    for index in 0..low.len() {
+        let (xv, lv, hv) = (x[index], low[index], high[index]);
+        if !xv.is_finite() || !lv.is_finite() || !hv.is_finite() {
+            continue;
+        }
+        let sx = offset.0 + x_scale.map(xv);
+        let sl = offset.1 + y_scale.map(lv);
+        let sh = offset.1 + y_scale.map(hv);
+        // The whisker and its caps.
+        surface.line((sx, sl), (sx, sh), color);
+        surface.line((sx - cap, sl), (sx + cap, sl), color);
+        surface.line((sx - cap, sh), (sx + cap, sh), color);
+        // The body: vertical subpixel runs across the width.
+        if let Some((body_low, body_high)) = body {
+            let (bl, bh) = (body_low[index], body_high[index]);
+            if bl.is_finite() && bh.is_finite() {
+                let sbl = offset.1 + y_scale.map(bl);
+                let sbh = offset.1 + y_scale.map(bh);
+                let from = (sx - half_width).round() as i64;
+                let to = (sx + half_width).round() as i64;
+                for column in from..=to {
+                    surface.line((column as f64, sbl), (column as f64, sbh), color);
+                }
+            }
+        }
+        // The marker crossbar, as text: it must read over the fill.
+        if let Some(marker) = marker {
+            let mv = marker[index];
+            if mv.is_finite() {
+                let sy = offset.1 + y_scale.map(mv);
+                let row = (sy / py).round() as i64;
+                let from_cell = ((sx - half_width) / px).round() as i64;
+                let to_cell = ((sx + half_width) / px).round() as i64;
+                for cell in from_cell..=to_cell {
+                    surface.text(cell, row, "\u{2501}", color);
+                }
+            }
+        }
+    }
+}
+
 /// Draws one cells layer: for every surface cell inside the plot area, the nearest
 /// grid sample renders as a shade-ramp glyph colored by the colormap — value in
 /// glyph and color both, readable at every color tier. Gaps stay blank.
@@ -982,48 +1176,69 @@ fn position_on(scale: &Map, sub: f64, lo: f64, hi: f64) -> Option<f64> {
 #[allow(clippy::too_many_arguments)]
 fn draw_area(
     surface: &mut Surface,
-    x: &[f64],
+    channel: &[f64],
     low: Option<&[f64]>,
     high: &[f64],
+    horizontal: bool,
     color: Color,
     x_scale: &Map,
     y_scale: &Map,
     offset: (f64, f64),
 ) {
+    // In the vertical (default) orientation the channel is x and fills run in y;
+    // horizontally the channel is y and fills run in x. `place` restores raster
+    // coordinates from (main, cross).
+    let place = |main: f64, cross: f64| -> (f64, f64) {
+        if horizontal {
+            (cross, main)
+        } else {
+            (main, cross)
+        }
+    };
     let mut previous: Option<(f64, f64, f64)> = None;
     for index in 0..high.len() {
-        let xv = x[index];
+        let cv = channel[index];
         let hv = high[index];
         let lv = low.map_or(0.0, |low| low[index]);
-        if !xv.is_finite() || !hv.is_finite() || !lv.is_finite() {
+        if !cv.is_finite() || !hv.is_finite() || !lv.is_finite() {
             previous = None;
             continue;
         }
-        let sx = offset.0 + x_scale.map(xv);
-        let sh = offset.1 + y_scale.map(hv);
-        let sl = offset.1 + y_scale.map(lv);
+        let (main, cross_low, cross_high) = if horizontal {
+            (
+                offset.1 + y_scale.map(cv),
+                offset.0 + x_scale.map(lv),
+                offset.0 + x_scale.map(hv),
+            )
+        } else {
+            (
+                offset.0 + x_scale.map(cv),
+                offset.1 + y_scale.map(lv),
+                offset.1 + y_scale.map(hv),
+            )
+        };
         match previous {
-            Some((px_, pl, ph)) => {
-                let (from, to) = if px_ <= sx { (px_, sx) } else { (sx, px_) };
-                let span = sx - px_;
-                for column in (from.round() as i64)..=(to.round() as i64) {
+            Some((pm, pl, ph)) => {
+                let (from, to) = if pm <= main { (pm, main) } else { (main, pm) };
+                let span = main - pm;
+                for step in (from.round() as i64)..=(to.round() as i64) {
                     let t = if span.abs() < f64::EPSILON {
                         0.0
                     } else {
-                        ((column as f64 - px_) / span).clamp(0.0, 1.0)
+                        ((step as f64 - pm) / span).clamp(0.0, 1.0)
                     };
-                    let column_low = pl + (sl - pl) * t;
-                    let column_high = ph + (sh - ph) * t;
+                    let step_low = pl + (cross_low - pl) * t;
+                    let step_high = ph + (cross_high - ph) * t;
                     surface.line(
-                        (column as f64, column_low),
-                        (column as f64, column_high),
+                        place(step as f64, step_low),
+                        place(step as f64, step_high),
                         color,
                     );
                 }
             }
-            None => surface.line((sx, sl), (sx, sh), color),
+            None => surface.line(place(main, cross_low), place(main, cross_high), color),
         }
-        previous = Some((sx, sl, sh));
+        previous = Some((main, cross_low, cross_high));
     }
 }
 
