@@ -78,6 +78,41 @@ fn text_clips_at_the_edges() {
 }
 
 #[test]
+fn wide_glyphs_occupy_two_cells_and_keep_alignment() {
+    let mut surface = Surface::new(5, 1, Charset::Ascii);
+    surface.text(0, 0, "\u{65E5}\u{672C}", Color::Default);
+    surface.text(4, 0, "x", Color::Default);
+    assert_eq!(surface.to_plain(), "\u{65E5}\u{672C}x");
+}
+
+#[test]
+fn a_wide_glyph_straddling_the_edge_is_dropped_whole() {
+    let mut surface = Surface::new(3, 1, Charset::Ascii);
+    surface.text(0, 0, "\u{65E5}\u{672C}", Color::Default);
+    assert_eq!(surface.to_plain(), "\u{65E5}");
+}
+
+#[test]
+fn overwriting_half_a_wide_glyph_blanks_the_other_half() {
+    let mut surface = Surface::new(4, 1, Charset::Ascii);
+    surface.text(0, 0, "\u{65E5}", Color::Default);
+    surface.text(1, 0, "a", Color::Default);
+    assert_eq!(surface.to_plain(), " a");
+
+    let mut surface = Surface::new(4, 1, Charset::Ascii);
+    surface.text(0, 0, "\u{65E5}", Color::Default);
+    surface.text(0, 0, "b", Color::Default);
+    assert_eq!(surface.to_plain(), "b");
+}
+
+#[test]
+fn combining_marks_are_dropped_at_the_cell_grid() {
+    let mut surface = Surface::new(4, 1, Charset::Ascii);
+    surface.text(0, 0, "e\u{0301}x", Color::Default);
+    assert_eq!(surface.to_plain(), "ex");
+}
+
+#[test]
 fn plain_output_trims_trailing_spaces_and_keeps_leading_ones() {
     let mut surface = Surface::new(4, 2, Charset::Ascii);
     surface.set(0, 0, Color::Default);

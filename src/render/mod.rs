@@ -9,7 +9,9 @@
 mod charset;
 mod color;
 mod surface;
+mod width;
 
 pub use charset::Charset;
 pub use color::{Color, ColorMode};
 pub use surface::Surface;
+pub(crate) use width::{display_width, fit_width};

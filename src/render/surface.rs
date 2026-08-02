@@ -3,20 +3,29 @@
 use super::charset::Charset;
 use super::color::{Color, ColorMode, Resolved};
 
-/// One character cell: a subpixel pattern, an optional text glyph, and a color.
+/// One character cell: a subpixel pattern, a text slot, and a color.
 ///
 /// Text wins over pixels when the cell prints — labels are never corrupted by marks
 /// drawing underneath them.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Cell {
     bits: u8,
-    glyph: Option<char>,
+    text: Text,
     color: Color,
+}
+
+/// The text slot of a cell. A wide glyph (CJK) occupies its own cell plus a
+/// `Continuation` to its right; the pair is kept consistent on every overwrite.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Text {
+    None,
+    Glyph(char),
+    Continuation,
 }
 
 const EMPTY: Cell = Cell {
     bits: 0,
-    glyph: None,
+    text: Text::None,
     color: Color::Default,
 };
 
@@ -122,21 +131,49 @@ impl Surface {
 
     /// Writes text starting at the cell `(column, row)`; cells outside clip away.
     ///
-    /// Text overrides any pixels in the same cells. One `char` per cell — width
-    /// discipline for wide graphemes arrives with the layout work.
+    /// Text overrides any pixels in the same cells and is measured in display
+    /// columns: a wide glyph (CJK) occupies two cells, and one that would straddle
+    /// the surface edge is dropped whole. Zero-width characters (combining marks) do
+    /// not survive the cell grid and are dropped. Overwriting half of a wide glyph
+    /// blanks its other half — alignment is never corrupted.
     pub fn text(&mut self, column: i64, row: i64, text: &str, color: Color) {
+        use unicode_width::UnicodeWidthChar;
+
         if row < 0 || row >= self.height as i64 {
             return;
         }
-        for (offset, glyph) in text.chars().enumerate() {
-            let column = column + offset as i64;
-            if column < 0 || column >= self.width as i64 {
+        let row = row as usize;
+        let mut column = column;
+        for glyph in text.chars() {
+            let width = glyph.width().unwrap_or(0) as i64;
+            if width == 0 {
                 continue;
             }
-            let cell = &mut self.cells[row as usize * self.width + column as usize];
-            cell.glyph = Some(glyph);
-            cell.color = color;
+            let fits = column >= 0 && column + width <= self.width as i64;
+            if fits {
+                self.place(row, column as usize, Text::Glyph(glyph), color);
+                for offset in 1..width {
+                    self.place(row, (column + offset) as usize, Text::Continuation, color);
+                }
+            }
+            column += width;
         }
+    }
+
+    /// Puts one text slot into a cell, breaking any wide-glyph pair it overlaps.
+    fn place(&mut self, row: usize, column: usize, text: Text, color: Color) {
+        let base = row * self.width;
+        // Overwriting a continuation orphans the wide glyph to its left.
+        if self.cells[base + column].text == Text::Continuation && column > 0 {
+            self.cells[base + column - 1].text = Text::Glyph(' ');
+        }
+        // Overwriting a wide glyph orphans its continuation to the right.
+        if column + 1 < self.width && self.cells[base + column + 1].text == Text::Continuation {
+            self.cells[base + column + 1].text = Text::Glyph(' ');
+        }
+        let cell = &mut self.cells[base + column];
+        cell.text = text;
+        cell.color = color;
     }
 
     /// Encodes as plain text — no escape codes ever. Sugar for
@@ -183,13 +220,15 @@ impl Surface {
         out
     }
 
-    /// The printable glyphs of one row, in order.
+    /// The printable glyphs of one row, in order. Continuation cells emit nothing:
+    /// the wide glyph to their left covers their column.
     fn row(&self, row: usize) -> impl Iterator<Item = (char, Color)> + '_ {
         self.cells[row * self.width..(row + 1) * self.width]
             .iter()
-            .map(|cell| {
-                let glyph = cell.glyph.unwrap_or_else(|| self.charset.glyph(cell.bits));
-                (glyph, cell.color)
+            .filter_map(|cell| match cell.text {
+                Text::Continuation => None,
+                Text::Glyph(glyph) => Some((glyph, cell.color)),
+                Text::None => Some((self.charset.glyph(cell.bits), cell.color)),
             })
     }
 }

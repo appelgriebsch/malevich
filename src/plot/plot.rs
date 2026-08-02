@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use super::frame::Frame;
 use crate::mark::{Mark, Source};
-use crate::render::{Color, Surface};
+use crate::render::{Color, Surface, display_width, fit_width};
 use crate::scale::{Linear, Ticks};
 
 /// Layer colors when none are set explicitly. A single layer uses the terminal's
@@ -105,7 +105,7 @@ impl<'a> Plot<'a> {
         let y_ticks = Ticks::linear(y_data.0, y_data.1, target);
         let mut label_width = y_ticks
             .iter()
-            .map(|tick| tick.label.chars().count())
+            .map(|tick| display_width(&tick.label))
             .max()
             .unwrap_or(0);
         let mut gutter = label_width + 2;
@@ -139,9 +139,10 @@ impl<'a> Plot<'a> {
         if title_rows == 1
             && let Some(title) = &self.title
         {
-            let len = title.chars().count() as i64;
+            let title = fit_width(title, frame.width);
+            let len = display_width(&title) as i64;
             let start = ((frame.width as i64 - len) / 2).max(0);
-            surface.text(start, 0, title, Color::Default);
+            surface.text(start, 0, &title, Color::Default);
         }
 
         let plot_top = title_rows;
@@ -168,7 +169,7 @@ impl<'a> Plot<'a> {
                     }
                     used[row] = true;
                     let cell_row = (plot_top + row) as i64;
-                    let start = label_width as i64 - tick.label.chars().count() as i64;
+                    let start = label_width as i64 - display_width(&tick.label) as i64;
                     surface.text(start, cell_row, &tick.label, Color::Default);
                     surface.text(axis_column, cell_row, "\u{2524}", Color::Default);
                 }
@@ -192,7 +193,7 @@ impl<'a> Plot<'a> {
                         "\u{252C}",
                         Color::Default,
                     );
-                    let len = tick.label.chars().count() as i64;
+                    let len = display_width(&tick.label) as i64;
                     let center = (gutter + column) as i64;
                     let start = (center - len / 2).clamp(0, (frame.width as i64 - len).max(0));
                     surface.text(start, axis_row + 1, &tick.label, Color::Default);
@@ -364,7 +365,7 @@ fn fit_x_ticks(
         let mut fits = true;
         for tick in &ticks {
             let column = (scale.map(tick.value).round() as usize) / px;
-            let len = tick.label.chars().count() as i64;
+            let len = display_width(&tick.label) as i64;
             let center = (gutter + column) as i64;
             let start = (center - len / 2).clamp(0, (frame_width as i64 - len).max(0));
             if start < last_end + 2 {
