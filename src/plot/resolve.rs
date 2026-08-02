@@ -2,13 +2,13 @@
 
 use std::borrow::Cow;
 
-use crate::mark::{Mark, Orientation, Placement, RangePlacement, Source};
+use crate::mark::{LineStyle, Mark, Orientation, Placement, RangePlacement, Source};
 use crate::render::Color;
 use crate::scale::Colormap;
 
 /// How a resolved series layer draws its columns.
 pub(crate) enum Kind {
-    Line,
+    Line(LineStyle),
     Points,
 }
 
@@ -226,8 +226,8 @@ impl ResolvedLayer<'_> {
                 color, kind, label, ..
             } => {
                 let swatch = match (kind, ascii) {
-                    (Kind::Line, false) => "\u{2500}\u{2500}",
-                    (Kind::Line, true) => "--",
+                    (Kind::Line(_), false) => "\u{2500}\u{2500}",
+                    (Kind::Line(_), true) => "--",
                     (Kind::Points, false) => "\u{2022}\u{2022}",
                     (Kind::Points, true) => "**",
                 };
@@ -307,14 +307,14 @@ pub(crate) fn resolve<'p>(
                                     x: Cow::Owned(dx),
                                     y: Cow::Owned(dy),
                                     color,
-                                    kind: Kind::Line,
+                                    kind: Kind::Line(line.style),
                                     label: line.label.as_deref(),
                                 },
                                 None => ResolvedLayer::Series {
                                     x: index_or_borrow(x.as_ref(), y.len()),
                                     y: Cow::Borrowed(y.as_slice()),
                                     color,
-                                    kind: Kind::Line,
+                                    kind: Kind::Line(line.style),
                                     label: line.label.as_deref(),
                                 },
                             }
@@ -329,7 +329,7 @@ pub(crate) fn resolve<'p>(
                                 x: Cow::Owned(x),
                                 y: Cow::Owned(y),
                                 color,
-                                kind: Kind::Line,
+                                kind: Kind::Line(line.style),
                                 label: line.label.as_deref(),
                             }
                         }

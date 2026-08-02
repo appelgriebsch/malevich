@@ -6,6 +6,18 @@ use std::sync::Arc;
 use crate::data::{IntoSeries, Series};
 use crate::render::Color;
 
+/// How a line renders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineStyle {
+    /// Through the charset's subpixels — braille dots, octant ink. The default.
+    #[default]
+    Pixels,
+    /// Whole-cell box-drawing corners (`╭╮╰╯│─`) — the classic asciichart look:
+    /// one cell per column, smooth elbows, instantly legible at low resolution.
+    /// ASCII charsets draw `/`-free equivalents (`+`, `-`, `|`).
+    Corners,
+}
+
 /// A polyline through ordered points; gaps (`NaN`) break it visibly.
 ///
 /// Data enters three ways: y values against their indices ([`Line::y`]), paired
@@ -16,6 +28,7 @@ pub struct Line<'a> {
     pub(crate) source: Source<'a>,
     pub(crate) color: Option<Color>,
     pub(crate) label: Option<String>,
+    pub(crate) style: LineStyle,
 }
 
 #[derive(Clone)]
@@ -40,6 +53,7 @@ impl<'a> Line<'a> {
             },
             color: None,
             label: None,
+            style: LineStyle::Pixels,
         }
     }
 
@@ -56,6 +70,7 @@ impl<'a> Line<'a> {
             source: Source::Points { x: Some(x), y },
             color: None,
             label: None,
+            style: LineStyle::Pixels,
         }
     }
 
@@ -82,7 +97,15 @@ impl<'a> Line<'a> {
             },
             color: None,
             label: None,
+            style: LineStyle::Pixels,
         }
+    }
+
+    /// Sets the rendering style; [`LineStyle::Pixels`] by default.
+    #[must_use]
+    pub fn style(mut self, style: LineStyle) -> Line<'a> {
+        self.style = style;
+        self
     }
 
     /// Sets an explicit color; without one, layers take colors from the palette.
@@ -112,6 +135,7 @@ impl<'a> Line<'a> {
             },
             color: self.color,
             label: self.label,
+            style: self.style,
         }
     }
 }

@@ -47,7 +47,7 @@ mod theme;
 
 #[cfg(feature = "ratatui")]
 pub use adapter::PlotWidget;
-pub use mark::{Area, Bars, Cells, Line, Mark, Points, Range, Rule, Text};
+pub use mark::{Area, Bars, Cells, Line, LineStyle, Mark, Points, Range, Rule, Text};
 pub use plot::{Frame, Grid, Plot};
 pub use presets::{
     bar, box_plot, density, ecdf, error_bars, heatmap, hist, hist2d, line, scatter, stairs, violin,

@@ -1,5 +1,6 @@
 //! Mark drawing: resolved layers rasterized onto the surface through the layout.
 
+use crate::mark::LineStyle;
 use crate::mark::{Orientation, Placement};
 use crate::plot::layout::{Layout, Map};
 use crate::plot::resolve::{Kind, ResolvedLayer, extent};
@@ -27,6 +28,15 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
     let charset = layout.charset;
     for layer in layers {
         match layer {
+            ResolvedLayer::Series {
+                x,
+                y,
+                color,
+                kind: Kind::Line(LineStyle::Corners),
+                ..
+            } => {
+                draw_corners(surface, layout, x, y, *color);
+            }
             ResolvedLayer::Series {
                 x, y, color, kind, ..
             } => {
@@ -197,7 +207,10 @@ fn draw_series(
     offset: (f64, f64),
 ) {
     match kind {
-        Kind::Line => {
+        Kind::Line(LineStyle::Corners) => {
+            unreachable!("corners are drawn by draw_corners");
+        }
+        Kind::Line(LineStyle::Pixels) => {
             let mut previous: Option<(f64, f64)> = None;
             for (&xv, &yv) in x.iter().zip(y.iter()) {
                 if !xv.is_finite() || !yv.is_finite() {
@@ -221,6 +234,108 @@ fn draw_series(
                         color,
                     );
                 }
+            }
+        }
+    }
+}
+
+/// Draws one line layer in the asciichart style: one box-drawing glyph per cell
+/// column — `─` when flat, `╭╮╰╯` elbows joined by `│` runs when the line moves.
+/// The polyline is sampled at each column's center; gaps skip columns.
+fn draw_corners(surface: &mut Surface, layout: &Layout<'_>, x: &[f64], y: &[f64], color: Color) {
+    let Layout {
+        px,
+        py,
+        gutter,
+        plot_top,
+        plot_rows,
+        plot_cols,
+        x_offset,
+        y_offset,
+        ..
+    } = *layout;
+    let ascii = layout.charset == Charset::Ascii;
+    let (flat, vertical, down_out, down_in, up_out, up_in) = if ascii {
+        ("-", "|", "+", "+", "+", "+")
+    } else {
+        // Falling: leave right-down `╮`, arrive down-right `╰`.
+        // Rising: leave right-up `╯`… drawn from the left: `╰` opens up-right.
+        (
+            "\u{2500}", "\u{2502}", "\u{256E}", "\u{2570}", "\u{256F}", "\u{256D}",
+        )
+    };
+
+    // The line's row at each cell column, sampled at the column center.
+    let mut rows: Vec<Option<i64>> = vec![None; plot_cols];
+    let mut previous: Option<(f64, f64)> = None;
+    for index in 0..y.len().min(x.len()) {
+        let (xv, yv) = (x[index], y[index]);
+        if !xv.is_finite() || !yv.is_finite() {
+            previous = None;
+            continue;
+        }
+        let sx = x_offset + layout.x_scale.map(xv);
+        let sy = y_offset + layout.y_scale.map(yv);
+        if let Some((px_, py_)) = previous {
+            let (from, to) = if px_ <= sx { (px_, sx) } else { (sx, px_) };
+            let span = sx - px_;
+            let first = (from / px as f64 - 0.5).ceil().max(0.0) as usize;
+            let last = ((to / px as f64 - 0.5).floor() as usize).min(plot_cols.saturating_sub(1));
+            if first <= last {
+                for (offset, slot) in rows[first..=last].iter_mut().enumerate() {
+                    let center = ((first + offset) as f64 + 0.5) * px as f64;
+                    let t = if span.abs() < f64::EPSILON {
+                        0.0
+                    } else {
+                        ((center - px_) / span).clamp(0.0, 1.0)
+                    };
+                    let sub_y = py_ + (sy - py_) * t;
+                    let row = (sub_y / py as f64).floor() as i64 - plot_top as i64;
+                    if (0..plot_rows as i64).contains(&row) {
+                        *slot = Some(row + plot_top as i64);
+                    }
+                }
+            }
+        } else {
+            let column = (sx / px as f64 - 0.5).round() as i64;
+            if (0..plot_cols as i64).contains(&column) {
+                let row = (sy / py as f64).floor() as i64;
+                rows[column as usize] = Some(row);
+            }
+        }
+        previous = Some((sx, sy));
+    }
+
+    for column in 0..plot_cols {
+        let Some(row) = rows[column] else { continue };
+        let cell = (gutter + column) as i64;
+        let next = if column + 1 < plot_cols {
+            rows[column + 1]
+        } else {
+            None
+        };
+        match next {
+            Some(next_row) if next_row == row => {
+                surface.text(cell, row, flat, color);
+            }
+            Some(next_row) if next_row > row => {
+                // The line falls: leave rightward-down, fill, arrive.
+                surface.text(cell, row, down_out, color);
+                for between in row + 1..next_row {
+                    surface.text(cell, between, vertical, color);
+                }
+                surface.text(cell, next_row, down_in, color);
+            }
+            Some(next_row) => {
+                // The line rises: leave rightward-up, fill, arrive.
+                surface.text(cell, row, up_out, color);
+                for between in next_row + 1..row {
+                    surface.text(cell, between, vertical, color);
+                }
+                surface.text(cell, next_row, up_in, color);
+            }
+            None => {
+                surface.text(cell, row, flat, color);
             }
         }
     }

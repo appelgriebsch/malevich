@@ -12,6 +12,9 @@ Riding into the ratatui ecosystem.
   colors map onto cell styles, the host application keeps the terminal. Charset and
   theme are widget options; `cargo run --example tui --features ratatui` shows a
   live dashboard.
+- The corners line style (`LineStyle::Corners`): the classic asciichart look —
+  one box-drawing glyph per column, `╭╮╰╯` elbows, `│` runs — with real axes
+  underneath, and an honest `+`/`-`/`|` fallback in ASCII charsets.
 - Retained-plot cloning measured at ~10 µs for 12 layers × 5k points
   (`plot/clone_12x5k_owned`) — cheap enough that no copy-on-write machinery is
   warranted.

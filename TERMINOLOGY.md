@@ -25,7 +25,8 @@ A family of geometric primitives that draw data: `Line`, `Points`, `Bars`, `Area
 `Cells`, `Range`, `Rule`, `Text`. The word follows Observable Plot and Vega-Lite
 ("mark"), chosen over matplotlib's "artist" (too broad) and "geom" (ggplot jargon).
 Chart types are compositions of marks, never peers of them. Maps to the `mark`
-module — currently `mark::Line` (points, paired series, or a sampled function),
+module — currently `mark::Line` (points, paired series, or a sampled function; rendered through
+subpixels or as box-drawing corners via `LineStyle`),
 `mark::Points`, `mark::Bars` (bands or numeric spans, zero-baseline), `mark::Area`
 (baseline fills and bands), `mark::Rule` (reference lines), and `mark::Text`
 (annotations at data coordinates), `mark::Cells` (value grids as shade ramp plus

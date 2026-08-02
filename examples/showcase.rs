@@ -6,7 +6,7 @@
 //! you run it, which is the point. For the moving version of this tour, run
 //! `cargo run --example live`.
 
-use malevich::{Area, Frame, Grid, Line, Plot, Points, Rule, Text};
+use malevich::{Area, Frame, Grid, Line, LineStyle, Plot, Points, Rule, Text};
 
 fn main() {
     let frame = Frame::detect();
@@ -172,6 +172,18 @@ fn main() {
         "{}\n",
         malevich::hist2d(&cx[..], &cy[..])
             .title("2d density (synthetic)")
+            .render(&frame)
+    );
+
+    // The asciichart-style corners line.
+    let wave: Vec<f64> = (0..60)
+        .map(|i| 15.0 * (i as f64 * std::f64::consts::PI / 30.0).sin())
+        .collect();
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Line::y(&wave[..]).style(LineStyle::Corners))
+            .title("the corners style")
             .render(&frame)
     );
 
