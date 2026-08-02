@@ -9,22 +9,24 @@ it maps to in the crate. Types marked *(planned)* do not exist yet.
 
 The retained description of a chart: layers plus scales plus furniture (title, labels,
 legend). A plain value — cloneable, inspectable, serializable — with no connection to a
-terminal. Rendering is a pure function of a `Plot` and a `Frame`. Maps to `Plot`
-*(planned)*.
+terminal. Rendering is a pure function of a `Plot` and a `Frame`. Maps to `plot::Plot`
+(re-exported at the root).
 
 ## Layer
 
-One mark bound to data and options, stacked with other layers on shared scales. The
-layering concept of every grammar of graphics (Wilkinson 2005; Vega-Lite `layer`;
-UnicodePlots `lineplot!`). Maps to `Plot::layer` *(planned)*.
+One mark bound to data and options, stacked with other layers on shared scales — axis
+domains are the union of all layers' data, re-resolved at render time. The layering
+concept of every grammar of graphics (Wilkinson 2005; Vega-Lite `layer`; UnicodePlots
+`lineplot!`). Maps to `Plot::layer`.
 
 ## Mark
 
 A family of geometric primitives that draw data: `Line`, `Points`, `Bars`, `Area`,
 `Cells`, `Range`, `Rule`, `Text`. The word follows Observable Plot and Vega-Lite
 ("mark"), chosen over matplotlib's "artist" (too broad) and "geom" (ggplot jargon).
-Chart types are compositions of marks, never peers of them. Maps to the `mark` module
-*(planned)*.
+Chart types are compositions of marks, never peers of them. Maps to the `mark`
+module — currently `mark::Line` (points, paired series, or a sampled function); the
+rest of the family follows.
 
 ## Channel
 
@@ -59,8 +61,9 @@ Observable Plot convention). Maps to `Reducer` *(planned)*.
 
 A mapping from data domain to raster range with the d3-scale contract: `nice`,
 `ticks(n)`, `invert`, and a tick formatter. Position scales: `Linear`, `Log`, `Time`,
-`Band`; color scales: sequential, diverging, categorical. Maps to the `scale` module
-*(planned)*.
+`Band`; color scales: sequential, diverging, categorical. Maps to the `scale`
+module — currently `scale::Linear` (the affine map, including the raster y-flip) and
+`scale::Ticks`; the richer contract grows with the log and time work.
 
 ## Ticks
 
@@ -72,10 +75,11 @@ one fraction width per axis, and never show float artifacts. Maps to `scale::Tic
 
 ## Frame
 
-Where and how to render: width and height in cells, charset, color mode, theme. Frame
-is render state, not plot state — the same `Plot` renders into many frames.
-`Frame::detect()` is the only place the crate inspects the environment. Maps to `Frame`
-*(planned)*.
+Where and how to render: width and height in cells, charset, color mode (theme joins
+later). Frame is render state, not plot state — the same `Plot` renders into many
+frames. `Frame::detect()` is the only place the crate inspects the environment
+(terminal size, `NO_COLOR`, whether stdout is a terminal); `Frame::plain()` is the
+deterministic form. Maps to `plot::Frame` and `plot::ColorMode`.
 
 ## Surface
 
@@ -102,7 +106,7 @@ negative, accent), cell aspect ratio. Maps to `Theme` *(planned)*.
 A plain function composing the grammar into a named chart type: `line()`, `hist()`,
 `scatter()`, …. Every preset is provably equal to its grammar expansion (asserted
 bit-identical in tests). Presets are the front door; the grammar is discovered, not
-required.
+required. Maps to root functions — currently `malevich::line`.
 
 ## Gap
 

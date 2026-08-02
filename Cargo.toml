@@ -9,6 +9,7 @@ keywords = ["plot", "chart", "terminal", "ascii", "visualization"]
 categories = ["visualization", "command-line-interface"]
 
 [dependencies]
+terminal_size = "0.4"
 
 [dev-dependencies]
 criterion = "0.5"

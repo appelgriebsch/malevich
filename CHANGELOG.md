@@ -5,6 +5,13 @@ without apology.
 
 ## Unreleased
 
+- The plot pipeline (`Plot`, `Frame`, `mark::Line`, `malevich::line`): layered line
+  charts over shared scales with measured (never fixed) layout, collision-aware x
+  labels, chrome shedding in undersized frames, function sampling at raster
+  resolution, a default palette, and `Display` via `Frame::detect`. Presets are
+  asserted bit-identical to their grammar expansion.
+- The examples gallery (`EXAMPLES.md` + `regen_gallery`): deterministic, CI-checked —
+  the showcase and the system test in one artifact.
 - Rendering (`render::Surface`, `render::Charset`, `render::Color`): one generic
   subpixel surface over charset codecs (braille 2×4 and ASCII for now), clipped
   infallible drawing, text sharing the grid with pixels, plain and run-length ANSI
