@@ -1,14 +1,13 @@
 # malevich
 
-Terminal plotting for Rust: a small grammar of marks, honest axes, millions of points.
+**Terminal plotting for Rust: a small grammar of marks, honest axes, millions of
+points.**
 
-**Status: early and moving fast (0.2).** Three marks — lines, points, bars — with real
-axes: extended-Wilkinson tick placement with exact-decimal labels, legends, a zero-
-baseline band scale for bars, function sampling at raster resolution, honest gaps, and
-graceful degradation in small frames. Rendering spans four charsets (braille,
-quadrants, half-blocks, ASCII) and four color tiers (truecolor, 256, 16, plain) with
-honest downhill quantization; output is plain text automatically when piped. Breaking
-changes between releases are expected until 1.0.
+Eight marks. A real statistics layer. Ten million points in 28 milliseconds. Axes
+placed by the same algorithm the visualization literature settled on — with labels
+that are exact decimals, never `0.30000000000000004`. All of it in plain values that
+render to a `String`, degrade gracefully on any terminal, and never touch global
+state.
 
 ```rust
 println!("{}", malevich::line(&[1.0, 5.0, 2.0, 8.0][..]));
@@ -45,41 +44,79 @@ println!("{}", malevich::bar(["mon", "tue", "wed", "thu", "fri"], &[3.0, 7.0, 4.
 ```
 <!-- /generated -->
 
+And the charts no other terminal library ships — box plots, violins, densities, 2D
+histograms:
+
+<!-- generated:boxes -->
+```text
+          three groups, summarized (synthetic)
+8 ┤                        ⠉⠉⢹⠉⠉
+  │        ⣀⣀⣀⣀⣀         ⢰⣶⣶⣶⣾⣶⣶⣶⡆         ⣀⣀⣀⣀⣀
+  │          ⡇           ⠘━━━━━━━━           ⢸
+6 ┤      ⢀⣀⣀⣀⣇⣀⣀⣀          ⠒⠒⠚⠒⠒             ⢸
+  │      ⢸⣿⣿⣿⣿⣿⣿⣿                         ⣀⣀⣀⣸⣀⣀⣀⡀
+  │      ━━━━━━━━━                        ⣿⣿⣿⣿⣿⣿⣿⡇
+4 ┤          ⡇                            ━━━━━━━━
+  │        ⠒⠒⠓⠒⠒                          ⠛⠛⠛⢻⠛⠛⠛⠃
+  │                                          ⢸
+2 ┤                                          ⢸
+  │                                        ⠒⠒⠚⠒⠒
+0 ┤
+  └─────────────────────────────────────────────────────
+           alpha           beta            gamma
+```
+<!-- /generated -->
+
 Every chart in these docs is real program output, spliced in by
 `cargo run --example regen_docs` and verified in CI — never typed by hand. More in the
 gallery: [EXAMPLES.md](EXAMPLES.md), and `cargo run --example showcase` renders a
 colored tour sized to your terminal.
 
-## What it will be
+## Why malevich
 
-- **A small closed vocabulary** — a handful of marks, stats, and scales that compose
-  into the whole basic chart catalog (line, scatter, bars, histogram, heatmap, box,
-  violin, ecdf, contour, …). Chart types are presets over the grammar, not separate
-  implementations.
-- **Axes that are actually good**: extended-Wilkinson tick placement, log and time
-  scales, SI-prefix label formatting.
-- **Millions of points**: data is aggregated to the known character raster in one fused
-  pass (M4 min/max aggregation — pixel-exact for line rendering) before a single glyph
-  is chosen. Measured: ten million points render end to end in about 28 ms,
-  single-threaded (`cargo bench --bench render`).
-- **Renders to cells, never owns the terminal**: a `String` for CLIs, logs, and CI; a
-  ratatui widget for TUIs; plain text automatically when piped.
-- **A capability ladder**: ASCII → blocks → braille → Unicode 16 octants; 16 → 256 →
-  truecolor; `NO_COLOR` respected; graceful degradation when space or color runs out.
-- **Plots are plain values**: no global state, `Send + Sync` throughout, rendering is a
-  pure function — build a plot on one thread, render it on another.
+- **A small grammar, not a chart zoo.** Eight marks (line, points, bars, area, cells,
+  range, rule, text) × a stats layer × shared scales compose into the whole basic
+  chart catalog. Every preset — `line`, `scatter`, `bar`, `hist`, `stairs`, `ecdf`,
+  `heatmap`, `hist2d`, `density`, `box_plot`, `violin`, `error_bars` — is proven
+  bit-identical to its grammar expansion in tests.
+- **The statistical set no terminal library has.** Box plots with type-7 quartiles
+  and Tukey whiskers, violins from a real KDE (Silverman bandwidth), ECDFs, error
+  bars, 2D densities — the charts science and ML actually need.
+- **Millions of points, measured.** Large line layers are aggregated by M4 —
+  min/max/first/last per raster column, *provably pixel-identical* to drawing every
+  point. Ten million points render end to end in ~28 ms single-threaded; a million
+  KDE samples take 23 ms (`cargo bench --bench render`). Every aggregator is a
+  mergeable monoid, so host-side parallelism and streaming are compositions, not
+  features.
+- **Axes that are actually good.** Extended-Wilkinson tick placement (Talbot, Lin,
+  Hanrahan 2010), exact-decimal labels that parse back to their values, one shared SI
+  prefix per axis (`2.5M`, `100µ`), log axes with superscript decades, band scales
+  with fitted category labels, collision-aware layout that sheds furniture instead of
+  failing.
+- **Renders everywhere, honestly.** Four charsets (braille, quadrants, half-blocks,
+  ASCII) and four color tiers (truecolor → 256 → 16 → plain) with honest downhill
+  quantization; piped output is automatically clean plain text; CJK labels stay
+  aligned; `NaN` is always a visible gap, never interpolated away.
+- **Plots are plain values.** `Clone + Send + Sync`, no globals, rendering is a pure
+  function of plot and frame — build on one thread, render on another, snapshot-test
+  the strings. Two tiny dependencies (`terminal_size`, `unicode-width`).
+
+**Pre-1.0**: APIs break between releases while we make them right. The concept
+vocabulary is documented in [TERMINOLOGY.md](TERMINOLOGY.md) and changes are in the
+[CHANGELOG](CHANGELOG.md).
 
 ## What it will not be
 
 Not a TUI framework (it never owns the terminal or handles input). No animations. No
 file parsing or dataframes in core — ingestion traits only. No config-object kitchen
-sink.
+sink: if an option is not a mark channel, stat parameter, scale option, or theme
+entry, it does not ship.
 
 ## Name
 
 Kazimir Malevich painted a black square on a plain ground and meant it: a small
-vocabulary of geometric forms, composed deliberately. That is the design budget of this
-library.
+vocabulary of geometric forms, composed deliberately. That is the design budget of
+this library.
 
 ## Acknowledgements
 
