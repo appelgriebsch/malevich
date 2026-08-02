@@ -105,7 +105,7 @@ impl<'a> Plot<'a> {
 
         // Horizontal layout: the y-label gutter is measured, not fixed — and shed
         // entirely when it would eat the plot.
-        let target = (plot_rows / 3).clamp(2, 8);
+        let target = (plot_rows / 2).clamp(2, 8);
         let y_ticks = Ticks::linear(y_data.0, y_data.1, target);
         let mut label_width = y_ticks
             .iter()
