@@ -41,8 +41,8 @@ impl<'a> Plot<'a> {
         Plot {
             layers: Vec::new(),
             title: None,
-            x: Scale::Linear,
-            y: Scale::Linear,
+            x: Scale::Auto,
+            y: Scale::Auto,
             x_label: None,
             y_label: None,
             x_domain: None,
@@ -82,8 +82,9 @@ impl<'a> Plot<'a> {
         self
     }
 
-    /// Sets the x axis scale. Band layers (bars, band-placed ranges) imply
-    /// [`Scale::Bands`] when none is set explicitly.
+    /// Sets the x axis scale. Under [`Scale::Auto`] (the default) a bars or
+    /// band-range layer makes the axis categorical; any scale set here is honored
+    /// as-is, so an explicit choice is never overridden by a categorical layer.
     #[must_use]
     pub fn x_scale(mut self, scale: Scale) -> Plot<'a> {
         self.x = scale;
@@ -193,6 +194,42 @@ impl<'a> Plot<'a> {
     pub fn validate(&self) -> crate::Result<()> {
         for layer in &self.layers {
             layer.validate()?;
+        }
+        // Categorical layers must agree on one ordered set of bands, and a numeric x
+        // scale cannot host them — `Auto` adapts, but an explicit numeric choice is a
+        // conflict, not an override.
+        let mut bands: Option<&[String]> = match &self.x {
+            Scale::Bands(bands) => Some(bands.as_slice()),
+            _ => None,
+        };
+        for layer in &self.layers {
+            let layer_bands = match layer {
+                Mark::Bars(bars) => match &bars.placement {
+                    crate::mark::Placement::Bands(bands) => Some(bands.as_slice()),
+                    _ => None,
+                },
+                Mark::Range(range) => match &range.placement {
+                    crate::mark::RangePlacement::Bands(bands) => Some(bands.as_slice()),
+                    _ => None,
+                },
+                _ => None,
+            };
+            let Some(layer_bands) = layer_bands else {
+                continue;
+            };
+            if matches!(self.x, Scale::Linear | Scale::Log | Scale::Time) {
+                return Err(crate::Error::IncompatibleScale {
+                    detail: "a categorical layer needs an Auto or Bands x scale",
+                });
+            }
+            match bands {
+                Some(existing) if existing != layer_bands => {
+                    return Err(crate::Error::IncompatibleScale {
+                        detail: "categorical layers disagree on their bands",
+                    });
+                }
+                _ => bands = Some(layer_bands),
+            }
         }
         for (axis, domain) in [("x", self.x_domain), ("y", self.y_domain)] {
             if let Some((lo, hi)) = domain

@@ -77,7 +77,10 @@ impl<'p> Layout<'p> {
         // An explicit Bands spec wins; otherwise band layers imply the categories.
         let categories: Option<&[String]> = match x_spec {
             Scale::Bands(categories) if !categories.is_empty() => Some(categories.as_slice()),
-            _ => layers.iter().find_map(|layer| match layer {
+            // Only an automatic axis infers categories from its layers; an explicitly
+            // chosen numeric scale is honored, never silently overridden by a bars
+            // layer (validation rejects that combination up front).
+            Scale::Auto => layers.iter().find_map(|layer| match layer {
                 ResolvedLayer::Bars {
                     placement: crate::mark::Placement::Bands(categories),
                     ..
@@ -88,6 +91,7 @@ impl<'p> Layout<'p> {
                 } if !categories.is_empty() => Some(*categories),
                 _ => None,
             }),
+            _ => None,
         };
         let has_bars = layers
             .iter()

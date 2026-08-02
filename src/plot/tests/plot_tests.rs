@@ -375,3 +375,36 @@ fn validation_reaches_into_every_layer() {
         .layer(crate::mark::Bars::new(["a", "b"], &[1.0, 2.0][..]));
     assert!(plot.validate().is_ok());
 }
+
+#[test]
+fn an_explicit_scale_is_not_overridden_by_a_categorical_layer() {
+    // Default (Auto) infers the categorical axis for bars.
+    let auto = crate::bar(["a", "b"], &[1.0, 2.0][..]);
+    assert!(auto.validate().is_ok());
+
+    // An explicit numeric x scale with a bars layer is a conflict, not an override.
+    let forced = crate::bar(["a", "b"], &[1.0, 2.0][..]).log_x();
+    assert!(matches!(
+        forced.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+    // Render stays lenient (it honors the scale rather than panicking).
+    let _ = forced.render(&Frame::plain(40, 10));
+}
+
+#[test]
+fn disagreeing_categorical_layers_are_rejected() {
+    let plot = Plot::new()
+        .layer(crate::mark::Bars::new(["a", "b"], &[1.0, 2.0][..]))
+        .layer(crate::mark::Bars::new(["x", "y"], &[3.0, 4.0][..]));
+    assert!(matches!(
+        plot.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+}
+
+#[test]
+fn an_explicit_scale_without_categorical_layers_validates() {
+    let plot = crate::line(&[1.0, 10.0, 100.0][..]).log_y();
+    assert!(plot.validate().is_ok());
+}

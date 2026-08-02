@@ -122,7 +122,7 @@ colored tour sized to your terminal.
   Hanrahan 2010), exact-decimal labels that parse back to their values, one shared SI
   prefix per axis (`2.5M`, `100µ`), log axes with superscript decades, calendar time
   axes with multi-scale labels (`14:05`, `Aug 2`, `2027`), typed axis specs
-  (`Scale::{Linear, Log, Time, Bands}`), axis titles, band scales with fitted
+  (`Scale::{Auto, Linear, Log, Time, Bands}`), axis titles, band scales with fitted
   category labels, collision-aware layout that sheds furniture instead of failing.
 - **Renders everywhere, honestly.** Six charsets — Unicode 16 octants (braille
   density, solid ink — auto-selected on terminals known to render them), braille,

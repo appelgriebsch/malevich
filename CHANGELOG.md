@@ -5,6 +5,11 @@ without apology.
 
 ## Unreleased (toward 0.11.0 — Polish)
 
+- `Scale::Auto` is the new default, distinct from `Scale::Linear`. An automatic axis
+  adapts to its layers (categorical when a bars or band-range layer is present,
+  linear otherwise); an *explicitly* chosen scale is now always honored rather than
+  silently overridden by a categorical layer. `Plot::validate` rejects a categorical
+  layer under a numeric x scale, and categorical layers that disagree on their bands.
 - Renames (breaking, landed early so downstream churn is minimal):
   - `stat::Grid` → `stat::Histogram2d` — it was a second public `Grid`, unrelated to
     the small-multiples `Grid` at the crate root; the name now says what it is.

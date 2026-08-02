@@ -3,14 +3,18 @@
 /// The scale of one axis.
 ///
 /// Set with [`crate::Plot::x_scale`] / [`crate::Plot::y_scale`]; the sugar methods
-/// (`log_y()`, `time_x()`) are shorthands for the common cases. `Linear` is the
-/// default everywhere.
+/// (`log_y()`, `time_x()`) are shorthands for the common cases. [`Auto`](Scale::Auto)
+/// is the default and adapts to the layers; an explicit scale is always honored.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Scale {
-    /// A continuous linear axis — the default.
+    /// Chosen from the layers: categorical when a bars or band-range layer is present,
+    /// linear otherwise. The default — and the only scale that infers, so setting any
+    /// other value is respected even when a categorical layer is also present.
     #[default]
+    Auto,
+    /// A continuous linear axis.
     Linear,
     /// Base-10 logarithmic: decade ticks, and values at or below zero become gaps.
     Log,
