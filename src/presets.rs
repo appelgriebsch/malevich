@@ -137,6 +137,57 @@ pub fn hist2d<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
     }
 }
 
+/// Contour lines of a row-major grid (row 0 at the bottom), like
+/// [`heatmap`](crate::heatmap) but tracing iso-lines instead of shading.
+///
+/// Levels are chosen by the tick algorithm — nice decimals inside the data's
+/// range — each traced by marching squares, colored along the default colormap,
+/// and labeled with its value in the legend.
+///
+/// ```
+/// let values: Vec<f64> = (0..64).map(|i| ((i % 8) * (i / 8)) as f64).collect();
+/// println!("{}", malevich::contour(8, &values[..]).render(&malevich::Frame::plain(40, 12)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if `columns` is zero or does not divide the number of values.
+pub fn contour<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
+    use crate::scale::{Colormap, Ticks};
+
+    let series = values.into_series();
+    let mut extent: Option<(f64, f64)> = None;
+    for &value in series.as_slice() {
+        if value.is_finite() {
+            let (low, high) = extent.get_or_insert((value, value));
+            *low = low.min(value);
+            *high = high.max(value);
+        }
+    }
+    let Some((min, max)) = extent.filter(|(low, high)| low < high) else {
+        return Plot::new();
+    };
+    let ticks = Ticks::linear(min, max, 7);
+    let levels: Vec<&crate::scale::Tick> = ticks
+        .iter()
+        .filter(|tick| tick.value > min && tick.value < max)
+        .collect();
+    let values: Vec<f64> = levels.iter().map(|tick| tick.value).collect();
+    let mut plot = Plot::new();
+    for (tick, line) in
+        levels
+            .iter()
+            .zip(crate::stat::contours(series.as_slice(), columns, &values))
+    {
+        plot = plot.layer(
+            Line::xy(line.x, line.y)
+                .label(&tick.label)
+                .color(Colormap::DEFAULT.color((tick.value - min) / (max - min))),
+        );
+    }
+    plot
+}
+
 /// Box plots: one five-number box per category (type-7 quartiles, Tukey whiskers),
 /// with outliers as dots.
 ///

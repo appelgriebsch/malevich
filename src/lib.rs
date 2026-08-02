@@ -50,7 +50,8 @@ pub use adapter::PlotWidget;
 pub use mark::{Area, Bars, Cells, Line, LineStyle, Mark, Points, Range, Rule, Text};
 pub use plot::{Frame, Grid, Plot};
 pub use presets::{
-    bar, box_plot, density, ecdf, error_bars, heatmap, hist, hist2d, line, scatter, stairs, violin,
+    bar, box_plot, contour, density, ecdf, error_bars, heatmap, hist, hist2d, line, scatter,
+    stairs, violin,
 };
 pub use render::{Charset, Color, ColorMode};
 pub use scale::Scale;

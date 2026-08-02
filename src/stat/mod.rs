@@ -9,6 +9,7 @@
 mod agg;
 mod bin;
 mod box_stats;
+mod contour;
 mod ecdf;
 mod kde;
 mod lttb;
@@ -20,6 +21,7 @@ mod window;
 pub use agg::Agg;
 pub use bin::{Bins, Grid, bins2};
 pub use box_stats::BoxStats;
+pub use contour::{Contour, contours};
 pub use ecdf::ecdf;
 pub use kde::kde;
 pub use lttb::lttb;

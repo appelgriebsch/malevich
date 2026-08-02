@@ -63,6 +63,10 @@ const GALLERY: &[(&str, &str)] = &[
         "A 2D histogram: point density on a grid, empty bins honestly blank.",
     ),
     (
+        "contour",
+        "The MATLAB peaks function as iso-lines: marching squares, tick-chosen levels, a labeled legend.",
+    ),
+    (
         "boxes",
         "Box plots: type-7 quartiles, Tukey whiskers, outliers — one Range mark with          body and marker channels per category.",
     ),

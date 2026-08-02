@@ -3,6 +3,8 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## Unreleased (toward 0.10.0)
+
 ## 0.9.0 (Red Cavalry) — 2026-08-02
 
 Riding into the ratatui ecosystem.

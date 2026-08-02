@@ -275,6 +275,38 @@ Source: [examples/density2d.rs](examples/density2d.rs)
    1       2      3       4       5       6       7       8
 ```
 
+## contour
+
+The MATLAB peaks function as iso-lines: marching squares, tick-chosen levels, a labeled legend.
+Source: [examples/contour.rs](examples/contour.rs)
+
+```text
+                           the peaks function
+           ── -6  ── -4  ── -2  ── 0  ── 2  ── 4  ── 6  ── 8
+40 ┤                         ⣀⡠⠤⠒⠒⠒⠉⠉⠉⠉⠉⠉⠒⠒⠒⠤⠤⣀
+   │⣀                     ⢠⠔⠉ ⢀⣀⠔⠒⠒⠉⢉⣉⣉⡉⠉⠒⠒⠢⢄  ⠉⠒⢄
+   │ ⠉⠑⠒⠤⠤⠤⣀             ⡔⠁  ⡔⠁ ⢠⠒⠉⠉⠁  ⠈⠉⠉⠒⢄ ⠉⠢⡀  ⠑⡄
+35 ┤        ⠉⠉⠒⠤⠤⣀       ⢇  ⢸  ⠠⡃    ⠶⠶    ⢀⠇  ⢸   ⠘⡄
+   │              ⠉⠉⠒⠒⠤⣀  ⠑⠢⣀⠉⠒⢄⡈⠑⠒⠢⠤⠤⠤⠤⠤⠒⠊⢁⣀⡠⠔⠉    ⡇
+30 ┤                    ⠉⠒⠢⢄⡀⠑⠒⠤⣈⣉⠉⠒⠒⠒⠒⢒⣒⣉⣉⣁⣀⣀⣀     ⠱⡀
+   │               ⢀⠤⠤⠤⠤⢄⣀  ⠈⠑⢄   ⠉⠉⠉⠉⠉⠁       ⠉⡆    ⠈⠒⠢⡀
+25 ┤              ⡰⠁      ⠱⡀  ⠈⡆        ⣀⠤⡀    ⢠⠃       ⠈⠢⡀
+   │             ⢸        ⡰⠁ ⢀⠔⠁        ⠈⠒⠁    ⡎          ⢇
+   │              ⢇⣀   ⣀⡠⠒⠁ ⡤⠊ ⣀⠔⠒⠒⠒⢄          ⡇          ⢸
+20 ┤                ⠉⠉⠉ ⢀⡠⠒⠉⢀⠔⠊      ⢱         ⠑⢄       ⢀⠔⠃
+   │                 ⢀⡠⠒⠁  ⡜⠁       ⣀⠎ ⢀⣀⠤⠔⠒⠤⠤⣀  ⠉⠑⠢⠤⠤⠔⠒⠉
+15 ┤             ⣀⡠⠔⠊⠁    ⠘⠤⣀⣀⣀⣀⠤⠔⠒⣉⡠⠔⣊⡡⠤⠤⠤⠤⠤⢄⡀⠉⠒⠤⢄⡀
+   │       ⣀⡠⠤⠒⠊⠉             ⣀⠤⠒⢊⣉⠤⢒⣉⠤⠔⠒⠒⠒⠒⠤⢄⠈⠑⠤⡀ ⠈⠉⠒⠤⣀
+   │⣀⠤⠔⠒⠒⠊⠉              ⢀⡠⠔⠒⠉ ⡠⠒⠁⡠⠒⠁ ⡠⠔⠒⠒⠢⡄  ⠑⡄ ⠈⢢     ⠉⠉⠒⠤⢄⡀
+10 ┤                   ⡠⠒⠁    ⢸   ⢇  ⠈⠢⠤⠤⠤⠒⠁  ⡤⠃  ⡸          ⠈⠑⠢⠤⣀
+   │                 ⡠⠊       ⠈⠦⣀ ⠈⠑⠤⠤⠤⠤⠤⠤⠤⠔⠊⠉ ⣀⡠⠊                ⠉⠢⢄⣀
+ 5 ┤                 ⡇          ⠈⠑⠒⠢⠤⠤⣀⣀⣀⣀⡠⠤⠒⠒⠊                       ⠑⢆
+   │                 ⢇
+ 0 ┤                 ⠈⢆
+   └┬──────┬───────┬──────┬───────┬──────┬───────┬──────┬───────┬──────┬
+    0      5      10     15      20     25      30     35      40     45
+```
+
 ## boxes
 
 Box plots: type-7 quartiles, Tukey whiskers, outliers — one Range mark with          body and marker channels per category.

@@ -175,6 +175,26 @@ fn main() {
             .render(&frame)
     );
 
+    // Contour lines: marching squares over a saddle between two humps.
+    let (columns, rows) = (40, 30);
+    let mut z = Vec::with_capacity(columns * rows);
+    for r in 0..rows {
+        for c in 0..columns {
+            let x = c as f64 / (columns - 1) as f64 * 4.0 - 2.0;
+            let y = r as f64 / (rows - 1) as f64 * 4.0 - 2.0;
+            z.push(
+                (-(x - 0.8).powi(2) - (y - 0.6).powi(2)).exp()
+                    - 0.8 * (-(x + 0.8).powi(2) - (y + 0.6).powi(2)).exp(),
+            );
+        }
+    }
+    println!(
+        "{}\n",
+        malevich::contour(columns, &z[..])
+            .title("contour lines (synthetic)")
+            .render(&frame)
+    );
+
     // The asciichart-style corners line.
     let wave: Vec<f64> = (0..60)
         .map(|i| 15.0 * (i as f64 * std::f64::consts::PI / 30.0).sin())
