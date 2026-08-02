@@ -45,6 +45,65 @@ fn scatter_dots_stay_unconnected_in_the_snapshot() {
 }
 
 #[test]
+fn the_bar_preset_equals_its_grammar_expansion() {
+    let frame = Frame::plain(40, 10);
+    let preset = crate::bar(["a", "b"], &[1.0, 2.0][..]).render(&frame);
+    let grammar = Plot::new()
+        .layer(crate::mark::Bars::new(["a", "b"], &[1.0, 2.0][..]))
+        .render(&frame);
+    assert_eq!(preset, grammar);
+}
+
+const BARS_WITH_TREND: &str = r"           bars with a trend line
+7.5 ┤                             ▃▃▃▃▃▃▃
+    │                             ███████
+    │           ▁▁▁▁▁▁▁        ⢀⡠⠔███████
+5.0 ┤           ███████⠒⠢⠤⠤⠤⠤⠔⠊⠁  ███████
+    │         ⣀⠔███████  ▇▇▇▇▇▇▇  ███████
+2.5 ┤  ▆▆▆▆▆▆▆  ███████  ███████  ███████
+    │  ███████  ███████  ███████  ███████
+    │  ███████  ███████  ███████  ███████
+0.0 ┤  ███████  ███████  ███████  ███████
+    └───────────────────────────────────────
+          q1       q2       q3       q4";
+
+#[test]
+fn bars_share_scales_with_a_line_overlay_in_the_snapshot() {
+    let text = Plot::new()
+        .layer(crate::mark::Bars::new(
+            ["q1", "q2", "q3", "q4"],
+            &[3.0, 5.0, 4.0, 7.0][..],
+        ))
+        .layer(Line::y(&[2.5, 4.8, 4.4, 6.5][..]))
+        .title("bars with a trend line")
+        .render(&Frame::plain(44, 12));
+    assert_eq!(text, BARS_WITH_TREND);
+}
+
+const NEGATIVE_BARS: &str = r" 7.5 ┤            ▄▄▄▄
+     │            ████            ▄▄▄▄
+ 5.0 ┤            ████ ▁▁▁▁       ████      ▅▅▅▅
+     │            ████ ████       ████      ████
+     │ ▅▅▅▅       ████ ████       ████      ████
+ 2.5 ┤ ████       ████ ████       ████ ▇▇▇▇ ████
+     │ ████       ████ ████       ████ ████ ████
+ 0.0 ┤ ████  ████ ████ ████ ████  ████ ████ ████
+     │       ████           ▔▔▔▔
+-2.5 ┤       ▔▔▔▔
+     └────────────────────────────────────────────
+         a     b    c    d    e     f    g    h";
+
+#[test]
+fn negative_bars_hang_below_the_baseline_in_the_snapshot() {
+    let text = crate::bar(
+        ["a", "b", "c", "d", "e", "f", "g", "h"],
+        &[3.0, -2.0, 7.0, 4.5, -1.2, 6.0, 2.2, 5.0][..],
+    )
+    .render(&Frame::plain(50, 12));
+    assert_eq!(text, NEGATIVE_BARS);
+}
+
+#[test]
 fn rendering_is_deterministic() {
     let plot = Plot::new().layer(Line::y(&[1.0, 5.0, 2.0, 8.0][..]));
     let frame = Frame::plain(40, 10);

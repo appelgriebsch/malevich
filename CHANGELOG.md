@@ -5,6 +5,21 @@ without apology.
 
 ## Unreleased (toward 0.2.0)
 
+- Bars (`mark::Bars`, `scale::Band`, `malevich::bar`): categorical bar charts from a
+  zero baseline with eighth-block partial tops, coarse below-baseline fills for
+  negative values, band-fitted category labels, and continuous layers (trend lines)
+  positioning over band centers.
+- Points (`mark::Points`, `malevich::scatter`): unconnected dots; marks now join
+  under the closed `mark::Mark` enum and `Plot::layer(impl Into<Mark>)`.
+- Color ladder (`Color::{Ansi256, Rgb}`, `ColorMode::{Plain, Ansi16, Ansi256,
+  TrueColor}`): honest downhill quantization (RGB → 256-cube → nearest-16), named
+  colors stay palette-relative, run-length encoding merges colors that quantize
+  equal. Detection adds `CLICOLOR_FORCE`, `COLORTERM`, `256color` terms, `TERM=dumb`,
+  and non-UTF-8 locale sniffing.
+- Display-width discipline: labels measured in terminal columns (CJK-safe), wide
+  glyphs pair with continuation cells and never corrupt alignment, truncation uses an
+  ellipsis. New dependency: `unicode-width`.
+
 ## 0.1.0 (Black Square) — 2026-08-01
 
 The vertical spine: one mark, every layer of the architecture, done properly.

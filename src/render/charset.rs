@@ -40,6 +40,19 @@ impl Charset {
         }
     }
 
+    /// The bottom-anchored fill ramp used by columnar marks: `ramp[k]` covers
+    /// `(k + 1) / len` of a cell from the bottom up. ASCII has a single full-cell
+    /// glyph; everything richer gets the eight eighth-blocks.
+    pub(crate) fn fill_ramp(self) -> &'static [char] {
+        match self {
+            Charset::Ascii => &['#'],
+            _ => &[
+                '\u{2581}', '\u{2582}', '\u{2583}', '\u{2584}', '\u{2585}', '\u{2586}', '\u{2587}',
+                '\u{2588}',
+            ],
+        }
+    }
+
     /// The glyph for a cell's pattern; an empty pattern is a space.
     pub(crate) fn glyph(self, bits: u8) -> char {
         if bits == 0 {

@@ -23,6 +23,10 @@ const GALLERY: &[(&str, &str)] = &[
         "loss",
         "The training-loop story: two series on shared scales; unrecorded steps are gaps.",
     ),
+    (
+        "languages",
+        "Categorical bars from a zero baseline, with eighth-block precision at the top.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

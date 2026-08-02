@@ -13,7 +13,7 @@ mod presets;
 pub mod render;
 pub mod scale;
 
-pub use mark::{Line, Mark, Points};
+pub use mark::{Bars, Line, Mark, Points};
 pub use plot::{Frame, Plot};
-pub use presets::{line, scatter};
+pub use presets::{bar, line, scatter};
 pub use render::{Charset, Color, ColorMode};

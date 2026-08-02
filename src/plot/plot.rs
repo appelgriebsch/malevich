@@ -5,8 +5,8 @@ use std::borrow::Cow;
 
 use super::frame::Frame;
 use crate::mark::{Mark, Source};
-use crate::render::{Color, Surface, display_width, fit_width};
-use crate::scale::{Linear, Ticks};
+use crate::render::{Charset, Color, Surface, display_width, fit_width};
+use crate::scale::{Band, Linear, Ticks};
 
 /// Layer colors when none are set explicitly. A single layer uses the terminal's
 /// default foreground instead.
@@ -51,7 +51,9 @@ impl<'a> Plot<'a> {
     }
 
     /// Adds a mark as the next layer. Layers share scales: domains are the union of
-    /// all layers' data, resolved at render time.
+    /// all layers' data, resolved at render time. A [`crate::mark::Bars`] layer puts
+    /// a band scale on the x axis; other layers then position x against category
+    /// indices (0 is the first band's center).
     #[must_use]
     pub fn layer(mut self, mark: impl Into<Mark<'a>>) -> Plot<'a> {
         self.layers.push(mark.into());
@@ -85,9 +87,18 @@ impl<'a> Plot<'a> {
         }
         let (px, py) = frame.charset.pixels_per_cell();
 
-        let polylines = self.resolve(frame.width * px);
-        let x_data = union(polylines.iter().map(|line| extent(&line.x))).unwrap_or((0.0, 1.0));
-        let y_data = union(polylines.iter().map(|line| extent(&line.y))).unwrap_or((0.0, 1.0));
+        let layers = self.resolve(frame.width * px);
+        let categories: Option<&[String]> = layers.iter().find_map(|layer| match layer {
+            ResolvedLayer::Bars { categories, .. } if !categories.is_empty() => Some(*categories),
+            _ => None,
+        });
+
+        let x_data = union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0));
+        let mut y_data = union(layers.iter().map(ResolvedLayer::y_extent)).unwrap_or((0.0, 1.0));
+        if categories.is_some() {
+            // Bar length is the encoding, so the baseline must be in view.
+            y_data = (y_data.0.min(0.0), y_data.1.max(0.0));
+        }
 
         // Vertical layout: title, plot rows, then the x axis and its labels — shed
         // in reverse priority when the frame is too short.
@@ -119,20 +130,23 @@ impl<'a> Plot<'a> {
         let plot_sub_w = (plot_cols * px).max(1);
         let plot_sub_h = (plot_rows * py).max(1);
 
-        // The x axis gets ticks only when there is a row to label; the densest
-        // labeling that fits without collisions wins.
-        let labels_row_exists = axis_rows == 2;
-        let x_ticks = if labels_row_exists {
+        // The x axis: a band scale when a bars layer is present, ticks otherwise.
+        let band = categories.map(|c| Band::new(c.len(), (0.0, (plot_sub_w - 1) as f64)));
+        let x_ticks = if band.is_none() && axis_rows == 2 {
             fit_x_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
         } else {
             None
         };
-        let x_domain = match &x_ticks {
-            Some(ticks) => domain_with_ticks(x_data, ticks),
-            None => x_data,
+        let x_domain = match (&band, &x_ticks) {
+            (Some(band), _) => (0.0, (band.count() - 1) as f64),
+            (None, Some(ticks)) => domain_with_ticks(x_data, ticks),
+            (None, None) => x_data,
         };
-
-        let x_scale = Linear::new(x_domain, (0.0, (plot_sub_w - 1) as f64));
+        let x_range = match &band {
+            Some(band) => (band.center(0), band.center(band.count() - 1)),
+            None => (0.0, (plot_sub_w - 1) as f64),
+        };
+        let x_scale = Linear::new(x_domain, x_range);
         let y_scale = Linear::new(y_domain, ((plot_sub_h - 1) as f64, 0.0));
 
         // Chrome first, marks last: marks own the plot area, chrome owns the rest.
@@ -199,36 +213,48 @@ impl<'a> Plot<'a> {
                     surface.text(start, axis_row + 1, &tick.label, Color::Default);
                 }
             }
+            if axis_rows == 2
+                && let (Some(band), Some(categories)) = (&band, categories)
+            {
+                let budget = ((band.step() / px as f64).round() as usize).max(2) - 1;
+                for (index, category) in categories.iter().enumerate() {
+                    let label = fit_width(category, budget);
+                    let len = display_width(&label) as i64;
+                    let center = gutter as i64 + (band.center(index) / px as f64).round() as i64;
+                    let start = (center - len / 2).clamp(0, (frame.width as i64 - len).max(0));
+                    surface.text(start, axis_row + 1, &label, Color::Default);
+                }
+            }
         }
 
         let x_offset = (gutter * px) as f64;
         let y_offset = (plot_top * py) as f64;
-        for layer in &polylines {
-            match layer.kind {
-                Kind::Line => {
-                    let mut previous: Option<(f64, f64)> = None;
-                    for (&xv, &yv) in layer.x.iter().zip(layer.y.iter()) {
-                        if !xv.is_finite() || !yv.is_finite() {
-                            previous = None;
-                            continue;
-                        }
-                        let position = (x_offset + x_scale.map(xv), y_offset + y_scale.map(yv));
-                        match previous {
-                            Some(from) => surface.line(from, position, layer.color),
-                            None => surface.dot(position.0, position.1, layer.color),
-                        }
-                        previous = Some(position);
-                    }
+        for layer in &layers {
+            match layer {
+                ResolvedLayer::Series { x, y, color, kind } => {
+                    draw_series(
+                        &mut surface,
+                        kind,
+                        x,
+                        y,
+                        *color,
+                        &x_scale,
+                        &y_scale,
+                        (x_offset, y_offset),
+                    );
                 }
-                Kind::Points => {
-                    for (&xv, &yv) in layer.x.iter().zip(layer.y.iter()) {
-                        if xv.is_finite() && yv.is_finite() {
-                            surface.dot(
-                                x_offset + x_scale.map(xv),
-                                y_offset + y_scale.map(yv),
-                                layer.color,
-                            );
-                        }
+                ResolvedLayer::Bars { values, color, .. } => {
+                    if let Some(band) = &band {
+                        draw_bars(
+                            &mut surface,
+                            band,
+                            &y_scale,
+                            values,
+                            *color,
+                            (gutter, plot_top, plot_rows),
+                            (px, py),
+                            frame.charset,
+                        );
                     }
                 }
             }
@@ -237,8 +263,8 @@ impl<'a> Plot<'a> {
         surface
     }
 
-    /// Materializes every layer into x/y columns plus a resolved color and drawing
-    /// kind. Functions are sampled here, once per subpixel column of the frame width.
+    /// Materializes every layer into drawable columns plus a resolved color.
+    /// Functions are sampled here, once per subpixel column of the frame width.
     fn resolve(&self, sample_width: usize) -> Vec<ResolvedLayer<'_>> {
         let single = self.layers.len() == 1;
         self.layers
@@ -256,7 +282,7 @@ impl<'a> Plot<'a> {
                     Mark::Line(line) => {
                         let color = assigned(line.color);
                         match &line.source {
-                            Source::Points { x, y } => ResolvedLayer {
+                            Source::Points { x, y } => ResolvedLayer::Series {
                                 x: index_or_borrow(x.as_ref(), y.len()),
                                 y: Cow::Borrowed(y.as_slice()),
                                 color,
@@ -268,7 +294,7 @@ impl<'a> Plot<'a> {
                                 let x: Vec<f64> =
                                     (0..samples).map(|i| domain.0 + i as f64 * step).collect();
                                 let y: Vec<f64> = x.iter().map(|&value| function(value)).collect();
-                                ResolvedLayer {
+                                ResolvedLayer::Series {
                                     x: Cow::Owned(x),
                                     y: Cow::Owned(y),
                                     color,
@@ -277,23 +303,20 @@ impl<'a> Plot<'a> {
                             }
                         }
                     }
-                    Mark::Points(points) => ResolvedLayer {
+                    Mark::Points(points) => ResolvedLayer::Series {
                         x: index_or_borrow(points.x.as_ref(), points.y.len()),
                         y: Cow::Borrowed(points.y.as_slice()),
                         color: assigned(points.color),
                         kind: Kind::Points,
                     },
+                    Mark::Bars(bars) => ResolvedLayer::Bars {
+                        categories: &bars.categories,
+                        values: bars.values.as_slice(),
+                        color: assigned(bars.color),
+                    },
                 }
             })
             .collect()
-    }
-}
-
-/// The x channel: a borrowed series, or generated indices `0, 1, 2, …`.
-fn index_or_borrow<'p>(x: Option<&'p crate::data::Series<'_>>, len: usize) -> Cow<'p, [f64]> {
-    match x {
-        Some(series) => Cow::Borrowed(series.as_slice()),
-        None => Cow::Owned((0..len).map(|i| i as f64).collect()),
     }
 }
 
@@ -305,18 +328,183 @@ impl std::fmt::Display for Plot<'_> {
     }
 }
 
-/// How a resolved layer draws its columns.
+/// How a resolved series layer draws its columns.
 enum Kind {
     Line,
     Points,
 }
 
-/// One layer, resolved to drawable columns.
-struct ResolvedLayer<'p> {
-    x: Cow<'p, [f64]>,
-    y: Cow<'p, [f64]>,
+/// One layer, resolved to drawable data.
+enum ResolvedLayer<'p> {
+    Series {
+        x: Cow<'p, [f64]>,
+        y: Cow<'p, [f64]>,
+        color: Color,
+        kind: Kind,
+    },
+    Bars {
+        categories: &'p [String],
+        values: &'p [f64],
+        color: Color,
+    },
+}
+
+impl ResolvedLayer<'_> {
+    /// The finite x extent this layer contributes to the shared domain.
+    /// Bars contribute none — their axis is the band scale.
+    fn x_extent(&self) -> Option<(f64, f64)> {
+        match self {
+            ResolvedLayer::Series { x, .. } => extent(x),
+            ResolvedLayer::Bars { .. } => None,
+        }
+    }
+
+    /// The finite y extent this layer contributes to the shared domain.
+    fn y_extent(&self) -> Option<(f64, f64)> {
+        match self {
+            ResolvedLayer::Series { y, .. } => extent(y),
+            ResolvedLayer::Bars { values, .. } => extent(values),
+        }
+    }
+}
+
+/// Draws one line or points layer through the shared scales.
+#[allow(clippy::too_many_arguments)]
+fn draw_series(
+    surface: &mut Surface,
+    kind: &Kind,
+    x: &[f64],
+    y: &[f64],
     color: Color,
-    kind: Kind,
+    x_scale: &Linear,
+    y_scale: &Linear,
+    offset: (f64, f64),
+) {
+    match kind {
+        Kind::Line => {
+            let mut previous: Option<(f64, f64)> = None;
+            for (&xv, &yv) in x.iter().zip(y.iter()) {
+                if !xv.is_finite() || !yv.is_finite() {
+                    previous = None;
+                    continue;
+                }
+                let position = (offset.0 + x_scale.map(xv), offset.1 + y_scale.map(yv));
+                match previous {
+                    Some(from) => surface.line(from, position, color),
+                    None => surface.dot(position.0, position.1, color),
+                }
+                previous = Some(position);
+            }
+        }
+        Kind::Points => {
+            for (&xv, &yv) in x.iter().zip(y.iter()) {
+                if xv.is_finite() && yv.is_finite() {
+                    surface.dot(
+                        offset.0 + x_scale.map(xv),
+                        offset.1 + y_scale.map(yv),
+                        color,
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Draws one bars layer: cell-aligned columns from the zero baseline, with
+/// eighth-block partial fills at the value end (upward bars) or coarse upper-block
+/// fills (downward bars — Unicode has no lower-anchored upper ramp).
+#[allow(clippy::too_many_arguments)]
+fn draw_bars(
+    surface: &mut Surface,
+    band: &Band,
+    y_scale: &Linear,
+    values: &[f64],
+    color: Color,
+    place: (usize, usize, usize),
+    density: (usize, usize),
+    charset: Charset,
+) {
+    let (gutter, plot_top, plot_rows) = place;
+    let (px, py) = density;
+    let ramp = charset.fill_ramp();
+    let eighths = ramp.len() == 8;
+    let baseline = y_scale.map(0.0) / py as f64;
+    let mut buffer = [0u8; 4];
+
+    for (index, &value) in values.iter().enumerate().take(band.count()) {
+        if !value.is_finite() || value == 0.0 {
+            continue;
+        }
+        let left = (band.position(index) / px as f64).round() as i64;
+        let right =
+            (((band.position(index) + band.bandwidth()) / px as f64).round() as i64).max(left + 1);
+        let end = y_scale.map(value) / py as f64;
+
+        for column in left..right {
+            let cell_column = gutter as i64 + column;
+            if value > 0.0 {
+                // Upward: full cells from the (snapped-down) baseline, a
+                // bottom-anchored partial at the top.
+                let bottom = baseline.ceil().min(plot_rows as f64);
+                let top = end.max(0.0);
+                let mut row = top.floor();
+                while row < bottom {
+                    let coverage = ((row + 1.0 - top).min(1.0) * 8.0).round() as usize;
+                    let glyph: Option<char> = if eighths {
+                        (coverage >= 1).then(|| ramp[coverage.min(8) - 1])
+                    } else {
+                        (coverage >= 4).then(|| ramp[0])
+                    };
+                    if let Some(glyph) = glyph {
+                        surface.text(
+                            cell_column,
+                            plot_top as i64 + row as i64,
+                            glyph.encode_utf8(&mut buffer),
+                            color,
+                        );
+                    }
+                    row += 1.0;
+                }
+            } else {
+                // Downward: full cells from the (snapped-up) baseline, a coarse
+                // top-anchored partial at the bottom.
+                let top = baseline.floor().max(0.0);
+                let bottom = end.min(plot_rows as f64);
+                let mut row = top;
+                while row < bottom.ceil() {
+                    let coverage = (bottom - row).min(1.0);
+                    let glyph: Option<char> = if !eighths {
+                        (coverage >= 0.5).then(|| ramp[0])
+                    } else if coverage >= 7.0 / 8.0 {
+                        Some('\u{2588}')
+                    } else if coverage >= 0.5 {
+                        Some('\u{2580}')
+                    } else if coverage >= 1.0 / 8.0 {
+                        Some('\u{2594}')
+                    } else {
+                        None
+                    };
+                    if let Some(glyph) = glyph {
+                        surface.text(
+                            cell_column,
+                            plot_top as i64 + row as i64,
+                            glyph.encode_utf8(&mut buffer),
+                            color,
+                        );
+                    }
+                    row += 1.0;
+                }
+            }
+        }
+    }
+}
+
+/// The x channel: a borrowed series, or generated indices `0, 1, 2, …`.
+fn index_or_borrow<'p>(x: Option<&'p crate::data::Series<'_>>, len: usize) -> Cow<'p, [f64]> {
+    match x {
+        Some(series) => Cow::Borrowed(series.as_slice()),
+        None => Cow::Owned((0..len).map(|i| i as f64).collect()),
+    }
 }
 
 /// The finite `(min, max)` of a column, or `None` without finite values.

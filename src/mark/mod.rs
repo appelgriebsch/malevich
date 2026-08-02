@@ -5,9 +5,11 @@
 //! scales across all layers and rasterizes. [`Mark`] is the closed set of them —
 //! chart types compose marks, they never extend the set.
 
+mod bars;
 mod line;
 mod points;
 
+pub use bars::Bars;
 pub use line::Line;
 pub(crate) use line::Source;
 pub use points::Points;
@@ -22,6 +24,8 @@ pub enum Mark<'a> {
     Line(Line<'a>),
     /// Unconnected dots.
     Points(Points<'a>),
+    /// Filled columns over a categorical axis.
+    Bars(Bars<'a>),
 }
 
 impl<'a> Mark<'a> {
@@ -30,6 +34,7 @@ impl<'a> Mark<'a> {
         match self {
             Mark::Line(line) => Mark::Line(line.into_owned()),
             Mark::Points(points) => Mark::Points(points.into_owned()),
+            Mark::Bars(bars) => Mark::Bars(bars.into_owned()),
         }
     }
 }
@@ -43,5 +48,11 @@ impl<'a> From<Line<'a>> for Mark<'a> {
 impl<'a> From<Points<'a>> for Mark<'a> {
     fn from(points: Points<'a>) -> Mark<'a> {
         Mark::Points(points)
+    }
+}
+
+impl<'a> From<Bars<'a>> for Mark<'a> {
+    fn from(bars: Bars<'a>) -> Mark<'a> {
+        Mark::Bars(bars)
     }
 }

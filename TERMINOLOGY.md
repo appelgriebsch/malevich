@@ -25,8 +25,9 @@ A family of geometric primitives that draw data: `Line`, `Points`, `Bars`, `Area
 `Cells`, `Range`, `Rule`, `Text`. The word follows Observable Plot and Vega-Lite
 ("mark"), chosen over matplotlib's "artist" (too broad) and "geom" (ggplot jargon).
 Chart types are compositions of marks, never peers of them. Maps to the `mark`
-module — currently `mark::Line` (points, paired series, or a sampled function); the
-rest of the family follows.
+module — currently `mark::Line` (points, paired series, or a sampled function),
+`mark::Points`, and `mark::Bars` (categorical, zero-baseline), joined under the closed
+`mark::Mark` enum; the rest of the family follows.
 
 ## Channel
 
@@ -62,8 +63,9 @@ Observable Plot convention). Maps to `Reducer` *(planned)*.
 A mapping from data domain to raster range with the d3-scale contract: `nice`,
 `ticks(n)`, `invert`, and a tick formatter. Position scales: `Linear`, `Log`, `Time`,
 `Band`; color scales: sequential, diverging, categorical. Maps to the `scale`
-module — currently `scale::Linear` (the affine map, including the raster y-flip) and
-`scale::Ticks`; the richer contract grows with the log and time work.
+module — currently `scale::Linear` (the affine map, including the raster y-flip),
+`scale::Band` (categories across a range, d3 padding model), and `scale::Ticks`; the
+richer contract grows with the log and time work.
 
 ## Ticks
 
