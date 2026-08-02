@@ -188,6 +188,62 @@ pub fn contour<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
     plot
 }
 
+/// A vector field: one arrow per point, from `(x[i], y[i])` along `(u[i], v[i])`.
+///
+/// Arrows are drawn in data coordinates — a shaft to the displaced tip with two
+/// barbs — so they scale with the axes like any other mark. Points with a
+/// non-finite component are skipped.
+///
+/// ```
+/// let (x, y) = ([0.0, 1.0, 2.0], [0.0, 0.5, 0.2]);
+/// let (u, v) = ([0.4, 0.3, -0.2], [0.2, -0.3, 0.4]);
+/// let chart = malevich::quiver(&x[..], &y[..], &u[..], &v[..]);
+/// println!("{}", chart.render(&malevich::Frame::plain(40, 12)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if the four series have different lengths.
+pub fn quiver<'a>(
+    x: impl IntoSeries<'a>,
+    y: impl IntoSeries<'a>,
+    u: impl IntoSeries<'a>,
+    v: impl IntoSeries<'a>,
+) -> Plot<'a> {
+    let (x, y) = (x.into_series(), y.into_series());
+    let (u, v) = (u.into_series(), v.into_series());
+    assert!(
+        x.len() == y.len() && y.len() == u.len() && u.len() == v.len(),
+        "quiver requires series of equal length"
+    );
+    let mut xs = Vec::with_capacity(x.len() * 9);
+    let mut ys = Vec::with_capacity(x.len() * 9);
+    let mut segment = |from: (f64, f64), to: (f64, f64)| {
+        xs.extend([from.0, to.0, f64::NAN]);
+        ys.extend([from.1, to.1, f64::NAN]);
+    };
+    for index in 0..x.len() {
+        let (x, y) = (x.as_slice()[index], y.as_slice()[index]);
+        let (u, v) = (u.as_slice()[index], v.as_slice()[index]);
+        if !(x.is_finite() && y.is_finite() && u.is_finite() && v.is_finite()) {
+            continue;
+        }
+        let tip = (x + u, y + v);
+        segment((x, y), tip);
+        // Barbs point back from the tip, 30° off the shaft, 30% of its length.
+        let angle = v.atan2(u);
+        let reach = 0.3 * u.hypot(v);
+        for barb in [-1.0, 1.0] {
+            let theta = angle + barb * (std::f64::consts::PI * 5.0 / 6.0);
+            segment(
+                tip,
+                (tip.0 + reach * theta.cos(), tip.1 + reach * theta.sin()),
+            );
+        }
+    }
+    Plot::new().layer(Line::xy(xs, ys))
+}
+
 /// Box plots: one five-number box per category (type-7 quartiles, Tukey whiskers),
 /// with outliers as dots.
 ///

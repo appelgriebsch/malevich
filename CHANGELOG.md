@@ -13,6 +13,9 @@ without apology.
   function-backed lines refuse to serialize honestly.
 - `Colormap` stops are copy-on-write (`Colormap::new` is still const); `Colormap`
   is no longer `Copy`.
+- `quiver` preset: a vector field as arrows drawn in data coordinates.
+- `ndarray` feature: one-dimensional arrays and views ingest directly, zero-copy
+  when contiguous.
 
 ## 0.9.0 (Red Cavalry) — 2026-08-02
 

@@ -136,6 +136,13 @@ colored tour sized to your terminal.
   on `ratatui-core`), `plot.widget()` drops any chart into a TUI — cells written
   straight into the buffer, colors as styles, your app keeps the terminal
   (`cargo run --example tui --features ratatui`).
+- **Serializable specs, no lies.** With the `serde` feature, every plot round-trips
+  through serde — send one over the wire, cache it, snapshot it as JSON. Gaps encode
+  as `null` and decode back to gaps; a function-backed line refuses to serialize
+  rather than silently drop its curve.
+- **Plots from ndarray.** With the `ndarray` feature, one-dimensional arrays and
+  views plot directly — contiguous storage zero-copy, a strided matrix column
+  converted once, like any other input.
 - **Live charts without a framework.** A thread-shared sliding window plus an
   in-place repaint handle (cursor up, erase down, one write): flicker-free streaming
   that survives in scrollback and never takes over your terminal

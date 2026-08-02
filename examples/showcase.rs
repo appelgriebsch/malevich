@@ -195,6 +195,28 @@ fn main() {
             .render(&frame)
     );
 
+    // A vector field: circular flow, one arrow per grid point.
+    let mut fx = Vec::new();
+    let mut fy = Vec::new();
+    let mut fu = Vec::new();
+    let mut fv = Vec::new();
+    for row in 0..8 {
+        for column in 0..11 {
+            let px = -2.0 + 0.4 * column as f64;
+            let py = -1.4 + 0.4 * row as f64;
+            fx.push(px);
+            fy.push(py);
+            fu.push(-0.3 * py);
+            fv.push(0.3 * px);
+        }
+    }
+    println!(
+        "{}\n",
+        malevich::quiver(&fx[..], &fy[..], &fu[..], &fv[..])
+            .title("vector field (synthetic)")
+            .render(&frame)
+    );
+
     // The asciichart-style corners line.
     let wave: Vec<f64> = (0..60)
         .map(|i| 15.0 * (i as f64 * std::f64::consts::PI / 30.0).sin())

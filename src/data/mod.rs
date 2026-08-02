@@ -4,6 +4,8 @@
 //! Borrowed `f64` slices are zero-copy; every other scalar type is converted and
 //! copied once. `NaN` is the gap encoding and flows through ingestion untouched.
 
+#[cfg(feature = "ndarray")]
+mod ndarray;
 mod series;
 
 pub use series::{IntoSeries, Series};

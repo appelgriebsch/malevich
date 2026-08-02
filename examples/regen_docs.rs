@@ -67,6 +67,10 @@ const GALLERY: &[(&str, &str)] = &[
         "The MATLAB peaks function as iso-lines: marching squares, tick-chosen levels, a labeled legend.",
     ),
     (
+        "quiver",
+        "A vector field: spiral flow into a sink, one arrow per grid point, drawn in data coordinates.",
+    ),
+    (
         "boxes",
         "Box plots: type-7 quartiles, Tukey whiskers, outliers — one Range mark with          body and marker channels per category.",
     ),
