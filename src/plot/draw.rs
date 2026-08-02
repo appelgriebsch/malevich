@@ -82,7 +82,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                     *columns,
                     values,
                     *extents,
-                    *colormap,
+                    colormap.clone(),
                     x_scale,
                     y_scale,
                     (gutter, plot_top, plot_cols, plot_rows),

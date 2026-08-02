@@ -23,6 +23,7 @@ use crate::scale::Scale;
 /// assert!(text.contains("example"));
 /// ```
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plot<'a> {
     layers: Vec<Mark<'a>>,
     title: Option<String>,

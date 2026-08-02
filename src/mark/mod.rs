@@ -32,6 +32,7 @@ pub use text::Text;
 /// Constructed via `From` — `plot.layer(Line::y(&data))` works directly.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Mark<'a> {
     /// A polyline through ordered points.
     Line(Line<'a>),

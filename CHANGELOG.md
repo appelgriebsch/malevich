@@ -5,6 +5,15 @@ without apology.
 
 ## Unreleased (toward 0.10.0)
 
+- Contour lines: `stat::contours` (marching squares — canonical shared-edge
+  interpolation, center-average saddles, NaN gaps) and the `contour` preset with
+  tick-chosen levels, colormap-graded and legend-labeled.
+- `serde` feature: every spec type round-trips (plots, marks, scales, themes,
+  frames, grids). Series gaps encode as `null` in JSON and decode back to gaps;
+  function-backed lines refuse to serialize honestly.
+- `Colormap` stops are copy-on-write (`Colormap::new` is still const); `Colormap`
+  is no longer `Copy`.
+
 ## 0.9.0 (Red Cavalry) — 2026-08-02
 
 Riding into the ratatui ecosystem.

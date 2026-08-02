@@ -8,6 +8,7 @@ use crate::render::Color;
 /// clipping at the plot edge. The anchor extends the axis domains, so an annotation
 /// is never silently off-plot.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Text {
     pub(crate) x: f64,
     pub(crate) y: f64,

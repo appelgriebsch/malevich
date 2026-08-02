@@ -7,6 +7,7 @@
 /// default everywhere.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Scale {
     /// A continuous linear axis — the default.
     #[default]

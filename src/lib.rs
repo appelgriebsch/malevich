@@ -29,6 +29,14 @@
 //!
 //! The gallery in `EXAMPLES.md` shows every chart type with its source, and
 //! `cargo run --example showcase` renders a colored tour in your terminal.
+//!
+//! # Features
+//!
+//! - `ratatui` — [`PlotWidget`], a `ratatui` widget rendering any plot into a
+//!   `Buffer`.
+//! - `serde` — every spec type (plots, marks, scales, themes, frames)
+//!   round-trips through serde; gaps survive JSON as `null`, and function-backed
+//!   lines refuse to serialize rather than lie.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -41,6 +49,8 @@ pub mod plot;
 mod presets;
 pub mod render;
 pub mod scale;
+#[cfg(all(test, feature = "serde"))]
+mod serde_tests;
 pub mod stat;
 pub mod stream;
 mod theme;

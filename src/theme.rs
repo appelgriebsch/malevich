@@ -8,6 +8,7 @@ use crate::render::Color;
 /// vanish on white paper-like backgrounds. [`Theme::detect`] picks one from the
 /// environment; a custom palette is just a struct literal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Theme {
     /// Colors assigned to layers that set none explicitly, in layer order.
     pub palette: [Color; 6],

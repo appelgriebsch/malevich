@@ -8,6 +8,7 @@ use crate::render::Color;
 /// Fills are drawn as vertical subpixel runs, so they are solid in every charset
 /// and their edges keep subpixel precision. Gaps (`NaN`) in any edge break the fill.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Area<'a> {
     pub(crate) x: Option<Series<'a>>,
     pub(crate) low: Option<Series<'a>>,

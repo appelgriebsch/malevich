@@ -1,26 +1,29 @@
 //! Colormaps: continuous value-to-color scales for gridded marks.
 
+use std::borrow::Cow;
+
 use crate::render::Color;
 
 /// A sequential colormap: linear interpolation through RGB stops.
 ///
 /// The default approximates viridis — perceptually ordered, colorblind-safe,
 /// readable on dark and light backgrounds. Any custom map is just a list of stops.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Colormap {
-    stops: &'static [(u8, u8, u8)],
+    stops: Cow<'static, [(u8, u8, u8)]>,
 }
 
 impl Colormap {
     /// The default sequential map (a viridis approximation).
     pub const DEFAULT: Colormap = Colormap {
-        stops: &[
+        stops: Cow::Borrowed(&[
             (68, 1, 84),
             (59, 82, 139),
             (33, 145, 140),
             (94, 201, 98),
             (253, 231, 37),
-        ],
+        ]),
     };
 
     /// A custom colormap over evenly spaced RGB stops.
@@ -33,7 +36,9 @@ impl Colormap {
             stops.len() >= 2,
             "Colormap::new requires at least two stops"
         );
-        Colormap { stops }
+        Colormap {
+            stops: Cow::Borrowed(stops),
+        }
     }
 
     /// The color at `position` in `[0, 1]` (clamped; `NaN` maps to the low end).

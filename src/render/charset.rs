@@ -9,6 +9,7 @@
 /// Richer tiers draw the same subpixels with better glyphs; the choice never affects
 /// what marks draw, only how cells print.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Charset {
     /// Pure ASCII: one pixel per cell, drawn as `*`. Works on any terminal.
     Ascii,

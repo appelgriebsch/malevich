@@ -11,6 +11,7 @@ use crate::render::Color;
 /// body of a candle), and an optional [`Range::marker`] draws a highlighted
 /// crossbar (the median). Gaps (`NaN`) in any channel skip that interval.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Range<'a> {
     pub(crate) placement: RangePlacement<'a>,
     pub(crate) low: Series<'a>,
@@ -23,6 +24,7 @@ pub struct Range<'a> {
 
 /// Where ranges sit on the x axis.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum RangePlacement<'a> {
     /// At numeric x positions (`None` means indices `0, 1, 2, …`).
     Numeric(Option<Series<'a>>),

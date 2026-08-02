@@ -10,6 +10,7 @@ use crate::scale::Colormap;
 /// the grid stays readable even in plain, colorless output. Gaps (`NaN`) render as
 /// blanks. Row 0 is the bottom row — matrix y grows upward like any other y axis.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cells<'a> {
     pub(crate) columns: usize,
     pub(crate) values: Series<'a>,

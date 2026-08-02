@@ -360,7 +360,7 @@ pub(crate) fn resolve<'p>(
                     columns: cells.columns,
                     values: cells.values.as_slice(),
                     extents: cells.extents,
-                    colormap: cells.colormap,
+                    colormap: cells.colormap.clone(),
                 },
                 Mark::Range(range) => {
                     let (x, categories): (Cow<'_, [f64]>, _) = match &range.placement {

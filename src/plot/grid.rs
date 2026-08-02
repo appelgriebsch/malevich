@@ -21,6 +21,7 @@ use super::plot::Plot;
 /// println!("{}", grid.render(&Frame::plain(80, 12)));
 /// ```
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Grid<'a> {
     columns: usize,
     plots: Vec<Plot<'a>>,

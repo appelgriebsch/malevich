@@ -176,6 +176,30 @@ macro_rules! converting_into_series {
 
 converting_into_series!(f32, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
+/// With the `serde` feature, a series encodes as a sequence of optional numbers:
+/// gaps (`NaN`) become `None`/`null`, so they survive formats like JSON that
+/// cannot carry `NaN`, and decode back to gaps exactly.
+#[cfg(feature = "serde")]
+impl serde::Serialize for Series<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(
+            self.iter()
+                .map(|value| if value.is_nan() { None } else { Some(value) }),
+        )
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, 'a> serde::Deserialize<'de> for Series<'a> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let values: Vec<Option<f64>> = serde::Deserialize::deserialize(deserializer)?;
+        Ok(values
+            .into_iter()
+            .map(|value| value.unwrap_or(f64::NAN))
+            .collect())
+    }
+}
+
 #[cfg(test)]
 #[path = "tests/series_tests.rs"]
 mod tests;

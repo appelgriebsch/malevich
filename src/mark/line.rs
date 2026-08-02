@@ -8,6 +8,7 @@ use crate::render::Color;
 
 /// How a line renders.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LineStyle {
     /// Through the charset's subpixels — braille dots, octant ink. The default.
     #[default]
@@ -153,6 +154,67 @@ impl std::fmt::Debug for Line<'_> {
             }
         }
         debug.field("color", &self.color).finish()
+    }
+}
+
+/// With the `serde` feature, point-backed lines round-trip; a function-backed
+/// line refuses to serialize (a closure has no data representation) — sample it
+/// into points first.
+#[cfg(feature = "serde")]
+mod serde_impls {
+    use serde::ser::Error as _;
+
+    use super::*;
+
+    #[derive(serde::Serialize)]
+    struct Repr<'s> {
+        x: Option<&'s Series<'s>>,
+        y: &'s Series<'s>,
+        color: &'s Option<Color>,
+        label: &'s Option<String>,
+        style: LineStyle,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct OwnedRepr {
+        x: Option<Series<'static>>,
+        y: Series<'static>,
+        color: Option<Color>,
+        label: Option<String>,
+        style: LineStyle,
+    }
+
+    impl serde::Serialize for Line<'_> {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            match &self.source {
+                Source::Points { x, y } => Repr {
+                    x: x.as_ref(),
+                    y,
+                    color: &self.color,
+                    label: &self.label,
+                    style: self.style,
+                }
+                .serialize(serializer),
+                Source::Function { .. } => Err(S::Error::custom(
+                    "a function-backed Line cannot be serialized; sample it into points first",
+                )),
+            }
+        }
+    }
+
+    impl<'de, 'a> serde::Deserialize<'de> for Line<'a> {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            let repr = OwnedRepr::deserialize(deserializer)?;
+            Ok(Line {
+                source: Source::Points {
+                    x: repr.x,
+                    y: repr.y,
+                },
+                color: repr.color,
+                label: repr.label,
+                style: repr.style,
+            })
+        }
     }
 }
 

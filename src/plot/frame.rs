@@ -13,6 +13,7 @@ use crate::theme::Theme;
 /// produce the same string. [`Frame::detect`] is the single place environment
 /// inspection happens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Frame {
     /// Total width in cells, chrome included.
     pub width: usize,

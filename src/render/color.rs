@@ -9,6 +9,7 @@
 
 /// How much color the output may carry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ColorMode {
     /// No escape codes at all: safe for files, pipes, and logs.
     Plain,
@@ -26,6 +27,7 @@ pub enum ColorMode {
 /// terminal theme's decision — which is what makes them safe defaults.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Color {
     #[default]
     Default,

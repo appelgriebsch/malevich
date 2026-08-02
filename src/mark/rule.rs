@@ -7,6 +7,7 @@ use crate::render::Color;
 ///
 /// A rule extends the axis domain to include its position, so it is always visible.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum Orientation {
     Horizontal(f64),
     Vertical(f64),
@@ -14,6 +15,7 @@ pub(crate) enum Orientation {
 
 /// A reference line across the plot area.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rule {
     pub(crate) orientation: Orientation,
     pub(crate) color: Option<Color>,

@@ -11,6 +11,7 @@ use crate::render::Color;
 /// their x values against category indices: `0.0` is the center of the first band,
 /// `1.0` the second, and so on.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bars<'a> {
     pub(crate) placement: Placement,
     pub(crate) values: Series<'a>,
@@ -20,6 +21,7 @@ pub struct Bars<'a> {
 
 /// Where bars sit on the x axis: named bands, or contiguous numeric spans.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum Placement {
     Bands(Vec<String>),
     Spans { start: f64, width: f64 },

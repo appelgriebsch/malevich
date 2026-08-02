@@ -5,6 +5,7 @@ use crate::render::Color;
 
 /// Unconnected dots at data positions; gaps (`NaN`) simply have no dot.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Points<'a> {
     pub(crate) x: Option<Series<'a>>,
     pub(crate) y: Series<'a>,
