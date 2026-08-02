@@ -5,6 +5,13 @@ without apology.
 
 ## Unreleased (toward 0.11.0 — Polish)
 
+- M4 is pixel-exact again — and honestly so. Large lines are now reduced in *mapped
+  raster space*: a cheap min/max probe fixes the layout, then M4 buckets by the exact
+  column each point renders into, so the downsampled raster is bit-identical to
+  drawing every point (verified against a raw-render oracle across index and xy lines
+  at several sizes). The extra probe pass trades a little speed — ~45 ms for ten
+  million points, up from ~28 — for the restored guarantee; a single-pass path is
+  tracked for later.
 - A fallible validation boundary: `Plot::validate` checks a spec's invariants
   (paired channel lengths, rectangular grids, valid colormaps, finite manual
   domains, scale/domain compatibility) and returns the first problem as a typed

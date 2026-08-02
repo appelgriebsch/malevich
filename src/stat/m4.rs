@@ -2,9 +2,10 @@
 //!
 //! Jugel, Fischer, Mahlmann, Markl, "M4: A Visualization-Oriented Time Series Data
 //! Aggregation" (PVLDB 2014): keeping the first, last, minimum, and maximum point of
-//! every column preserves that column's vertical silhouette. When the columns are a
-//! raster's own pixel columns the line rendering is reproduced exactly; a faithful
-//! reduction in one O(n) pass with O(width) memory.
+//! every raster column reproduces that column's pixels exactly. The plot pipeline
+//! buckets by the rendered column ([`m4_mapped`]), so the auto-inserted reduction is
+//! pixel-identical to drawing every point — zero visual error, one O(n) pass, O(width)
+//! memory.
 
 /// One column's aggregate: the four points that matter, in `(x, y)` pairs.
 #[derive(Debug, Clone, Copy)]
@@ -51,15 +52,30 @@ impl M4 {
         }
     }
 
+    /// An aggregator addressed by explicit bucket index instead of by domain — the
+    /// bucket count is `columns` and [`M4::record`] places points directly. Used by
+    /// [`m4_mapped`], which buckets by the rendered raster column.
+    pub(crate) fn columns(columns: usize) -> M4 {
+        M4 {
+            domain: (0.0, 1.0),
+            buckets: vec![None; columns.max(1)],
+            leading_gap: false,
+        }
+    }
+
     /// Accumulates one point. A non-finite `y` records a gap; points with a
     /// non-finite or out-of-domain `x` are ignored.
     pub fn add(&mut self, x: f64, y: f64) {
         if !x.is_finite() {
             return;
         }
-        let Some(index) = self.bucket_index(x) else {
-            return;
-        };
+        if let Some(index) = self.bucket_index(x) {
+            self.record(index, x, y);
+        }
+    }
+
+    /// Records `(x, y)` into bucket `index`. A non-finite `y` marks a gap there.
+    fn record(&mut self, index: usize, x: f64, y: f64) {
         if !y.is_finite() {
             match &mut self.buckets[index] {
                 Some(bucket) => bucket.gap = Some(bucket.last.0),
@@ -213,15 +229,47 @@ pub fn m4(x: &[f64], y: &[f64], columns: usize) -> Option<(Vec<f64>, Vec<f64>)> 
     Some(aggregate.emit())
 }
 
-/// [`m4`] for an index-plotted series (`x = 0, 1, 2, …`), without materializing the
-/// index column. Indices are always sorted, so this never refuses.
-pub(crate) fn m4_indexed(y: &[f64], columns: usize) -> Option<(Vec<f64>, Vec<f64>)> {
-    if y.is_empty() {
+/// Reduces a line to at most four points per raster column, bucketing by the column
+/// each point actually *renders* into (`map(x)` rounded to a subpixel column) rather
+/// than by the raw x-domain. Because the buckets are the drawn pixel columns, the
+/// reduction is pixel-exact for that raster — and it follows a non-linear axis (log)
+/// for free, since `map` is the axis's own forward transform.
+///
+/// `x = None` means the implicit indices `0, 1, 2, …`, materialized on the fly.
+/// Returns `None` when x is not ascending (M4 reorders within a column, exact only
+/// for monotonic x); non-finite x, non-finite mapped positions (a non-positive value
+/// on a log axis), and positions outside `[0, columns)` are skipped.
+pub(crate) fn m4_mapped(
+    x: Option<&[f64]>,
+    y: &[f64],
+    columns: usize,
+    map: impl Fn(f64) -> f64,
+) -> Option<(Vec<f64>, Vec<f64>)> {
+    if columns == 0 {
         return None;
     }
-    let mut aggregate = M4::new((0.0, (y.len() - 1) as f64), columns.max(1));
-    for (index, &value) in y.iter().enumerate() {
-        aggregate.add(index as f64, value);
+    let mut aggregate = M4::columns(columns);
+    let mut previous = f64::NEG_INFINITY;
+    for (index, &yv) in y.iter().enumerate() {
+        let xv = match x {
+            Some(values) => values[index],
+            None => index as f64,
+        };
+        if !xv.is_finite() {
+            continue;
+        }
+        if xv < previous {
+            return None;
+        }
+        previous = xv;
+        let position = map(xv);
+        if !position.is_finite() {
+            continue;
+        }
+        let column = position.round();
+        if (0.0..columns as f64).contains(&column) {
+            aggregate.record(column as usize, xv, yv);
+        }
     }
     Some(aggregate.emit())
 }

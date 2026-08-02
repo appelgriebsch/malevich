@@ -4,8 +4,7 @@
 //! University of Iceland, 2013). Shape-preserving, count-targeted downsampling:
 //! pick, per bucket, the point forming the largest triangle with its neighbors.
 //! Complementary to [`super::m4`] — LTTB targets a point *count* and preserves
-//! visual character, M4 targets a raster *width* and preserves each column's
-//! silhouette there.
+//! visual character, M4 targets a raster *width* and is pixel-exact there.
 
 /// Downsamples the series to at most `target` points, keeping the first and last.
 ///

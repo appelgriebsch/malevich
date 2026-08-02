@@ -55,44 +55,30 @@ fn the_bar_preset_equals_its_grammar_expansion() {
 }
 
 #[test]
-fn large_lines_downsample_faithfully_against_the_raw_raster() {
-    let n = 50_000;
-    let x: Vec<f64> = (0..n).map(|i| i as f64).collect();
-    let y: Vec<f64> = (0..n)
+fn large_lines_downsample_pixel_exactly_against_the_raw_raster() {
+    // The oracle is the *raw* raster — every point drawn, M4 disabled. Mapped-space
+    // M4 buckets by the rendered column, so the reduction is bit-identical to it, not
+    // merely close. Cover an index line and an xy line at several frame sizes.
+    let index: Vec<f64> = (0..50_000)
         .map(|i| (i as f64 * 0.002).sin() * (i as f64 * 0.0003).cos() * 5.0)
         .collect();
-    let frame = Frame::plain(70, 15);
-    let plot = Plot::new().layer(Line::xy(&x[..], &y[..]));
-    // The oracle is the *raw* raster — every one of the 50k points drawn, M4
-    // disabled — not another M4 pass. M4 currently reduces to the frame width over
-    // the data extent, so for a signal that oscillates every few pixels the buckets
-    // do not land exactly on raster columns and the two are faithful, not identical
-    // (see private/IMPROVEMENTS.md — true pixel-exactness wants mapped-space M4).
-    let downsampled = inked_cells(&plot.rasterize_with(&frame, true).to_plain());
-    let raw = inked_cells(&plot.rasterize_with(&frame, false).to_plain());
-    let shared = downsampled.intersection(&raw).count();
-    let union = downsampled.union(&raw).count();
-    let agreement = shared as f64 / union as f64;
-    assert!(
-        agreement >= 0.85,
-        "downsample diverged from the raw raster: {agreement:.3} cell agreement"
-    );
-}
-
-/// The set of inked `(row, column)` cells in a rendered plot.
-#[cfg(test)]
-fn inked_cells(rendered: &str) -> std::collections::HashSet<(usize, usize)> {
-    rendered
-        .lines()
-        .enumerate()
-        .flat_map(|(row, line)| {
-            line.chars()
-                .enumerate()
-                .filter(|(_, glyph)| !glyph.is_whitespace())
-                .map(move |(column, _)| (row, column))
-                .collect::<Vec<_>>()
-        })
-        .collect()
+    let xy_x: Vec<f64> = (0..200_000).map(|i| i as f64 * 0.3).collect();
+    let xy_y: Vec<f64> = (0..200_000).map(|i| (i as f64 * 0.001).sin()).collect();
+    for (width, height) in [(70, 15), (133, 24), (40, 10)] {
+        let frame = Frame::plain(width, height);
+        let index_plot = Plot::new().layer(Line::y(&index[..])).title("t");
+        assert_eq!(
+            index_plot.rasterize_with(&frame, true).to_plain(),
+            index_plot.rasterize_with(&frame, false).to_plain(),
+            "index line at {width}x{height} is not pixel-exact"
+        );
+        let xy_plot = Plot::new().layer(Line::xy(&xy_x[..], &xy_y[..]));
+        assert_eq!(
+            xy_plot.rasterize_with(&frame, true).to_plain(),
+            xy_plot.rasterize_with(&frame, false).to_plain(),
+            "xy line at {width}x{height} is not pixel-exact"
+        );
+    }
 }
 
 #[test]

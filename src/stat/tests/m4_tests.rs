@@ -1,4 +1,4 @@
-use super::{M4, m4};
+use super::{M4, m4, m4_mapped};
 
 fn wave(n: usize) -> (Vec<f64>, Vec<f64>) {
     let x: Vec<f64> = (0..n).map(|i| i as f64).collect();
@@ -96,4 +96,33 @@ fn a_leading_gap_in_a_column_breaks_before_its_points() {
     let (_, oy) = m4(&x, &y, 1).unwrap();
     assert!(oy[0].is_nan(), "the break comes first");
     assert!(oy[1..].iter().all(|v| v.is_finite()));
+}
+
+#[test]
+fn mapped_reduction_keeps_at_most_four_points_per_target_column() {
+    // Map 10_000 indices onto 20 columns; every column keeps <= 4 points, output
+    // stays sorted by the mapped position.
+    let y: Vec<f64> = (0..10_000).map(|i| (i as f64 * 0.05).sin()).collect();
+    let columns = 20;
+    let map = |x: f64| x / 10_000.0 * (columns as f64 - 1.0);
+    let (rx, _) = m4_mapped(None, &y, columns, map).unwrap();
+    assert!(rx.len() <= columns * 4, "kept {} points", rx.len());
+    assert!(rx.windows(2).all(|pair| pair[0] <= pair[1]), "not sorted");
+}
+
+#[test]
+fn mapped_reduction_refuses_non_ascending_x() {
+    let x = [0.0, 3.0, 1.0, 9.0];
+    let y = [1.0, 2.0, 3.0, 4.0];
+    assert!(m4_mapped(Some(&x), &y, 4, |v| v).is_none());
+}
+
+#[test]
+fn mapped_reduction_preserves_a_gap() {
+    // A NaN y between two runs, all inside one column: the break survives.
+    let y = [1.0, 1.0, f64::NAN, 5.0, 5.0];
+    let (_, ry) = m4_mapped(None, &y, 1, |_| 0.0).unwrap();
+    let gap = ry.iter().position(|v| v.is_nan()).expect("gap kept");
+    assert!(ry[..gap].iter().all(|&v| v < 3.0));
+    assert!(ry[gap + 1..].iter().all(|&v| v > 3.0));
 }

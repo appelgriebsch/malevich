@@ -3,8 +3,23 @@
 use std::borrow::Cow;
 
 use crate::mark::{LineStyle, Mark, Orientation, Placement, RangePlacement, Source};
+use crate::plot::layout::Map;
 use crate::render::Color;
 use crate::scale::Colormap;
+
+/// How large line layers are reduced before rasterizing.
+#[derive(Clone, Copy)]
+pub(crate) enum Reduce {
+    /// Draw every point — the raw raster, and the oracle it is checked against.
+    None,
+    /// Collapse each line to its two extent corners: a fast min/max fold that gives
+    /// the layout the domains it needs, without a full reduction pass. Used by the
+    /// geometry probe before the real mapped reduction.
+    Extent,
+    /// Pixel-exact M4 bucketed by the rendered column, using the resolved layout's
+    /// scale and subpixel width.
+    Mapped { map: Map, columns: usize },
+}
 
 /// How a resolved series layer draws its columns.
 pub(crate) enum Kind {
@@ -276,7 +291,7 @@ pub(crate) fn resolve<'p>(
     marks: &'p [Mark<'_>],
     sample_width: usize,
     palette: &[Color; 6],
-    downsample: bool,
+    reduce: Reduce,
 ) -> Vec<ResolvedLayer<'p>> {
     // Annotations (rules, text) draw in the default foreground and do not
     // consume palette slots; a single data layer draws in the default too.
@@ -303,20 +318,24 @@ pub(crate) fn resolve<'p>(
                     let color = assigned(line.color);
                     match &line.source {
                         Source::Points { x, y } => {
-                            // The aggregate-to-raster pipeline: past four points
-                            // per subpixel column, M4 reduces the series with
-                            // zero visual error. Non-monotonic x declines.
-                            let downsampled = if downsample && y.len() > 4 * sample_width.max(1) {
-                                match x {
-                                    Some(series) => crate::stat::m4(
-                                        series.as_slice(),
-                                        y.as_slice(),
-                                        sample_width,
-                                    ),
-                                    None => crate::stat::m4_indexed(y.as_slice(), sample_width),
+                            // The aggregate-to-raster pipeline: past four points per
+                            // raster column, M4 reduces the series to what the column
+                            // can show. Mapped M4 buckets by the rendered column, so
+                            // the reduction is pixel-exact; non-monotonic x declines.
+                            let downsampled = match reduce {
+                                Reduce::None => None,
+                                Reduce::Extent => {
+                                    line_extent(x.as_ref().map(|s| s.as_slice()), y.as_slice())
                                 }
-                            } else {
-                                None
+                                Reduce::Mapped { map, columns } if y.len() > 4 * columns.max(1) => {
+                                    crate::stat::m4_mapped(
+                                        x.as_ref().map(|series| series.as_slice()),
+                                        y.as_slice(),
+                                        columns,
+                                        |value| map.map(value),
+                                    )
+                                }
+                                Reduce::Mapped { .. } => None,
                             };
                             match downsampled {
                                 Some((dx, dy)) => ResolvedLayer::Series {
@@ -419,6 +438,49 @@ pub(crate) fn resolve<'p>(
 }
 
 /// The x channel: a borrowed series, or generated indices `0, 1, 2, …`.
+/// The two extent corners of a line, `(x_min, y_min)` and `(x_max, y_max)` — a fast
+/// min/max fold carrying the same x- and y-extents as the full series (the pairing is
+/// irrelevant; the layout reads each axis independently). `None` when no finite point
+/// exists. `x = None` means the implicit indices `0, 1, 2, …`.
+fn line_extent(x: Option<&[f64]>, y: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
+    // `f64::min`/`max` skip NaN (`min(v, NaN) == v`), so gaps drop out for free, and
+    // LLVM lowers the reduction to a vectorized `vminpd`/`vmaxpd` sweep — memory-bound,
+    // which is the whole point of a cheap probe pass.
+    let (mut y_min, mut y_max) = (f64::INFINITY, f64::NEG_INFINITY);
+    match x {
+        // Index line: x is `0..=len-1`, all finite — fold only y (the hot path for a
+        // long series plotted against its indices).
+        None => {
+            for &yv in y {
+                y_min = y_min.min(yv);
+                y_max = y_max.max(yv);
+            }
+            (y_min <= y_max).then(|| (vec![0.0, (y.len() - 1) as f64], vec![y_min, y_max]))
+        }
+        Some(values) => {
+            let (mut x_min, mut x_max) = (f64::INFINITY, f64::NEG_INFINITY);
+            for (&xv, &yv) in values.iter().zip(y) {
+                // Only a finite pair should move either extent; guard on both.
+                if xv.is_finite() && yv.is_finite() {
+                    if xv < x_min {
+                        x_min = xv;
+                    }
+                    if xv > x_max {
+                        x_max = xv;
+                    }
+                    if yv < y_min {
+                        y_min = yv;
+                    }
+                    if yv > y_max {
+                        y_max = yv;
+                    }
+                }
+            }
+            (x_min <= x_max).then(|| (vec![x_min, x_max], vec![y_min, y_max]))
+        }
+    }
+}
+
 pub(crate) fn index_or_borrow<'p>(
     x: Option<&'p crate::data::Series<'_>>,
     len: usize,

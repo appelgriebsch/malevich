@@ -235,30 +235,44 @@ impl<'a> Plot<'a> {
     /// false, large line layers draw every point — the raw raster that M4 must
     /// reproduce, used as a test oracle for the aggregate-to-raster claim.
     pub(crate) fn rasterize_with(&self, frame: &Frame, downsample: bool) -> Surface {
+        use super::resolve::Reduce;
+
         let mut surface = Surface::new(frame.width, frame.height, frame.charset);
         if frame.width == 0 || frame.height == 0 {
             return surface;
         }
         let (px, _) = frame.charset.pixels_per_cell();
-        let layers = super::resolve::resolve(
-            &self.layers,
-            frame.width * px,
-            &frame.theme.palette,
-            downsample,
-        );
-        let layout = super::layout::Layout::compute(
-            frame,
-            &layers,
-            self.title.is_some(),
-            (&self.x, &self.y),
-            (self.x_label.as_deref(), self.y_label.as_deref()),
-            (self.x_domain, self.y_domain),
-        );
+        let sample_width = frame.width * px;
+        let title = self.title.is_some();
+        let scales = (&self.x, &self.y);
+        let labels = (self.x_label.as_deref(), self.y_label.as_deref());
+        let domains = (self.x_domain, self.y_domain);
+        let palette = &frame.theme.palette;
+
+        // Pixel-exact M4 must bucket by the *rendered* column, which the layout
+        // fixes — but the layout needs the data first. So probe once with a coarse
+        // reduction (M4 preserves the extents the layout reads), lift the scale and
+        // width from that geometry, then reduce for real in exactly that raster space.
+        let reduce = if downsample {
+            let probe =
+                super::resolve::resolve(&self.layers, sample_width, palette, Reduce::Extent);
+            let geometry =
+                super::layout::Layout::compute(frame, &probe, title, scales, labels, domains);
+            Reduce::Mapped {
+                map: geometry.x_scale,
+                columns: geometry.plot_sub_w,
+            }
+        } else {
+            Reduce::None
+        };
+
+        let layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
+        let layout = super::layout::Layout::compute(frame, &layers, title, scales, labels, domains);
         super::chrome::draw(
             &mut surface,
             &layout,
             self.title.as_deref(),
-            (self.x_label.as_deref(), self.y_label.as_deref()),
+            labels,
             &layers,
         );
         super::draw::layers(&mut surface, &layout, &layers);

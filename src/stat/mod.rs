@@ -25,7 +25,7 @@ pub use contour::{Contour, contours};
 pub use ecdf::ecdf;
 pub use kde::kde;
 pub use lttb::lttb;
-pub(crate) use m4::m4_indexed;
+pub(crate) use m4::m4_mapped;
 pub use m4::{M4, m4};
 pub use moments::Moments;
 pub use stack::stack;
