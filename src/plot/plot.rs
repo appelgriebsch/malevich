@@ -4,7 +4,7 @@
 use std::borrow::Cow;
 
 use super::frame::Frame;
-use crate::mark::{Line, Source};
+use crate::mark::{Mark, Source};
 use crate::render::{Color, Surface};
 use crate::scale::{Linear, Ticks};
 
@@ -37,7 +37,7 @@ const PALETTE: [Color; 6] = [
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct Plot<'a> {
-    layers: Vec<Line<'a>>,
+    layers: Vec<Mark<'a>>,
     title: Option<String>,
 }
 
@@ -53,8 +53,8 @@ impl<'a> Plot<'a> {
     /// Adds a mark as the next layer. Layers share scales: domains are the union of
     /// all layers' data, resolved at render time.
     #[must_use]
-    pub fn layer(mut self, line: Line<'a>) -> Plot<'a> {
-        self.layers.push(line);
+    pub fn layer(mut self, mark: impl Into<Mark<'a>>) -> Plot<'a> {
+        self.layers.push(mark.into());
         self
     }
 
@@ -68,7 +68,7 @@ impl<'a> Plot<'a> {
     /// Detaches from any borrowed storage, making the plot `'static`.
     pub fn into_owned(self) -> Plot<'static> {
         Plot {
-            layers: self.layers.into_iter().map(Line::into_owned).collect(),
+            layers: self.layers.into_iter().map(Mark::into_owned).collect(),
             title: self.title,
         }
     }
@@ -202,62 +202,97 @@ impl<'a> Plot<'a> {
 
         let x_offset = (gutter * px) as f64;
         let y_offset = (plot_top * py) as f64;
-        for line in &polylines {
-            let mut previous: Option<(f64, f64)> = None;
-            for (&xv, &yv) in line.x.iter().zip(line.y.iter()) {
-                if !xv.is_finite() || !yv.is_finite() {
-                    previous = None;
-                    continue;
+        for layer in &polylines {
+            match layer.kind {
+                Kind::Line => {
+                    let mut previous: Option<(f64, f64)> = None;
+                    for (&xv, &yv) in layer.x.iter().zip(layer.y.iter()) {
+                        if !xv.is_finite() || !yv.is_finite() {
+                            previous = None;
+                            continue;
+                        }
+                        let position = (x_offset + x_scale.map(xv), y_offset + y_scale.map(yv));
+                        match previous {
+                            Some(from) => surface.line(from, position, layer.color),
+                            None => surface.dot(position.0, position.1, layer.color),
+                        }
+                        previous = Some(position);
+                    }
                 }
-                let position = (x_offset + x_scale.map(xv), y_offset + y_scale.map(yv));
-                match previous {
-                    Some(from) => surface.line(from, position, line.color),
-                    None => surface.dot(position.0, position.1, line.color),
+                Kind::Points => {
+                    for (&xv, &yv) in layer.x.iter().zip(layer.y.iter()) {
+                        if xv.is_finite() && yv.is_finite() {
+                            surface.dot(
+                                x_offset + x_scale.map(xv),
+                                y_offset + y_scale.map(yv),
+                                layer.color,
+                            );
+                        }
+                    }
                 }
-                previous = Some(position);
             }
         }
 
         surface
     }
 
-    /// Materializes every layer into x/y columns plus a resolved color. Functions are
-    /// sampled here, once per subpixel column of the frame width.
-    fn resolve(&self, sample_width: usize) -> Vec<Polyline<'_>> {
+    /// Materializes every layer into x/y columns plus a resolved color and drawing
+    /// kind. Functions are sampled here, once per subpixel column of the frame width.
+    fn resolve(&self, sample_width: usize) -> Vec<ResolvedLayer<'_>> {
         let single = self.layers.len() == 1;
         self.layers
             .iter()
             .enumerate()
-            .map(|(index, layer)| {
-                let color = layer.color.unwrap_or(if single {
-                    Color::Default
-                } else {
-                    PALETTE[index % PALETTE.len()]
-                });
-                match &layer.source {
-                    Source::Points { x, y } => Polyline {
-                        x: match x {
-                            Some(series) => Cow::Borrowed(series.as_slice()),
-                            None => Cow::Owned((0..y.len()).map(|i| i as f64).collect()),
-                        },
-                        y: Cow::Borrowed(y.as_slice()),
-                        color,
-                    },
-                    Source::Function { domain, function } => {
-                        let samples = sample_width.max(2);
-                        let step = (domain.1 - domain.0) / (samples - 1) as f64;
-                        let x: Vec<f64> =
-                            (0..samples).map(|i| domain.0 + i as f64 * step).collect();
-                        let y: Vec<f64> = x.iter().map(|&value| function(value)).collect();
-                        Polyline {
-                            x: Cow::Owned(x),
-                            y: Cow::Owned(y),
-                            color,
+            .map(|(index, mark)| {
+                let assigned = |explicit: Option<Color>| {
+                    explicit.unwrap_or(if single {
+                        Color::Default
+                    } else {
+                        PALETTE[index % PALETTE.len()]
+                    })
+                };
+                match mark {
+                    Mark::Line(line) => {
+                        let color = assigned(line.color);
+                        match &line.source {
+                            Source::Points { x, y } => ResolvedLayer {
+                                x: index_or_borrow(x.as_ref(), y.len()),
+                                y: Cow::Borrowed(y.as_slice()),
+                                color,
+                                kind: Kind::Line,
+                            },
+                            Source::Function { domain, function } => {
+                                let samples = sample_width.max(2);
+                                let step = (domain.1 - domain.0) / (samples - 1) as f64;
+                                let x: Vec<f64> =
+                                    (0..samples).map(|i| domain.0 + i as f64 * step).collect();
+                                let y: Vec<f64> = x.iter().map(|&value| function(value)).collect();
+                                ResolvedLayer {
+                                    x: Cow::Owned(x),
+                                    y: Cow::Owned(y),
+                                    color,
+                                    kind: Kind::Line,
+                                }
+                            }
                         }
                     }
+                    Mark::Points(points) => ResolvedLayer {
+                        x: index_or_borrow(points.x.as_ref(), points.y.len()),
+                        y: Cow::Borrowed(points.y.as_slice()),
+                        color: assigned(points.color),
+                        kind: Kind::Points,
+                    },
                 }
             })
             .collect()
+    }
+}
+
+/// The x channel: a borrowed series, or generated indices `0, 1, 2, …`.
+fn index_or_borrow<'p>(x: Option<&'p crate::data::Series<'_>>, len: usize) -> Cow<'p, [f64]> {
+    match x {
+        Some(series) => Cow::Borrowed(series.as_slice()),
+        None => Cow::Owned((0..len).map(|i| i as f64).collect()),
     }
 }
 
@@ -269,11 +304,18 @@ impl std::fmt::Display for Plot<'_> {
     }
 }
 
+/// How a resolved layer draws its columns.
+enum Kind {
+    Line,
+    Points,
+}
+
 /// One layer, resolved to drawable columns.
-struct Polyline<'p> {
+struct ResolvedLayer<'p> {
     x: Cow<'p, [f64]>,
     y: Cow<'p, [f64]>,
     color: Color,
+    kind: Kind,
 }
 
 /// The finite `(min, max)` of a column, or `None` without finite values.

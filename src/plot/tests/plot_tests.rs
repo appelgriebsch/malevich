@@ -15,6 +15,36 @@ fn the_line_preset_equals_its_grammar_expansion() {
 }
 
 #[test]
+fn the_scatter_preset_equals_its_grammar_expansion() {
+    let x = [1.0, 2.0, 3.0];
+    let y = [2.0, 1.0, 3.0];
+    let frame = Frame::plain(40, 10);
+    let preset = crate::scatter(&x[..], &y[..]).render(&frame);
+    let grammar = Plot::new()
+        .layer(crate::mark::Points::xy(&x[..], &y[..]))
+        .render(&frame);
+    assert_eq!(preset, grammar);
+}
+
+const PARABOLA: &str = r"10 ┤⠁                          ⠈
+   │
+   │  ⠁                      ⠈
+ 5 ┤    ⠄                  ⠠
+   │      ⢀              ⡀
+   │        ⢀          ⡀
+ 0 ┤          ⠠ ⢀  ⡀ ⠄
+   └┬───────────┬────────────┬──
+    0           3            6";
+
+#[test]
+fn scatter_dots_stay_unconnected_in_the_snapshot() {
+    let x: Vec<f64> = (0..14).map(|i| i as f64 * 0.5).collect();
+    let y: Vec<f64> = x.iter().map(|v| (v - 3.25) * (v - 3.25)).collect();
+    let text = crate::scatter(&x[..], &y[..]).render(&Frame::plain(32, 9));
+    assert_eq!(text, PARABOLA);
+}
+
+#[test]
 fn rendering_is_deterministic() {
     let plot = Plot::new().layer(Line::y(&[1.0, 5.0, 2.0, 8.0][..]));
     let frame = Frame::plain(40, 10);

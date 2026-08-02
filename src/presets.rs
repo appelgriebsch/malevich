@@ -4,7 +4,7 @@
 //! does is beyond reach of the grammar, and each returns the [`Plot`] for refinement.
 
 use crate::data::IntoSeries;
-use crate::mark::Line;
+use crate::mark::{Line, Points};
 use crate::plot::Plot;
 
 /// A line chart of `values` plotted against their indices.
@@ -15,4 +15,14 @@ use crate::plot::Plot;
 /// ```
 pub fn line<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
     Plot::new().layer(Line::y(values))
+}
+
+/// A scatter chart of the points `(x[i], y[i])`.
+///
+/// ```
+/// let chart = malevich::scatter(&[1.0, 2.0, 3.0][..], &[2.0, 1.0, 3.0][..]);
+/// println!("{}", chart.render(&malevich::Frame::plain(40, 10)));
+/// ```
+pub fn scatter<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
+    Plot::new().layer(Points::xy(x, y))
 }
