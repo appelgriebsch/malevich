@@ -3,7 +3,8 @@
 //! Uses `Frame::detect()`: charts size themselves to the terminal width, use color
 //! when the terminal has any, and degrade to plain text when piped. This example is
 //! deliberately not part of the deterministic gallery — its output depends on where
-//! you run it, which is the point.
+//! you run it, which is the point. For the moving version of this tour, run
+//! `cargo run --example live`.
 
 use malevich::{Area, Frame, Line, Plot, Points, Rule, Text};
 
@@ -28,6 +29,44 @@ fn main() {
             .layer(Rule::h(0.5).label("target"))
             .layer(Text::at(60.0, 2.0, "< converging"))
             .title("loss with annotations (synthetic)")
+            .render(&frame)
+    );
+
+    // A calendar axis: unix seconds in, "Aug 2" out.
+    let month_stamp = |year: i64, month: u64| -> f64 {
+        let y = year - i64::from(month <= 2);
+        let era = if y >= 0 { y } else { y - 399 } / 400;
+        let yoe = (y - era * 400) as u64;
+        let doy = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5;
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        ((era * 146_097 + doe as i64 - 719_468) * 86_400) as f64
+    };
+    let stamps: Vec<f64> = (0..36)
+        .map(|i| month_stamp(2024 + i / 12, (1 + i % 12) as u64))
+        .collect();
+    let level: Vec<f64> = (0..36)
+        .map(|i| 400.0 + i as f64 * 0.2 + ((i % 12) as f64 * 0.52).sin() * 3.0)
+        .collect();
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Line::xy(&stamps[..], &level[..]))
+            .title("a monthly series on a calendar axis (synthetic)")
+            .time_x()
+            .render(&frame)
+    );
+
+    // A rolling mean over its noisy source.
+    let raw: Vec<f64> = (0..120)
+        .map(|i| 3.0 * (-0.03 * i as f64).exp() + 0.4 + ((i * 7) % 13) as f64 * 0.06)
+        .collect();
+    let smooth = malevich::stat::Window::new(9).mean(&raw);
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Line::y(&raw[..]).label("raw"))
+            .layer(Line::y(&smooth[..]).label("rolling mean"))
+            .title("smoothing (synthetic)")
             .render(&frame)
     );
 
