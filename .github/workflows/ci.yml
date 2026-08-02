@@ -24,3 +24,5 @@ jobs:
       - run: cargo test --doc
       - run: cargo run --example regen_docs -- --check
       - run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
