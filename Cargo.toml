@@ -9,3 +9,13 @@ keywords = ["plot", "chart", "terminal", "ascii", "visualization"]
 categories = ["visualization", "command-line-interface"]
 
 [dependencies]
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "ticks"
+harness = false
+
+[profile.bench]
+codegen-units = 1
