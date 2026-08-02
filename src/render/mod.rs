@@ -11,5 +11,5 @@ mod color;
 mod surface;
 
 pub use charset::Charset;
-pub use color::Color;
+pub use color::{Color, ColorMode};
 pub use surface::Surface;

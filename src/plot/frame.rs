@@ -3,16 +3,7 @@
 
 use std::io::IsTerminal;
 
-use crate::render::Charset;
-
-/// How much color the output may carry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ColorMode {
-    /// No escape codes at all: safe for files, pipes, and logs.
-    Plain,
-    /// The 16-color ANSI palette.
-    Ansi,
-}
+use crate::render::{Charset, ColorMode};
 
 /// Where and how to render: size in cells, charset, and color mode.
 ///
@@ -44,9 +35,14 @@ impl Frame {
         }
     }
 
-    /// Detects a frame from the environment: terminal width, a height around a third
-    /// of the terminal, color only when stdout is a terminal and `NO_COLOR` is unset
-    /// (or empty). Falls back to 80×16 plain when there is no terminal.
+    /// Detects a frame from the environment.
+    ///
+    /// Size: the terminal's width and about a third of its height (80×16 without a
+    /// terminal). Charset: ASCII for `TERM=dumb` or an explicitly non-UTF-8 locale,
+    /// braille otherwise. Color, in precedence order: `NO_COLOR` (non-empty)
+    /// disables; `CLICOLOR_FORCE` (non-empty, not `0`) forces color even when piped;
+    /// otherwise color only when stdout is a terminal — at the tier named by
+    /// `COLORTERM=truecolor`, a `256color` `TERM`, or 16-color ANSI as the floor.
     pub fn detect() -> Frame {
         let (width, height) = match terminal_size::terminal_size() {
             Some((terminal_size::Width(w), terminal_size::Height(h))) => {
@@ -54,17 +50,55 @@ impl Frame {
             }
             None => (80, 16),
         };
-        let no_color = std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty());
-        let color = if !no_color && std::io::stdout().is_terminal() {
-            ColorMode::Ansi
-        } else {
-            ColorMode::Plain
-        };
         Frame {
             width,
             height,
-            charset: Charset::Braille,
-            color,
+            charset: detect_charset(),
+            color: detect_color(),
         }
     }
+}
+
+fn variable(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|value| !value.is_empty())
+}
+
+fn detect_charset() -> Charset {
+    if variable("TERM").as_deref() == Some("dumb") {
+        return Charset::Ascii;
+    }
+    // POSIX precedence; the first set variable decides. Unset means a modern
+    // default, which means UTF-8.
+    for name in ["LC_ALL", "LC_CTYPE", "LANG"] {
+        if let Some(locale) = variable(name) {
+            return if locale.to_ascii_lowercase().contains("utf") {
+                Charset::Braille
+            } else {
+                Charset::Ascii
+            };
+        }
+    }
+    Charset::Braille
+}
+
+fn detect_color() -> ColorMode {
+    if variable("NO_COLOR").is_some() {
+        return ColorMode::Plain;
+    }
+    let forced = variable("CLICOLOR_FORCE").is_some_and(|value| value != "0");
+    if !forced && !std::io::stdout().is_terminal() {
+        return ColorMode::Plain;
+    }
+    let term = variable("TERM").unwrap_or_default();
+    if term == "dumb" {
+        return ColorMode::Plain;
+    }
+    let colorterm = variable("COLORTERM").unwrap_or_default();
+    if colorterm == "truecolor" || colorterm == "24bit" {
+        return ColorMode::TrueColor;
+    }
+    if term.contains("256color") {
+        return ColorMode::Ansi256;
+    }
+    ColorMode::Ansi16
 }

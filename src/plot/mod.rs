@@ -4,5 +4,5 @@ mod frame;
 #[allow(clippy::module_inception)]
 mod plot;
 
-pub use frame::{ColorMode, Frame};
+pub use frame::Frame;
 pub use plot::Plot;

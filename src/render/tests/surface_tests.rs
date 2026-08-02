@@ -1,4 +1,4 @@
-use super::super::{Charset, Color};
+use super::super::{Charset, Color, ColorMode};
 use super::Surface;
 
 const fn assert_send_sync<T: Send + Sync>() {}
@@ -88,15 +88,21 @@ fn plain_output_trims_trailing_spaces_and_keeps_leading_ones() {
 #[test]
 fn empty_surfaces_encode_to_nothing() {
     assert_eq!(Surface::new(0, 0, Charset::Braille).to_plain(), "");
-    assert_eq!(Surface::new(0, 0, Charset::Braille).to_ansi(), "");
-    assert_eq!(Surface::new(3, 0, Charset::Ascii).to_ansi(), "");
+    assert_eq!(
+        Surface::new(0, 0, Charset::Braille).encode(ColorMode::Ansi16),
+        ""
+    );
+    assert_eq!(
+        Surface::new(3, 0, Charset::Ascii).encode(ColorMode::Ansi16),
+        ""
+    );
 }
 
 #[test]
 fn uncolored_surfaces_encode_identically_in_both_encoders() {
     let mut surface = Surface::new(4, 2, Charset::Braille);
     surface.line((0.0, 0.0), (7.0, 7.0), Color::Default);
-    assert_eq!(surface.to_ansi(), surface.to_plain());
+    assert_eq!(surface.encode(ColorMode::Ansi16), surface.to_plain());
 }
 
 #[test]
@@ -105,7 +111,10 @@ fn ansi_runs_emit_one_code_per_color_change() {
     surface.set(0, 0, Color::Red);
     surface.set(1, 0, Color::Red);
     surface.set(2, 0, Color::Blue);
-    assert_eq!(surface.to_ansi(), "\x1b[31m**\x1b[34m*\x1b[0m");
+    assert_eq!(
+        surface.encode(ColorMode::Ansi16),
+        "\x1b[31m**\x1b[34m*\x1b[0m"
+    );
 }
 
 #[test]
@@ -114,13 +123,16 @@ fn the_last_write_owns_a_shared_cell_color() {
     surface.set(0, 0, Color::Red);
     surface.set(1, 0, Color::Red);
     surface.set(1, 0, Color::Blue);
-    assert_eq!(surface.to_ansi(), "\x1b[31m*\x1b[34m*\x1b[0m");
+    assert_eq!(
+        surface.encode(ColorMode::Ansi16),
+        "\x1b[31m*\x1b[34m*\x1b[0m"
+    );
 }
 
 #[test]
 fn colored_rows_end_with_a_reset_even_after_trimming() {
     let mut surface = Surface::new(4, 1, Charset::Ascii);
     surface.set(0, 0, Color::Green);
-    let encoded = surface.to_ansi();
+    let encoded = surface.encode(ColorMode::Ansi16);
     assert_eq!(encoded, "\x1b[32m*\x1b[0m");
 }

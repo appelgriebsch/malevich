@@ -14,6 +14,6 @@ pub mod render;
 pub mod scale;
 
 pub use mark::Line;
-pub use plot::{ColorMode, Frame, Plot};
+pub use plot::{Frame, Plot};
 pub use presets::line;
-pub use render::{Charset, Color};
+pub use render::{Charset, Color, ColorMode};

@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 
-use super::frame::{ColorMode, Frame};
+use super::frame::Frame;
 use crate::mark::{Line, Source};
 use crate::render::{Color, Surface};
 use crate::scale::{Linear, Ticks};
@@ -75,11 +75,7 @@ impl<'a> Plot<'a> {
 
     /// Renders into a string according to the frame's charset and color mode.
     pub fn render(&self, frame: &Frame) -> String {
-        let surface = self.rasterize(frame);
-        match frame.color {
-            ColorMode::Plain => surface.to_plain(),
-            ColorMode::Ansi => surface.to_ansi(),
-        }
+        self.rasterize(frame).encode(frame.color)
     }
 
     fn rasterize(&self, frame: &Frame) -> Surface {

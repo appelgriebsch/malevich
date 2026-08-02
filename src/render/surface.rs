@@ -1,9 +1,7 @@
 //! The subpixel surface: the grid marks draw on, and its string encoders.
 
-use std::fmt::Write as _;
-
 use super::charset::Charset;
-use super::color::Color;
+use super::color::{Color, ColorMode, Resolved};
 
 /// One character cell: a subpixel pattern, an optional text glyph, and a color.
 ///
@@ -141,43 +139,36 @@ impl Surface {
         }
     }
 
-    /// Encodes the surface as plain text: no escape codes, rows joined by newlines,
-    /// trailing spaces trimmed.
+    /// Encodes as plain text — no escape codes ever. Sugar for
+    /// [`Surface::encode`] with [`ColorMode::Plain`].
     pub fn to_plain(&self) -> String {
-        let mut out = String::with_capacity((self.width + 1) * self.height);
-        for row in 0..self.height {
-            if row > 0 {
-                out.push('\n');
-            }
-            let mut kept = out.len();
-            for (glyph, _) in self.row(row) {
-                out.push(glyph);
-                if glyph != ' ' {
-                    kept = out.len();
-                }
-            }
-            out.truncate(kept);
-        }
-        out
+        self.encode(ColorMode::Plain)
     }
 
-    /// Encodes the surface with ANSI colors: SGR codes are emitted only when the
-    /// color changes along a row (with a reset at the end of any colored row), so
-    /// uncolored surfaces encode identically to [`Surface::to_plain`].
-    pub fn to_ansi(&self) -> String {
+    /// Encodes the surface at the color tier of `mode`.
+    ///
+    /// Colors resolve to what the mode can carry (RGB quantizes downhill; see
+    /// [`Color`]); an SGR sequence is emitted only when the resolved color changes
+    /// along a row, so colors that quantize identically share one sequence, and any
+    /// colored row ends with a reset. Rows are joined by newlines with trailing
+    /// spaces trimmed. In [`ColorMode::Plain`] the output carries no escapes at all.
+    pub fn encode(&self, mode: ColorMode) -> String {
         let mut out = String::with_capacity((self.width + 8) * self.height);
         for row in 0..self.height {
             if row > 0 {
                 out.push('\n');
             }
-            let mut current = Color::Default;
+            let mut current = Resolved::Default;
             let mut kept = out.len();
             for (glyph, color) in self.row(row) {
                 // Spaces carry no visible color; letting them inherit the current
                 // one lengthens runs and keeps trailing whitespace trimmable.
-                if glyph != ' ' && color != current {
-                    let _ = write!(out, "\x1b[{}m", color.sgr());
-                    current = color;
+                if glyph != ' ' {
+                    let resolved = color.resolve(mode);
+                    if resolved != current {
+                        resolved.write_sgr(&mut out);
+                        current = resolved;
+                    }
                 }
                 out.push(glyph);
                 if glyph != ' ' {
@@ -185,7 +176,7 @@ impl Surface {
                 }
             }
             out.truncate(kept);
-            if current != Color::Default {
+            if current != Resolved::Default {
                 out.push_str("\x1b[0m");
             }
         }
