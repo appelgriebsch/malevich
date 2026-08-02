@@ -30,6 +30,7 @@ pub struct Plot<'a> {
     title: Option<String>,
     log_x: bool,
     log_y: bool,
+    time_x: bool,
 }
 
 impl<'a> Plot<'a> {
@@ -40,7 +41,17 @@ impl<'a> Plot<'a> {
             title: None,
             log_x: false,
             log_y: false,
+            time_x: false,
         }
+    }
+
+    /// Reads the x axis as time: unix seconds (UTC), with calendar-aligned ticks
+    /// and multi-scale labels (`14:05`, `Aug 2`, `2027`). Takes precedence over
+    /// [`Plot::log_x`]; ignored when a bars layer owns the x axis.
+    #[must_use]
+    pub fn time_x(mut self) -> Plot<'a> {
+        self.time_x = true;
+        self
     }
 
     /// Puts the x axis on a base-10 logarithmic scale: decade ticks (`10²`-style),
@@ -85,6 +96,7 @@ impl<'a> Plot<'a> {
             title: self.title,
             log_x: self.log_x,
             log_y: self.log_y,
+            time_x: self.time_x,
         }
     }
 
@@ -116,7 +128,8 @@ impl<'a> Plot<'a> {
             .iter()
             .any(|layer| matches!(layer, ResolvedLayer::Bars { .. }));
 
-        let log_x = self.log_x && categories.is_none();
+        let time_x = self.time_x && categories.is_none();
+        let log_x = self.log_x && categories.is_none() && !time_x;
         let log_y = self.log_y;
         let x_data = if log_x {
             union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
@@ -176,7 +189,9 @@ impl<'a> Plot<'a> {
         // The x axis: a band scale when a bars layer is present, ticks otherwise.
         let band = categories.map(|c| Band::new(c.len(), (0.0, (plot_sub_w - 1) as f64)));
         let x_ticks = if band.is_none() && axis_rows == 2 {
-            if log_x {
+            if time_x {
+                fit_time_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
+            } else if log_x {
                 Some(Ticks::log10(
                     x_data.0,
                     x_data.1,
@@ -1292,6 +1307,53 @@ fn domain_with_ticks(data: (f64, f64), ticks: &Ticks) -> (f64, f64) {
     }
 }
 
+/// Whether tick labels fit without collisions: centered under their ticks, clamped
+/// to the frame, at least two cells apart.
+fn labels_fit(
+    ticks: &Ticks,
+    domain: (f64, f64),
+    plot_sub_w: usize,
+    px: usize,
+    gutter: usize,
+    frame_width: usize,
+) -> bool {
+    let scale = Linear::new(domain, (0.0, (plot_sub_w - 1) as f64));
+    let mut last_end: i64 = i64::MIN;
+    for tick in ticks {
+        let column = (scale.map(tick.value).round() as usize) / px;
+        let len = display_width(&tick.label) as i64;
+        let center = (gutter + column) as i64;
+        let start = (center - len / 2).clamp(0, (frame_width as i64 - len).max(0));
+        if start < last_end + 2 {
+            return false;
+        }
+        last_end = start + len;
+    }
+    true
+}
+
+/// Chooses the densest calendar labeling that fits without collisions.
+fn fit_time_ticks(
+    data: (f64, f64),
+    plot_cols: usize,
+    plot_sub_w: usize,
+    px: usize,
+    gutter: usize,
+    frame_width: usize,
+) -> Option<Ticks> {
+    let densest = (plot_cols / 8).clamp(2, 12);
+    for target in (2..=densest).rev() {
+        let ticks = Ticks::time(data.0, data.1, target);
+        if ticks.is_empty() {
+            continue;
+        }
+        if labels_fit(&ticks, data, plot_sub_w, px, gutter, frame_width) {
+            return Some(ticks);
+        }
+    }
+    None
+}
+
 /// Chooses the densest x labeling whose labels fit without collisions: centered
 /// under their ticks, clamped to the frame, at least two cells apart.
 fn fit_x_ticks(
@@ -1306,21 +1368,7 @@ fn fit_x_ticks(
     for target in (2..=densest).rev() {
         let ticks = Ticks::linear(data.0, data.1, target);
         let domain = domain_with_ticks(data, &ticks);
-        let scale = Linear::new(domain, (0.0, (plot_sub_w - 1) as f64));
-        let mut last_end: i64 = i64::MIN;
-        let mut fits = true;
-        for tick in &ticks {
-            let column = (scale.map(tick.value).round() as usize) / px;
-            let len = display_width(&tick.label) as i64;
-            let center = (gutter + column) as i64;
-            let start = (center - len / 2).clamp(0, (frame_width as i64 - len).max(0));
-            if start < last_end + 2 {
-                fits = false;
-                break;
-            }
-            last_end = start + len;
-        }
-        if fits {
+        if labels_fit(&ticks, domain, plot_sub_w, px, gutter, frame_width) {
             return Some(ticks);
         }
     }

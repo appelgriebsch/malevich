@@ -5,6 +5,7 @@ mod colormap;
 mod format;
 mod linear;
 mod ticks;
+mod time;
 
 pub use band::Band;
 pub use colormap::Colormap;

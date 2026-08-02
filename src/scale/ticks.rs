@@ -134,6 +134,11 @@ impl Ticks {
         Ticks { ticks, step: 0.0 }
     }
 
+    /// Builds a set from precomputed ticks (time axes build these); no uniform step.
+    pub(crate) fn from_time(ticks: Vec<Tick>) -> Ticks {
+        Ticks { ticks, step: 0.0 }
+    }
+
     /// The ticks, ascending.
     pub fn as_slice(&self) -> &[Tick] {
         &self.ticks

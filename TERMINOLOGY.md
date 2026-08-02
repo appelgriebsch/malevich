@@ -58,8 +58,8 @@ compositions rather than features. Maps to the `stat` module: `stat::M4` (with
 `stat::m4`, auto-inserted for large line layers), `stat::Bins`/`stat::bins2`
 (histograms), `stat::Agg` (group-by with the shared reducer vocabulary),
 `stat::BoxStats` (type-7 quartiles, Tukey whiskers), `stat::kde` (Silverman
-bandwidth, linear binning), `stat::ecdf`, `stat::stack`, `stat::lttb`, and
-`stat::Moments`.
+bandwidth, linear binning), `stat::Window` (trailing rolling reduces), `stat::ecdf`,
+`stat::stack`, `stat::lttb`, and `stat::Moments`.
 
 ## Reducer
 
@@ -74,8 +74,10 @@ A mapping from data domain to raster range with the d3-scale contract: `nice`,
 `Band`; color scales: sequential, diverging, categorical. Maps to the `scale`
 module — currently `scale::Linear` (the affine map, including the raster y-flip),
 `scale::Band` (categories across a range, d3 padding model), and `scale::Ticks`
-(extended-Wilkinson linear placement plus `Ticks::log10` decades); log axes are
-enabled per plot with `Plot::log_x`/`Plot::log_y`, `scale::Colormap` covers the
+(extended-Wilkinson linear placement, `Ticks::log10` decades, and `Ticks::time`
+calendar ticks over unix seconds — UTC, exact Gregorian arithmetic); log and time
+axes are
+enabled per plot with `Plot::log_x`/`Plot::log_y`/`Plot::time_x`, `scale::Colormap` covers the
 sequential color scale, and the richer scale-spec API arrives with the time work.
 
 ## Ticks
@@ -121,6 +123,14 @@ A plain function composing the grammar into a named chart type: `line()`, `hist(
 `scatter()`, …. Every preset is provably equal to its grammar expansion (asserted
 bit-identical in tests). Presets are the front door; the grammar is discovered, not
 required. Maps to root functions — currently `malevich::line`.
+
+## Stream
+
+Live data machinery, kept at the edge of the crate: `stream::Ring` (a sliding window
+shared across threads — the one lock in the library; producers push, the render side
+snapshots), `stream::Rate` (counters into deltas), and `stream::Live` (in-place
+repaint: cursor up, erase down, one buffered write — flicker-free, scrollback-safe,
+never owning the screen). The core stays pure; only this module knows time passes.
 
 ## Gap
 

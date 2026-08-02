@@ -3,6 +3,22 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## 0.6.0 (The Knife Grinder) — 2026-08-02
+
+Time and motion: calendar axes, rolling windows, and live charts.
+
+- Time axes (`Plot::time_x`, `Ticks::time`): unix seconds in, calendars out — a
+  1s-to-decades interval ladder aligned to real boundaries (Mondays, month firsts),
+  multi-scale labels (`14:05`, but `Aug 2` at midnight and `2027` at January), exact
+  Gregorian arithmetic, UTC, no dependencies.
+- Rolling windows (`stat::Window`): trailing mean/sum/min/max with partial starts
+  (no warm-up gap) and gap-aware reductions.
+- Streaming (`stream::Ring`, `stream::Live`, `stream::Rate`): a thread-shared
+  sliding window (the library's one lock — producers push, renderers snapshot),
+  an in-place repaint handle (cursor up, erase down, one buffered write:
+  flicker-free, scrollback-safe), and a counter-to-delta helper. One live frame
+  renders in well under a millisecond (see `benches/render.rs`).
+
 ## 0.5.0 (Sportsmen) — 2026-08-01
 
 The statistics release: the mark family is complete, and the statistical charts no

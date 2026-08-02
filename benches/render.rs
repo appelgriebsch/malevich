@@ -97,6 +97,22 @@ fn pathological_layout(c: &mut Criterion) {
     });
 }
 
+fn streaming_frame(c: &mut Criterion) {
+    // One live frame: snapshot a full ring, build the plot, render — the 60 fps
+    // budget is 16 ms; this must be far under it.
+    let ring = malevich::stream::Ring::new(512);
+    for i in 0..512 {
+        ring.push((i as f64 * 0.1).sin());
+    }
+    let frame = Frame::plain(100, 20);
+    c.bench_function("stream/frame_512_100x20", |b| {
+        b.iter(|| {
+            let snapshot = ring.snapshot();
+            black_box(malevich::line(&snapshot[..]).render(&frame))
+        });
+    });
+}
+
 fn kde_density(c: &mut Criterion) {
     let values: Vec<f64> = (0..1_000_000)
         .map(|i| {
@@ -111,6 +127,7 @@ fn kde_density(c: &mut Criterion) {
 
 criterion_group!(
     benches,
+    streaming_frame,
     kde_density,
     line_render,
     scatter_render,

@@ -15,6 +15,7 @@ mod lttb;
 mod m4;
 mod moments;
 mod stack;
+mod window;
 
 pub use agg::Agg;
 pub use bin::{Bins, Grid, bins2};
@@ -26,3 +27,4 @@ pub(crate) use m4::m4_indexed;
 pub use m4::{M4, m4};
 pub use moments::Moments;
 pub use stack::stack;
+pub use window::Window;

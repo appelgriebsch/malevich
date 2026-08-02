@@ -90,13 +90,17 @@ colored tour sized to your terminal.
   features.
 - **Axes that are actually good.** Extended-Wilkinson tick placement (Talbot, Lin,
   Hanrahan 2010), exact-decimal labels that parse back to their values, one shared SI
-  prefix per axis (`2.5M`, `100µ`), log axes with superscript decades, band scales
-  with fitted category labels, collision-aware layout that sheds furniture instead of
-  failing.
+  prefix per axis (`2.5M`, `100µ`), log axes with superscript decades, calendar time
+  axes with multi-scale labels (`14:05`, `Aug 2`, `2027`), band scales with fitted
+  category labels, collision-aware layout that sheds furniture instead of failing.
 - **Renders everywhere, honestly.** Four charsets (braille, quadrants, half-blocks,
   ASCII) and four color tiers (truecolor → 256 → 16 → plain) with honest downhill
   quantization; piped output is automatically clean plain text; CJK labels stay
   aligned; `NaN` is always a visible gap, never interpolated away.
+- **Live charts without a framework.** A thread-shared sliding window plus an
+  in-place repaint handle (cursor up, erase down, one write): flicker-free streaming
+  that survives in scrollback and never takes over your terminal
+  (`cargo run --example live`).
 - **Plots are plain values.** `Clone + Send + Sync`, no globals, rendering is a pure
   function of plot and frame — build on one thread, render on another, snapshot-test
   the strings. Two tiny dependencies (`terminal_size`, `unicode-width`).

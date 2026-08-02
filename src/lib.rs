@@ -13,6 +13,7 @@ mod presets;
 pub mod render;
 pub mod scale;
 pub mod stat;
+pub mod stream;
 mod theme;
 
 pub use mark::{Area, Bars, Cells, Line, Mark, Points, Range, Rule, Text};

@@ -332,3 +332,47 @@ Source: [examples/measurements.rs](examples/measurements.rs)
   └┬───────────┬───────────┬───────────┬───────────┬
    0           2           4           6           8
 ```
+
+## timeseries
+
+A time axis: calendar-aligned ticks with multi-scale labels — midnight          becomes the date, January becomes the year.
+Source: [examples/timeseries.rs](examples/timeseries.rs)
+
+```text
+        a monthly series on a calendar axis (synthetic)
+408 ┤                                           ⢀⠔⠉⠒⢄⡀
+    │                                          ⢠⠃    ⠈⢆
+406 ┤                        ⣀⠤⣀              ⡰⠁      ⠈⢆
+    │                       ⡜   ⠑⠢⡀          ⡰⠁         ⠣⡀     ⡜
+404 ┤                     ⢀⠜      ⠱⡀        ⡰⠁           ⠈⢆⡀⢀⡠⠜
+    │   ⡠⠒⠉⠒⢄⡀           ⢀⠎        ⠱⡀      ⡰⠁              ⠈⠁
+402 ┤  ⡔⠁    ⠈⢆         ⢀⠎          ⠑⢄    ⡰⠁
+    │ ⡜       ⠈⢆       ⢀⠎             ⠑⠢⠔⠉
+400 ┤⡜         ⠈⢆     ⢀⠎
+    │            ⠑⢄⡀⢀⠤⠊
+398 ┤              ⠈⠁
+    └┬─────────┬─────────┬─────────┬─────────┬─────────┬────────
+   2024       Jul      2025       Jul      2026       Jul
+```
+
+## smoothing
+
+The Window stat: a rolling mean laid over its noisy source.
+Source: [examples/smoothing.rs](examples/smoothing.rs)
+
+```text
+              smoothing a noisy series (synthetic)
+                 ── raw  ── rolling mean, k = 9
+4 ┤⢀
+  │⠞⡞⡶⣤⢤⣀
+3 ┤  ⠁⠃⠏⡞⡗⠤⡀
+  │      ⢱⢣⢯⢖⣆⣄⣄
+  │       ⠈⠈⠘⠘⠸⢹⢱⢢⢤⣠⢠⢠
+2 ┤             ⠏⠏⠏⠏⠏⠏⡗⡦⣄⣄⡄⡄⡄
+  │                   ⠸⠹⠹⠹⠹⠙⠹⣱⣲⡴⡼⣆⢧⢧⢄⣀⢠⢠⢰⣰⡀  ⡀⡀⡀⡄    ⢀⢀      ⡀
+1 ┤                          ⠃⠃⠁⠁⠈⠈⠈⡞⡞⠏⠏⠋⠋⢏⢯⢷⢳⢷⠳⢻⢲⣲⡼⡼⡼⡞⡦⡤⣦⣆⣧⢧⢷⢤⡀
+  │                                       ⠈⠈     ⠃⠃⠁⠁  ⠸⠙⠘⠈⠈ ⠈⠎⠇
+0 ┤
+  └┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬
+   0        20        40        60        80        100      120
+```

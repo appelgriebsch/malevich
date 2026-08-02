@@ -73,6 +73,14 @@ const GALLERY: &[(&str, &str)] = &[
         "measurements",
         "Error bars: a Range interval around each measured point.",
     ),
+    (
+        "timeseries",
+        "A time axis: calendar-aligned ticks with multi-scale labels — midnight          becomes the date, January becomes the year.",
+    ),
+    (
+        "smoothing",
+        "The Window stat: a rolling mean laid over its noisy source.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.
