@@ -58,6 +58,12 @@ Kazimir Malevich painted a black square on a plain ground and meant it: a small
 vocabulary of geometric forms, composed deliberately. That is the design budget of this
 library.
 
+## Acknowledgements
+
+malevich stands on the shoulders of giants — the algorithms, libraries, and grammars
+that taught this project what it knows are credited, specifically, in
+[ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md).
+
 ## License
 
 MIT OR Apache-2.0.
