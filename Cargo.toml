@@ -1,0 +1,11 @@
+[package]
+name = "malevich"
+version = "0.1.0"
+edition = "2024"
+description = "Terminal plotting: a small grammar of marks, honest axes, millions of points"
+repository = "https://github.com/shergin/malevich"
+license = "MIT OR Apache-2.0"
+keywords = ["plot", "chart", "terminal", "ascii", "visualization"]
+categories = ["visualization", "command-line-interface"]
+
+[dependencies]
