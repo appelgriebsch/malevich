@@ -30,28 +30,29 @@ Source: [examples/sine.rs](examples/sine.rs)
 
 ## loss
 
-The training-loop story: two series on shared scales; unrecorded steps are gaps.
+A real training log: poorgrad's bigram model on 32k names — per-step loss, rolling mean, and the known bigram limit as a rule.
 Source: [examples/loss.rs](examples/loss.rs)
 
 ```text
-                     loss per training step (synthetic)
-                              ── train  ── val
-5 ┤
-  │⠁
-4 ┤⢄ ⠠
-  │ ⠑⢢  ⡀
-  │   ⠣⡀  ⢀
-3 ┤    ⠈⠑⠤⡀ ⠐
-  │       ⠈⠢⡀  ⠁
-  │         ⠈⠒⠢⢄ ⠈  ⡀
-2 ┤             ⠉⠢⣀⣀⡀ ⠈  ⠂
-  │                 ⠈⠑⠤⣀   ⠁ ⠠  ⡀ ⢀
-  │                     ⠉⠉⠉⠢⠤⣀⣀⣀⡀    ⠁ ⠠ ⢀  ⡀ ⢀
-1 ┤                             ⠈⠑⠒⠒⠒⠒⠤⣀⣀⣀⣀⣀     ⠁ ⠠  ⠄ ⠂ ⠠  ⡀    ⡀ ⠠ ⢀
-  │                                         ⠉⠉⠉⠉⠉⠑⠒⠒⠒⠒⠒⠤⠤⠤⠒⠢⠤⣀⠤⠬⠤⢄⣀⣀⠤⠤⢄⣀⣀⣁⠤⠄
-0 ┤
-  └┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬
-   0    10    20    30    40    50    60    70    80    90    100   110  120
+                   poorgrad: bigram training on 32k names
+               ── minibatch  ── rolling mean  ── bigram limit
+  3.3 ┤⡇
+  3.2 ┤⣷
+      │⢸
+  3.1 ┤⢸⡆
+  3.0 ┤⢸⢇
+l     │⠘⡼⡀
+o 2.9 ┤ ⡇⡇
+s 2.8 ┤ ⣧⡇
+s     │ ⢹⣼
+  2.7 ┤ ⠈⣿⢆
+  2.6 ┤  ⠈⢾⣿⣶ ⢀   ⢀ ⡄ ⡄
+      │    ⡟⡏⣿⣿⣦⣷⣶⣾⣶⣇⣦⣧⡀⣄⢠⣄⢰ ⣀⣠⡄⢠⣤⢀⡆⡄⣇⣀⢠⡀⡀⢀⡄⢀⡀  ⣄⣠⡇⣀⢠  ⣀⡀ ⡄ ⡀  ⣠⣀⢰⣀⢸⡀  ⢀ ⡆ ⡄
+  2.5 ┤⣀⣀⣀⣀⣀⣀⣋⣁⣛⣻⣹⣻⣏⣟⣹⣿⣿⣿⣿⣿⣟⣿⣿⣿⣿⣿⣿⣾⣿⣿⣿⣿⣾⣷⣿⣿⣿⣿⣿⣾⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⣦⣷⣿⣧⣷⣧⣿⣿⣞⣿⣿⣷⣦⣿⣾⣾⣧⣿⣿
+  2.4 ┤          ⠈   ⠈ ⠁⠃⠁⠃⠃⠉ ⠏⠛⠸⠈⠁⠘⠃⠏⠛⠛⠈⠈⠸⠸⠈⢸⠃⠇⠋⠇⠘⠋⡏⠋⠟⠿⠟⠸⠘⡇⠙⠙⠏⠏⠸ ⠏⠋⠻⠻⢻⡿⠻⠸⡏⠃
+      └┬──────┬─────┬──────┬──────┬──────┬──────┬──────┬──────┬─────┬──────┬
+       0     100   200    300    400    500    600    700    800   900  1000
+                                       step
 ```
 
 ## languages
@@ -78,28 +79,30 @@ Source: [examples/languages.rs](examples/languages.rs)
 
 ## clusters
 
-A labeled scatter: two point layers, named in the legend.
+Palmer penguins: bill dimensions separate the species into visible clusters, one labeled layer each.
 Source: [examples/clusters.rs](examples/clusters.rs)
 
 ```text
-                    two colonies (synthetic)
-                    •• colony a  •• colony b
-8 ┤                                    ⢀  ⠂⠁   ⠠⠃⢀
-  │                                  ⠂ ⠂  ⠂⣀  ⢀ ⠙
-7 ┤                                  ⢀⠐   ⢠⠂⢀  ⠒⠠⡀⠈  ⢀      ⠐
-  │                                     ⠐ ⠅⠈⡀⠠ ⠈⠄    ⡀  ⠈     ⡁⠈
-  │                                      ⠂ ⠂ ⢀    ⠠   ⠁  ⠁ ⠑⠠
-6 ┤                                           ⠂   ⠂⡀    ⠐   ⠂ ⢀⠠
-  │                                                            ⠈
-  │
-5 ┤    ⡀⠠   ⡠
-  │⡀⠠⠐ ⠠    ⠦⡐
-  │⢀⠠  ⢀⠍  ⠡⢄⡀⠐        ⠄
-4 ┤   ⠂⠰⠈⡈⠄ ⠢⠁  ⢀⠁ ⠈    ⡁⠐
-  │   ⠐ ⠁ ⢀   ⠐  ⠈  ⠁⠈⠒
-3 ┤       ⠈   ⠡    ⠈  ⠈ ⠐⡂
-  └──┬───────┬───────┬───────┬───────┬───────┬───────┬──────┬───
-     2       3       4       5       6       7       8      9
+                        penguin bills by species
+                   •• Adelie  •• Gentoo  •• Chinstrap
+  21 ┤          ⡀        ⠄⡀   ⢀  ⠄       ⠁
+     │                ⡀   ⠠⠄     ⠠                    ⠄    ⠂
+  20 ┤                 ⠄⠄⠄  ⠠ ⠌ ⠂       ⠁       ⡀ ⠠ ⢀⠈  ⠄⢀
+     │           ⡀  ⢄⢀⢀⠁  ⠂     ⡤    ⠁  ⡀      ⠰ ⠠ ⡃  ⠄⠈      ⠈
+  19 ┤       ⠐   ⠠ ⠁⢀ ⠰⡀⠁⢂⡀⡔⠄⡦⠆ ⠐ ⠈⠂   ⢀⠠⠄      ⠐ ⡀⠐⡘⡀⢂
+d    │         ⠠   ⠂⠠⠃⠐⠍  ⠁⠄⠐⠡⡁⠇⠐⠠⠂⠂     ⡀⠁ ⠠   ⡀⡁ ⠔⢀
+e 18 ┤         ⠁⠁⠂⠈⠆⠡⠈⠄⢁⠑⡠⠠⠇⠈⠂⡁⠈  ⡀⠈ ⠁ ⠄  ⠖       ⠂⠐  ⠁            ⠄
+p 17 ┤        ⢀ ⠄ ⢁⡰⡀ ⢀⣂ ⣌⠈⠄⢀⢄⠁  ⠒   ⠐  ⣐⠈ ⠂  ⠈  ⠂ ⠐  ⢀       ⢀       ⢀
+t    │            ⠈⠄⠄⢈⠂⢀  ⠐   ⠆  ⠐ ⠄   ⡄  ⢀⠄⠂⢀   ⠂  ⡀
+h 16 ┤       ⠂   ⢀⠂⠐   ⠄                  ⠐   ⠡⠒⠐⣜ ⡀⠁⠁       ⠄
+     │    ⠠                          ⠈ ⠅ ⠈⢢⠠⡀⠐ ⠁⠉⢀⢈⠈   ⠂ ⠁ ⠁
+  15 ┤                         ⢀   ⠈ ⢀ ⡀⠂⠡⡂ ⠒⠊⠐⢑⠁⠊⠂⠃
+     │                            ⡀⢒ ⠠ ⠊⢊⢐⡢⠁⡑⠠⢃⡐  ⠄ ⢀
+  14 ┤                        ⠄  ⠠ ⠑⢂ ⠐⠲⠖  ⠠⠃
+  13 ┤                          ⠁ ⠄⠁  ⠐  ⠄⠁
+     └┬──────────┬──────────┬──────────┬─────────┬──────────┬──────────┬
+     30         35         40         45        50         55         60
+                                bill length, mm
 ```
 
 ## waveform
@@ -128,25 +131,25 @@ Source: [examples/waveform.rs](examples/waveform.rs)
 
 ## distribution
 
-A histogram via the Bin stat: automatic bin count, nice decimal edges, contiguous bars from zero.
+Penguin body mass through automatic binning: a real, lumpy distribution.
 Source: [examples/distribution.rs](examples/distribution.rs)
 
 ```text
-               distribution of a synthetic signal
-300 ┤                    ▄▄▅▅▂▂▂▅▅   ▃▃▅▅▅▂▂
-    │                    ███████████████████
-250 ┤                    ███████████████████▅▅
-    │                 ▆▆▆█████████████████████
-200 ┤                 ████████████████████████
-    │               ▆▆████████████████████████▃▃▃
-150 ┤            ▄▄▄█████████████████████████████▄▄
-100 ┤          ▆▆██████████████████████████████████▃▃▃
-    │       ▆▆▆███████████████████████████████████████▅▅
- 50 ┤  ▃▃▃▃▃███████████████████████████████████████████████▁▁
-    │▂▂██████████████████████████████████████████████████████▂▂▂
-  0 ┤███████████████████████████████████████████████████████████
-    └┬─────────┬────────┬─────────┬─────────┬─────────┬────────┬
-     4         6        8        10        12        14       16
+                       penguin body mass
+100 ┤               ▃▃▃▃▃▃▃
+    │               ███████
+ 75 ┤               ███████
+    │               ███████
+    │       ▇▇▇▇▇▇▇▇███████▅▅▅▅▅▅▅
+ 50 ┤       ██████████████████████▆▆▆▆▆▆▆▆
+    │       ██████████████████████████████
+    │       ██████████████████████████████▇▇▇▇▇▇▇▃▃▃▃▃▃▃
+ 25 ┤       ████████████████████████████████████████████
+    │▂▂▂▂▂▂▂████████████████████████████████████████████
+  0 ┤███████████████████████████████████████████████████▅▅▅▅▅▅▅▅
+    └┬──────┬──────┬───────┬──────┬──────┬───────┬──────┬──────┬
+   2500   3000   3500    4000   4500   5000    5500   6000  6500
+                                grams
 ```
 
 ## powerlaw
@@ -272,44 +275,46 @@ Box plots: type-7 quartiles, Tukey whiskers, outliers — one Range mark with   
 Source: [examples/boxes.rs](examples/boxes.rs)
 
 ```text
-          three groups, summarized (synthetic)
-8 ┤                        ⠉⠉⢹⠉⠉
-  │        ⣀⣀⣀⣀⣀         ⢰⣶⣶⣶⣾⣶⣶⣶⡆         ⣀⣀⣀⣀⣀
-  │          ⡇           ⠘━━━━━━━━           ⢸
-6 ┤      ⢀⣀⣀⣀⣇⣀⣀⣀          ⠒⠒⠚⠒⠒             ⢸
-  │      ⢸⣿⣿⣿⣿⣿⣿⣿                         ⣀⣀⣀⣸⣀⣀⣀⡀
-  │      ━━━━━━━━━                        ⣿⣿⣿⣿⣿⣿⣿⡇
-4 ┤          ⡇                            ━━━━━━━━
-  │        ⠒⠒⠓⠒⠒                          ⠛⠛⠛⢻⠛⠛⠛⠃
-  │                                          ⢸
-2 ┤                                          ⢸
-  │                                        ⠒⠒⠚⠒⠒
-0 ┤
-  └─────────────────────────────────────────────────────
-           alpha           beta            gamma
+                 flipper length by species
+  230 ┤                                        ⠉⠉⢹⠉⠉
+      │                                          ⢸
+  220 ┤                                       ⣿⣿⣿⣿⣿⣿⣿⡇
+      │                                       ━━━━━━━━
+  210 ┤        ⣀⣀⣄⣀⣀           ⠉⠉⢹⠉⠉          ⠉⠉⠉⢹⠉⠉⠉⠁
+m     │          ⡇               ⢸             ⣀⣀⣸⣀⣀
+m 200 ┤          ⡇           ⢰⣶⣶⣶⣾⣶⣶⣶⡆
+      │      ⢠⣤⣤⣤⣧⣤⣤⣤        ⢸━━━━━━━━
+  190 ┤      ⢸⣿⣿⣿⣿⣿⣿⣿        ⠘⠛⠛⠛⢻⠛⠛⠛⠃
+      │      ━━━━━━━━━           ⢸
+  180 ┤          ⡇               ⢸
+      │          ⡇             ⠉⠉⠉⠉⠉
+  170 ┤        ⠉⠉⠋⠉⠉
+      └─────────────────────────────────────────────────────
+              Adelie         Chinstrap        Gentoo
 ```
 
 ## violins
 
-Violin plots: mirrored kernel densities over band centers.
+The same flippers as mirrored kernel densities — separation as a shape, not a summary.
 Source: [examples/violins.rs](examples/violins.rs)
 
 ```text
-    the same three groups, as densities (synthetic)
-8 ┤                         ⣠⣿⣄              ⢀
-  │          ⡆          ⢀⣠⣶⣿⣿⣿⣿⣿⣶⣄⡀          ⣸
-  │         ⣰⣿⣄        ⠘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃        ⢀⣿⡆
-6 ┤      ⣠⣶⣿⣿⣿⣿⣷⣦⡀       ⠈⠉⠛⢿⣿⡿⠛⠉⠁         ⣠⣾⣿⣿⣦⡀
-  │    ⢰⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡀         ⠛           ⢀⣾⣿⣿⣿⣿⣿⣿⡄
-  │    ⠘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟                     ⣠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀
-4 ┤      ⠉⠻⣿⣿⣿⣿⡿⠋⠁                      ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇
-  │        ⠈⢻⣿⠟                         ⠙⢿⣿⣿⣿⣿⣿⣿⣿⣿⠟
-  │          ⠏                            ⠻⣿⣿⣿⣿⣿⠟⠁
-2 ┤                                        ⠘⢿⣿⣿⠏
-  │                                         ⠈⢿⠃
-0 ┤                                          ⢸
-  └─────────────────────────────────────────────────────
-           alpha           beta            gamma
+          flipper length by species, as densities
+  240 ┤                                          ⢠
+  230 ┤                                        ⢀⣴⣿⣷⣄
+      │                                       ⢀⣼⣿⣿⣿⣿⣀
+  220 ┤                          ⣤          ⣠⣶⣿⣿⣿⣿⣿⣿⣿⣷⣄
+      │          ⡇              ⢠⣿⡄         ⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇
+m 210 ┤          ⣿             ⢀⣿⣿⣿⡀         ⠛⠿⣿⣿⣿⣿⣿⠿⠟⠁
+m 200 ┤        ⢀⣼⣿⣆         ⢀⣠⣶⣿⣿⣿⣿⣿⣶⣄⡀         ⠈⢿⠋
+      │      ⣠⣾⣿⣿⣿⣿⣿⣦⣄     ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡆         ⠸
+  190 ┤    ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠄    ⠙⢿⣿⣿⣿⣿⣿⣿⣿⡿⠋
+      │     ⠙⠿⣿⣿⣿⣿⣿⣿⣿⠟⠁       ⠉⠻⣿⣿⣿⠟⠉
+  180 ┤       ⠈⠻⣿⣿⡿⠛            ⠸⣿⠇
+      │         ⠘⣿⠁              ⣿
+  170 ┤          ⡇               ⠉
+      └─────────────────────────────────────────────────────
+              Adelie         Chinstrap        Gentoo
 ```
 
 ## measurements
@@ -339,42 +344,24 @@ A time axis: calendar-aligned ticks with multi-scale labels — midnight        
 Source: [examples/timeseries.rs](examples/timeseries.rs)
 
 ```text
-        a monthly series on a calendar axis (synthetic)
-408 ┤                                           ⢀⠔⠉⠒⢄⡀
-    │                                          ⢠⠃    ⠈⢆
-406 ┤                        ⣀⠤⣀              ⡰⠁      ⠈⢆
-    │                       ⡜   ⠑⠢⡀          ⡰⠁         ⠣⡀     ⡜
-404 ┤                     ⢀⠜      ⠱⡀        ⡰⠁           ⠈⢆⡀⢀⡠⠜
-    │   ⡠⠒⠉⠒⢄⡀           ⢀⠎        ⠱⡀      ⡰⠁              ⠈⠁
-402 ┤  ⡔⠁    ⠈⢆         ⢀⠎          ⠑⢄    ⡰⠁
-    │ ⡜       ⠈⢆       ⢀⠎             ⠑⠢⠔⠉
-400 ┤⡜         ⠈⢆     ⢀⠎
-    │            ⠑⢄⡀⢀⠤⠊
-398 ┤              ⠈⠁
-    └┬─────────┬─────────┬─────────┬─────────┬─────────┬────────
-   2024       Jul      2025       Jul      2026       Jul
-```
-
-## smoothing
-
-The Window stat: a rolling mean laid over its noisy source.
-Source: [examples/smoothing.rs](examples/smoothing.rs)
-
-```text
-              smoothing a noisy series (synthetic)
-                 ── raw  ── rolling mean, k = 9
-4 ┤⢀
-  │⠞⡞⡶⣤⢤⣀
-3 ┤  ⠁⠃⠏⡞⡗⠤⡀
-  │      ⢱⢣⢯⢖⣆⣄⣄
-  │       ⠈⠈⠘⠘⠸⢹⢱⢢⢤⣠⢠⢠
-2 ┤             ⠏⠏⠏⠏⠏⠏⡗⡦⣄⣄⡄⡄⡄
-  │                   ⠸⠹⠹⠹⠹⠙⠹⣱⣲⡴⡼⣆⢧⢧⢄⣀⢠⢠⢰⣰⡀  ⡀⡀⡀⡄    ⢀⢀      ⡀
-1 ┤                          ⠃⠃⠁⠁⠈⠈⠈⡞⡞⠏⠏⠋⠋⢏⢯⢷⢳⢷⠳⢻⢲⣲⡼⡼⡼⡞⡦⡤⣦⣆⣧⢧⢷⢤⡀
-  │                                       ⠈⠈     ⠃⠃⠁⠁  ⠸⠙⠘⠈⠈ ⠈⠎⠇
-0 ┤
-  └┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬
-   0        20        40        60        80        100      120
+                    atmospheric CO2 at Mauna Loa (NOAA)
+  440 ┤
+      │                                                                 ⢀⣠⣼⠎
+  420 ┤                                                              ⢀⣠⡔⡼⠏
+      │                                                          ⢀⢠⣰⡾⠟⠋
+  400 ┤                                                       ⢠⢠⣴⠿⠛⠉⠁
+      │                                                   ⢀⢠⣴⡞⡟⠛⠉
+p     │                                              ⢀⢀⣴⣴⠞⠎⠏⠁
+p 380 ┤                                          ⡀⣀⣤⡼⡾⠚⠋
+m     │                                     ⢀⣀⣤⣴⢿⠿⠛⠈
+  360 ┤                               ⢀⣠⣰⣶⣶⣾⠾⠛⠛
+      │                         ⢀⣀⣠⣰⣰⡿⠻⠛⠙⠉⠈
+  340 ┤                    ⣀⣀⣄⣴⣼⡿⠻⠙⠉
+      │             ⡀⡀⣤⣆⣆⣶⠿⠻⠙⠈⠈
+  320 ┤  ⡀⡀⡀⣄⣄⣄⣄⣦⣶⢿⠷⠻⠛⠉⠈⠈
+      │⢢⢷⠿⠳⠹⠛⠙⠙⠈⠈
+      └──┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬──────
+       1960      1970      1980      1990      2000      2010      2020
 ```
 
 ## multiples

@@ -49,21 +49,22 @@ histograms:
 
 <!-- generated:boxes -->
 ```text
-          three groups, summarized (synthetic)
-8 ┤                        ⠉⠉⢹⠉⠉
-  │        ⣀⣀⣀⣀⣀         ⢰⣶⣶⣶⣾⣶⣶⣶⡆         ⣀⣀⣀⣀⣀
-  │          ⡇           ⠘━━━━━━━━           ⢸
-6 ┤      ⢀⣀⣀⣀⣇⣀⣀⣀          ⠒⠒⠚⠒⠒             ⢸
-  │      ⢸⣿⣿⣿⣿⣿⣿⣿                         ⣀⣀⣀⣸⣀⣀⣀⡀
-  │      ━━━━━━━━━                        ⣿⣿⣿⣿⣿⣿⣿⡇
-4 ┤          ⡇                            ━━━━━━━━
-  │        ⠒⠒⠓⠒⠒                          ⠛⠛⠛⢻⠛⠛⠛⠃
-  │                                          ⢸
-2 ┤                                          ⢸
-  │                                        ⠒⠒⠚⠒⠒
-0 ┤
-  └─────────────────────────────────────────────────────
-           alpha           beta            gamma
+                 flipper length by species
+  230 ┤                                        ⠉⠉⢹⠉⠉
+      │                                          ⢸
+  220 ┤                                       ⣿⣿⣿⣿⣿⣿⣿⡇
+      │                                       ━━━━━━━━
+  210 ┤        ⣀⣀⣄⣀⣀           ⠉⠉⢹⠉⠉          ⠉⠉⠉⢹⠉⠉⠉⠁
+m     │          ⡇               ⢸             ⣀⣀⣸⣀⣀
+m 200 ┤          ⡇           ⢰⣶⣶⣶⣾⣶⣶⣶⡆
+      │      ⢠⣤⣤⣤⣧⣤⣤⣤        ⢸━━━━━━━━
+  190 ┤      ⢸⣿⣿⣿⣿⣿⣿⣿        ⠘⠛⠛⠛⢻⠛⠛⠛⠃
+      │      ━━━━━━━━━           ⢸
+  180 ┤          ⡇               ⢸
+      │          ⡇             ⠉⠉⠉⠉⠉
+  170 ┤        ⠉⠉⠋⠉⠉
+      └─────────────────────────────────────────────────────
+              Adelie         Chinstrap        Gentoo
 ```
 <!-- /generated -->
 
@@ -140,4 +141,4 @@ that taught this project what it knows are credited, specifically, in
 
 ## License
 
-MIT OR Apache-2.0.
+MIT or Apache-2.0.

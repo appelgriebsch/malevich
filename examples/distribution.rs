@@ -1,15 +1,16 @@
-//! A histogram via the `Bin` stat: automatic Sturges/Freedman–Diaconis bin count,
-//! nice decimal edges, contiguous bars from zero. Synthetic bell-ish data.
+//! Palmer penguin body mass (CC0): a real bimodal-ish distribution through the
+//! automatic binning — Gentoos are simply heavier.
 
 use malevich::Frame;
 
 fn main() {
-    let samples: Vec<f64> = (0..4000)
-        .map(|i| {
-            let i = i as f64;
-            ((i * 0.731).sin() + (i * 1.13).sin() + (i * 2.71).sin()) * 2.0 + 10.0
-        })
+    let mass: Vec<f64> = include_str!("data/penguins.csv")
+        .lines()
+        .skip(1)
+        .filter_map(|line| line.split(',').nth(4)?.parse().ok())
         .collect();
-    let chart = malevich::hist(&samples[..]).title("distribution of a synthetic signal");
+    let chart = malevich::hist(&mass[..])
+        .title("penguin body mass")
+        .x_label("grams");
     println!("{}", chart.render(&Frame::plain(64, 15)));
 }

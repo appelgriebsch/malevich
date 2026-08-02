@@ -21,7 +21,8 @@ const GALLERY: &[(&str, &str)] = &[
     ),
     (
         "loss",
-        "The training-loop story: two series on shared scales; unrecorded steps are gaps.",
+        "A real training log: poorgrad's bigram model on 32k names — per-step loss, \
+         rolling mean, and the known bigram limit as a rule.",
     ),
     (
         "languages",
@@ -29,7 +30,8 @@ const GALLERY: &[(&str, &str)] = &[
     ),
     (
         "clusters",
-        "A labeled scatter: two point layers, named in the legend.",
+        "Palmer penguins: bill dimensions separate the species into visible \
+         clusters, one labeled layer each.",
     ),
     (
         "waveform",
@@ -38,8 +40,7 @@ const GALLERY: &[(&str, &str)] = &[
     ),
     (
         "distribution",
-        "A histogram via the Bin stat: automatic bin count, nice decimal edges, \
-         contiguous bars from zero.",
+        "Penguin body mass through automatic binning: a real, lumpy distribution.",
     ),
     (
         "powerlaw",
@@ -67,7 +68,8 @@ const GALLERY: &[(&str, &str)] = &[
     ),
     (
         "violins",
-        "Violin plots: mirrored kernel densities over band centers.",
+        "The same flippers as mirrored kernel densities — separation as a shape, \
+         not a summary.",
     ),
     (
         "measurements",
@@ -76,10 +78,6 @@ const GALLERY: &[(&str, &str)] = &[
     (
         "timeseries",
         "A time axis: calendar-aligned ticks with multi-scale labels — midnight          becomes the date, January becomes the year.",
-    ),
-    (
-        "smoothing",
-        "The Window stat: a rolling mean laid over its noisy source.",
     ),
     (
         "multiples",

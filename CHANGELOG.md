@@ -12,6 +12,10 @@ Riding into the ratatui ecosystem.
   colors map onto cell styles, the host application keeps the terminal. Charset and
   theme are widget options; `cargo run --example tui --features ratatui` shows a
   live dashboard.
+- The gallery now runs on real data (`examples/data/`, with provenance and
+  licenses): the Keeling curve (NOAA, public domain), Palmer penguins (CC0), and a
+  genuinely real training log — 1,000 per-step losses captured from poorgrad's
+  bigram model. Six entries converted; mathematical examples stay mathematical.
 - The corners line style (`LineStyle::Corners`): the classic asciichart look —
   one box-drawing glyph per column, `╭╮╰╯` elbows, `│` runs — with real axes
   underneath, and an honest `+`/`-`/`|` fallback in ASCII charsets.

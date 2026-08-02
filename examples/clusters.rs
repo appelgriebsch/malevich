@@ -1,27 +1,36 @@
-//! A labeled scatter: two clusters as separate layers, named in the legend.
-//! Synthetic data with a deterministic shape.
+//! Palmer penguins (CC0 — see examples/data/README.md): bill dimensions separate
+//! the species into visible clusters, one labeled layer each.
 
 use malevich::{Frame, Plot, Points};
 
 fn main() {
-    // Two deterministic blobs, jittered by incommensurate sine waves.
-    let blob = |n: usize, cx: f64, cy: f64, spread: f64| -> (Vec<f64>, Vec<f64>) {
-        (0..n)
-            .map(|i| {
-                let i = i as f64;
-                (
-                    cx + spread * (i * 0.97).sin() * (i * 0.31).cos(),
-                    cy + spread * 0.6 * (i * 1.13).cos() * (i * 0.47).sin(),
-                )
-            })
-            .unzip()
-    };
-    let (ax, ay) = blob(60, 3.0, 4.0, 1.6);
-    let (bx, by) = blob(60, 7.5, 7.0, 1.9);
-
-    let plot = Plot::new()
-        .layer(Points::xy(&ax[..], &ay[..]).label("colony a"))
-        .layer(Points::xy(&bx[..], &by[..]).label("colony b"))
-        .title("two colonies (synthetic)");
-    println!("{}", plot.render(&Frame::plain(64, 18)));
+    let mut species: [(&str, Vec<f64>, Vec<f64>); 3] = [
+        ("Adelie", Vec::new(), Vec::new()),
+        ("Gentoo", Vec::new(), Vec::new()),
+        ("Chinstrap", Vec::new(), Vec::new()),
+    ];
+    for line in include_str!("data/penguins.csv").lines().skip(1) {
+        let mut parts = line.split(',');
+        let name = parts.next().unwrap_or_default();
+        let length: f64 = parts
+            .next()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(f64::NAN);
+        let depth: f64 = parts
+            .next()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(f64::NAN);
+        if let Some((_, xs, ys)) = species.iter_mut().find(|(s, ..)| *s == name) {
+            xs.push(length);
+            ys.push(depth);
+        }
+    }
+    let mut plot = Plot::new()
+        .title("penguin bills by species")
+        .x_label("bill length, mm")
+        .y_label("depth");
+    for (name, xs, ys) in &species {
+        plot = plot.layer(Points::xy(&xs[..], &ys[..]).label(*name));
+    }
+    println!("{}", plot.render(&Frame::plain(72, 20)));
 }

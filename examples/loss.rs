@@ -1,29 +1,27 @@
-//! The training-loop story: two series over shared scales, gaps where a metric was
-//! not recorded. Synthetic data with a deterministic shape.
+//! A real training log: per-step minibatch loss of poorgrad's makemore bigram
+//! model (see examples/data/README.md), its rolling mean, and the corpus's known
+//! bigram limit as a target rule. No synthetic data — this training actually ran.
 
-use malevich::{Frame, Line, Plot};
+use malevich::{Frame, Line, Plot, Rule};
 
 fn main() {
-    let steps: Vec<f64> = (0..120).map(f64::from).collect();
-    let train: Vec<f64> = steps
-        .iter()
-        .map(|s| 3.8 * (-0.035 * s).exp() + 0.32 + 0.05 * (s * 0.7).sin())
-        .collect();
-    // Validation runs every fourth step; the rest are gaps, drawn as breaks.
-    let val: Vec<f64> = steps
-        .iter()
-        .map(|s| {
-            if s % 4.0 == 0.0 {
-                4.0 * (-0.03 * s).exp() + 0.55 + 0.08 * (s * 0.35).cos()
-            } else {
-                f64::NAN
-            }
+    let (steps, losses): (Vec<f64>, Vec<f64>) = include_str!("data/poorgrad_loss.csv")
+        .lines()
+        .filter_map(|line| {
+            let (step, loss) = line.split_once(',')?;
+            let step: f64 = step.parse().ok()?;
+            let loss: f64 = loss.parse().ok()?;
+            Some((step, loss))
         })
-        .collect();
+        .unzip();
+    let smoothed = malevich::stat::Window::new(25).mean(&losses);
 
     let plot = Plot::new()
-        .layer(Line::xy(&steps[..], &train[..]).label("train"))
-        .layer(Line::xy(&steps[..], &val[..]).label("val"))
-        .title("loss per training step (synthetic)");
-    println!("{}", plot.render(&Frame::plain(76, 18)));
+        .layer(Line::xy(&steps[..], &losses[..]).label("minibatch"))
+        .layer(Line::xy(&steps[..], &smoothed[..]).label("rolling mean"))
+        .layer(Rule::h(2.45).label("bigram limit"))
+        .title("poorgrad: bigram training on 32k names")
+        .x_label("step")
+        .y_label("loss");
+    println!("{}", plot.render(&Frame::plain(76, 19)));
 }

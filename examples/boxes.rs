@@ -1,25 +1,27 @@
-//! Box plots via BoxStats: type-7 quartiles, Tukey whiskers, outliers as dots —
-//! one Range mark with body and marker channels per category. Synthetic data.
+//! Palmer penguins again (CC0): flipper length summarized per species — type-7
+//! quartiles, Tukey whiskers, outliers as dots. Real measurements, real spread.
 
 use malevich::Frame;
 
 fn main() {
-    let bell = |i: f64, seed: f64| {
-        ((i * 0.97 + seed).sin() + (i * 1.31 + seed * 2.0).sin() + (i * 2.63 + seed * 3.0).sin())
-            / 3.0
-    };
-    let group = |center: f64, spread: f64, seed: f64| -> Vec<f64> {
-        (0..400)
-            .map(|i| center + bell(i as f64, seed) * spread)
-            .collect()
-    };
-    let alpha = group(5.0, 2.0, 1.0);
-    let beta = group(7.0, 1.2, 4.0);
-    let gamma = group(4.0, 3.0, 8.0);
-    let chart = malevich::box_plot(
-        ["alpha", "beta", "gamma"],
-        [&alpha[..], &beta[..], &gamma[..]],
-    )
-    .title("three groups, summarized (synthetic)");
-    println!("{}", chart.render(&Frame::plain(56, 15)));
+    let (categories, groups) = penguin_flippers();
+    let refs: Vec<&[f64]> = groups.iter().map(Vec::as_slice).collect();
+    let chart = malevich::box_plot(categories, refs)
+        .title("flipper length by species")
+        .y_label("mm");
+    println!("{}", chart.render(&Frame::plain(60, 16)));
+}
+
+fn penguin_flippers() -> (Vec<&'static str>, [Vec<f64>; 3]) {
+    let names = ["Adelie", "Chinstrap", "Gentoo"];
+    let mut groups = [Vec::new(), Vec::new(), Vec::new()];
+    for line in include_str!("data/penguins.csv").lines().skip(1) {
+        let mut parts = line.split(',');
+        let species = parts.next().unwrap_or_default();
+        let flipper: Option<f64> = parts.nth(2).and_then(|v| v.parse().ok());
+        if let (Some(index), Some(flipper)) = (names.iter().position(|n| *n == species), flipper) {
+            groups[index].push(flipper);
+        }
+    }
+    (names.to_vec(), groups)
 }
