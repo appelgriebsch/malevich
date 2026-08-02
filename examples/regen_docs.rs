@@ -53,6 +53,14 @@ const GALLERY: &[(&str, &str)] = &[
         "annotated",
         "Annotations: a Rule for the target line, a Text note at data coordinates.",
     ),
+    (
+        "correlation",
+        "A heatmap via the Cells mark: shade ramp plus colormap, readable at every          color tier.",
+    ),
+    (
+        "density2d",
+        "A 2D histogram: point density on a grid, empty bins honestly blank.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

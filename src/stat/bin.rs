@@ -143,6 +143,57 @@ impl Bins {
     }
 }
 
+/// The result of [`bins2`]: a density grid plus the data extents it covers.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Grid {
+    /// Row-major counts, row 0 at the bottom.
+    pub counts: Vec<f64>,
+    /// Columns per row.
+    pub columns: usize,
+    /// The x extent the grid covers.
+    pub x: (f64, f64),
+    /// The y extent the grid covers.
+    pub y: (f64, f64),
+}
+
+/// 2D histogram counts on a uniform `columns` × `rows` grid over the data's finite
+/// extent, or `None` without finite pairs.
+///
+/// # Panics
+///
+/// Panics if the series lengths differ or the grid is empty.
+pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Grid> {
+    assert_eq!(x.len(), y.len(), "bins2 requires series of equal length");
+    assert!(columns > 0 && rows > 0, "bins2 requires a non-empty grid");
+    let mut x_extent: Option<(f64, f64)> = None;
+    let mut y_extent: Option<(f64, f64)> = None;
+    for (&xv, &yv) in x.iter().zip(y.iter()) {
+        if !xv.is_finite() || !yv.is_finite() {
+            continue;
+        }
+        x_extent = Some(x_extent.map_or((xv, xv), |(lo, hi)| (lo.min(xv), hi.max(xv))));
+        y_extent = Some(y_extent.map_or((yv, yv), |(lo, hi)| (lo.min(yv), hi.max(yv))));
+    }
+    let (x_extent, y_extent) = (x_extent?, y_extent?);
+    let width = (x_extent.1 - x_extent.0).max(f64::MIN_POSITIVE);
+    let height = (y_extent.1 - y_extent.0).max(f64::MIN_POSITIVE);
+    let mut counts = vec![0.0f64; columns * rows];
+    for (&xv, &yv) in x.iter().zip(y.iter()) {
+        if !xv.is_finite() || !yv.is_finite() {
+            continue;
+        }
+        let column = (((xv - x_extent.0) / width) * columns as f64) as usize;
+        let row = (((yv - y_extent.0) / height) * rows as f64) as usize;
+        counts[row.min(rows - 1) * columns + column.min(columns - 1)] += 1.0;
+    }
+    Some(Grid {
+        counts,
+        columns,
+        x: x_extent,
+        y: y_extent,
+    })
+}
+
 #[cfg(test)]
 #[path = "tests/bin_tests.rs"]
 mod tests;

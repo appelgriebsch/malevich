@@ -4,7 +4,7 @@
 //! does is beyond reach of the grammar, and each returns the [`Plot`] for refinement.
 
 use crate::data::IntoSeries;
-use crate::mark::{Bars, Line, Points};
+use crate::mark::{Bars, Cells, Line, Points};
 use crate::plot::Plot;
 
 /// A line chart of `values` plotted against their indices.
@@ -99,4 +99,40 @@ pub fn ecdf<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
         previous = fraction;
     }
     Plot::new().layer(Line::xy(x, y))
+}
+
+/// A heatmap of a row-major grid, `columns` wide: shade-ramp glyphs colored by the
+/// default colormap. Row 0 is the bottom row.
+///
+/// ```
+/// let grid = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
+/// println!("{}", malevich::heatmap(3, &grid[..]).render(&malevich::Frame::plain(30, 8)));
+/// ```
+pub fn heatmap<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
+    Plot::new().layer(Cells::matrix(columns, values))
+}
+
+/// A 2D histogram: point density on a uniform grid over the data's extent.
+///
+/// ```
+/// let x = [1.0, 1.1, 5.0, 5.1, 5.2];
+/// let y = [2.0, 2.1, 8.0, 8.1, 7.9];
+/// println!("{}", malevich::hist2d(&x[..], &y[..]).render(&malevich::Frame::plain(40, 12)));
+/// ```
+pub fn hist2d<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
+    let xs = x.into_series();
+    let ys = y.into_series();
+    match crate::stat::bins2(xs.as_slice(), ys.as_slice(), 48, 32) {
+        Some(grid) => {
+            // Empty bins are gaps, not the faintest shade — blank space must mean
+            // "no data", never "a little data".
+            let counts: Vec<f64> = grid
+                .counts
+                .into_iter()
+                .map(|count| if count == 0.0 { f64::NAN } else { count })
+                .collect();
+            Plot::new().layer(Cells::matrix(grid.columns, counts).extents(grid.x, grid.y))
+        }
+        None => Plot::new(),
+    }
 }

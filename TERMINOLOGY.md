@@ -28,8 +28,9 @@ Chart types are compositions of marks, never peers of them. Maps to the `mark`
 module — currently `mark::Line` (points, paired series, or a sampled function),
 `mark::Points`, `mark::Bars` (bands or numeric spans, zero-baseline), `mark::Area`
 (baseline fills and bands), `mark::Rule` (reference lines), and `mark::Text`
-(annotations at data coordinates), joined under the closed `mark::Mark` enum;
-`Cells` and `Range` complete the family next.
+(annotations at data coordinates), and `mark::Cells` (value grids as shade ramp plus
+colormap), joined under the closed `mark::Mark` enum; `Range` completes the family
+next.
 
 ## Channel
 
@@ -71,8 +72,8 @@ A mapping from data domain to raster range with the d3-scale contract: `nice`,
 module — currently `scale::Linear` (the affine map, including the raster y-flip),
 `scale::Band` (categories across a range, d3 padding model), and `scale::Ticks`
 (extended-Wilkinson linear placement plus `Ticks::log10` decades); log axes are
-enabled per plot with `Plot::log_x`/`Plot::log_y`, and the richer scale-spec API
-arrives with the time work.
+enabled per plot with `Plot::log_x`/`Plot::log_y`, `scale::Colormap` covers the
+sequential color scale, and the richer scale-spec API arrives with the time work.
 
 ## Ticks
 

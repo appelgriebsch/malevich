@@ -74,12 +74,37 @@ fn histogram_binning(c: &mut Criterion) {
     });
 }
 
+fn heatmap_render(c: &mut Criterion) {
+    let grid: Vec<f64> = (0..64 * 48).map(|i| (i as f64 * 0.37).sin()).collect();
+    let frame = Frame::plain(80, 24);
+    c.bench_function("render/heatmap_64x48_80x24", |b| {
+        b.iter(|| black_box(malevich::heatmap(64, black_box(&grid[..])).render(&frame)));
+    });
+}
+
+fn pathological_layout(c: &mut Criterion) {
+    // The chrome-shedding fence: every frame size from degenerate to normal.
+    let values: Vec<f64> = (0..500).map(|i| (i as f64 * 0.1).sin()).collect();
+    let plot = malevich::line(&values[..]).title("layout");
+    c.bench_function("render/layout_sweep_0_to_40", |b| {
+        b.iter(|| {
+            for width in 0..40 {
+                for height in 0..12 {
+                    black_box(plot.render(&Frame::plain(width, height)));
+                }
+            }
+        });
+    });
+}
+
 criterion_group!(
     benches,
     line_render,
     scatter_render,
     ansi_encoding,
     ten_million_points,
-    histogram_binning
+    histogram_binning,
+    heatmap_render,
+    pathological_layout
 );
 criterion_main!(benches);

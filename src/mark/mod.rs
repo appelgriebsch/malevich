@@ -7,6 +7,7 @@
 
 mod area;
 mod bars;
+mod cells;
 mod line;
 mod points;
 mod rule;
@@ -15,6 +16,7 @@ mod text;
 pub use area::Area;
 pub use bars::Bars;
 pub(crate) use bars::Placement;
+pub use cells::Cells;
 pub use line::Line;
 pub(crate) use line::Source;
 pub use points::Points;
@@ -36,6 +38,8 @@ pub enum Mark<'a> {
     Bars(Bars<'a>),
     /// A filled region between two edges.
     Area(Area<'a>),
+    /// A value grid drawn as shaded, colored cells.
+    Cells(Cells<'a>),
     /// A reference line across the plot.
     Rule(Rule),
     /// A text annotation at data coordinates.
@@ -50,6 +54,7 @@ impl<'a> Mark<'a> {
             Mark::Points(points) => Mark::Points(points.into_owned()),
             Mark::Bars(bars) => Mark::Bars(bars.into_owned()),
             Mark::Area(area) => Mark::Area(area.into_owned()),
+            Mark::Cells(cells) => Mark::Cells(cells.into_owned()),
             Mark::Rule(rule) => Mark::Rule(rule),
             Mark::Text(text) => Mark::Text(text),
         }
@@ -89,5 +94,11 @@ impl<'a> From<Rule> for Mark<'a> {
 impl<'a> From<Text> for Mark<'a> {
     fn from(text: Text) -> Mark<'a> {
         Mark::Text(text)
+    }
+}
+
+impl<'a> From<Cells<'a>> for Mark<'a> {
+    fn from(cells: Cells<'a>) -> Mark<'a> {
+        Mark::Cells(cells)
     }
 }

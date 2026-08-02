@@ -3,7 +3,15 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased (toward 0.4.0)
+## 0.4.0 (Suprematist Composition) — 2026-08-01
+
+The daily driver: the mark family grows to seven, and the statistical presets with it.
+
+- Cells (`mark::Cells`, `scale::Colormap`, `malevich::heatmap`, `malevich::hist2d`,
+  `stat::bins2`): value grids as a shade ramp (`░▒▓█`) colored by a colormap
+  (viridis-like default) — value carried by glyph and color, readable at every tier
+  including plain; grids map onto data coordinates via `Cells::extents`; empty 2D
+  bins stay honestly blank.
 
 - Area (`mark::Area`): baseline fills and between-bands, drawn as vertical subpixel
   runs — solid in every charset, subpixel edge precision, gap-breaking. `stat::stack`

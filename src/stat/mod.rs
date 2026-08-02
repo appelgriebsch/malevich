@@ -15,7 +15,7 @@ mod moments;
 mod stack;
 
 pub use agg::Agg;
-pub use bin::Bins;
+pub use bin::{Bins, Grid, bins2};
 pub use ecdf::ecdf;
 pub use lttb::lttb;
 pub(crate) use m4::m4_indexed;

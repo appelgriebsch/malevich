@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use super::frame::Frame;
 use crate::mark::{Mark, Orientation, Placement, Source};
 use crate::render::{Charset, Color, Surface, display_width, fit_width};
-use crate::scale::{Band, Linear, Ticks};
+use crate::scale::{Band, Colormap, Linear, Ticks};
 
 /// A retained chart description: layers of marks plus furniture.
 ///
@@ -333,6 +333,24 @@ impl<'a> Plot<'a> {
                         (x_offset, y_offset),
                     );
                 }
+                ResolvedLayer::Cells {
+                    columns,
+                    values,
+                    extents,
+                    colormap,
+                } => {
+                    draw_cells(
+                        &mut surface,
+                        *columns,
+                        values,
+                        *extents,
+                        *colormap,
+                        &x_scale,
+                        &y_scale,
+                        (gutter, plot_top, plot_cols, plot_rows),
+                        (px, py),
+                    );
+                }
                 ResolvedLayer::Rule {
                     orientation, color, ..
                 } => match orientation {
@@ -510,6 +528,12 @@ impl<'a> Plot<'a> {
                         color: assigned(area.color),
                         label: area.label.as_deref(),
                     },
+                    Mark::Cells(cells) => ResolvedLayer::Cells {
+                        columns: cells.columns,
+                        values: cells.values.as_slice(),
+                        extents: cells.extents,
+                        colormap: cells.colormap,
+                    },
                     Mark::Rule(rule) => ResolvedLayer::Rule {
                         orientation: rule.orientation,
                         color: rule.color.unwrap_or(Color::Default),
@@ -590,6 +614,12 @@ enum ResolvedLayer<'p> {
         color: Color,
         label: Option<&'p str>,
     },
+    Cells {
+        columns: usize,
+        values: &'p [f64],
+        extents: Option<((f64, f64), (f64, f64))>,
+        colormap: Colormap,
+    },
     Rule {
         orientation: Orientation,
         color: Color,
@@ -622,6 +652,12 @@ impl ResolvedLayer<'_> {
             } => Some((*x, *x)),
             ResolvedLayer::Rule { .. } => None,
             ResolvedLayer::Text { x, .. } => Some((*x, *x)),
+            ResolvedLayer::Cells {
+                columns, extents, ..
+            } => Some(match extents {
+                Some((x, _)) => *x,
+                None => (0.0, *columns as f64),
+            }),
         }
     }
 
@@ -645,6 +681,15 @@ impl ResolvedLayer<'_> {
             } => Some((*y, *y)),
             ResolvedLayer::Rule { .. } => None,
             ResolvedLayer::Text { y, .. } => Some((*y, *y)),
+            ResolvedLayer::Cells {
+                columns,
+                values,
+                extents,
+                ..
+            } => Some(match extents {
+                Some((_, y)) => *y,
+                None => (0.0, (values.len() / (*columns).max(1)) as f64),
+            }),
         }
     }
 
@@ -658,6 +703,7 @@ impl ResolvedLayer<'_> {
                 ..
             } if *x > 0.0 => Some((*x, *x)),
             ResolvedLayer::Text { x, .. } if *x > 0.0 => Some((*x, *x)),
+            ResolvedLayer::Cells { .. } => self.x_extent().filter(|(lo, _)| *lo > 0.0),
             _ => None,
         }
     }
@@ -677,6 +723,7 @@ impl ResolvedLayer<'_> {
                 ..
             } if *y > 0.0 => Some((*y, *y)),
             ResolvedLayer::Text { y, .. } if *y > 0.0 => Some((*y, *y)),
+            ResolvedLayer::Cells { .. } => self.y_extent().filter(|(lo, _)| *lo > 0.0),
             _ => None,
         }
     }
@@ -707,7 +754,7 @@ impl ResolvedLayer<'_> {
                 let swatch = if ascii { "--" } else { "\u{2500}\u{2500}" };
                 (swatch, *color, *label)
             }
-            ResolvedLayer::Text { .. } => return None,
+            ResolvedLayer::Text { .. } | ResolvedLayer::Cells { .. } => return None,
         };
         label.map(|label| (swatch, color, label))
     }
@@ -845,6 +892,88 @@ fn draw_bars(
             }
         }
     }
+}
+
+/// Draws one cells layer: for every surface cell inside the plot area, the nearest
+/// grid sample renders as a shade-ramp glyph colored by the colormap — value in
+/// glyph and color both, readable at every color tier. Gaps stay blank.
+#[allow(clippy::too_many_arguments)]
+fn draw_cells(
+    surface: &mut Surface,
+    columns: usize,
+    values: &[f64],
+    extents: Option<((f64, f64), (f64, f64))>,
+    colormap: Colormap,
+    x_scale: &Map,
+    y_scale: &Map,
+    place: (usize, usize, usize, usize),
+    density: (usize, usize),
+) {
+    const RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
+    let (gutter, plot_top, plot_cols, plot_rows) = place;
+    let (px, py) = density;
+    let rows = values.len() / columns.max(1);
+    if rows == 0 {
+        return;
+    }
+    let Some((low, high)) = extent(values) else {
+        return;
+    };
+    let spread = if high > low { high - low } else { 1.0 };
+    let ((x0, x1), (y0, y1)) = extents.unwrap_or(((0.0, columns as f64), (0.0, rows as f64)));
+    let mut buffer = [0u8; 4];
+
+    for cell_row in 0..plot_rows {
+        for cell_col in 0..plot_cols {
+            // The data position at this cell's center, via the shared scales'
+            // subpixel geometry.
+            let sub_x = (cell_col * px) as f64 + px as f64 / 2.0;
+            let sub_y = (cell_row * py) as f64 + py as f64 / 2.0;
+            let fx = position_on(x_scale, sub_x, x0, x1);
+            let fy = position_on(y_scale, sub_y, y0, y1);
+            let (Some(fx), Some(fy)) = (fx, fy) else {
+                continue;
+            };
+            let column = ((fx - x0) / (x1 - x0) * columns as f64).floor();
+            let row = ((fy - y0) / (y1 - y0) * rows as f64).floor();
+            if column < 0.0 || row < 0.0 {
+                continue;
+            }
+            let (column, row) = (column as usize, row as usize);
+            if column >= columns || row >= rows {
+                continue;
+            }
+            let value = values[row * columns + column];
+            if !value.is_finite() {
+                continue;
+            }
+            let position = (value - low) / spread;
+            let glyph = RAMP[((position * 4.0) as usize).min(3)];
+            surface.text(
+                (gutter + cell_col) as i64,
+                (plot_top + cell_row) as i64,
+                glyph.encode_utf8(&mut buffer),
+                colormap.color(position),
+            );
+        }
+    }
+}
+
+/// Inverts a scale at a subpixel position, returning the data value if it lands
+/// inside `[lo, hi]`.
+fn position_on(scale: &Map, sub: f64, lo: f64, hi: f64) -> Option<f64> {
+    // Sample the scale forward at both ends to invert linearly in subpixel space —
+    // exact for linear scales, and cells are not drawn on log axes.
+    let s0 = scale.map(lo);
+    let s1 = scale.map(hi);
+    if !s0.is_finite() || !s1.is_finite() || s0 == s1 {
+        return None;
+    }
+    let t = (sub - s0) / (s1 - s0);
+    if !(0.0..1.0).contains(&t) {
+        return None;
+    }
+    Some(lo + t * (hi - lo))
 }
 
 /// Draws one area layer: for every subpixel column a segment covers, a vertical
