@@ -1,0 +1,259 @@
+//! The subpixel surface: the grid marks draw on, and its string encoders.
+
+use std::fmt::Write as _;
+
+use super::charset::Charset;
+use super::color::Color;
+
+/// One character cell: a subpixel pattern, an optional text glyph, and a color.
+///
+/// Text wins over pixels when the cell prints — labels are never corrupted by marks
+/// drawing underneath them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Cell {
+    bits: u8,
+    glyph: Option<char>,
+    color: Color,
+}
+
+const EMPTY: Cell = Cell {
+    bits: 0,
+    glyph: None,
+    color: Color::Default,
+};
+
+/// A grid of character cells addressed in subpixel coordinates.
+///
+/// The surface is pure raster state: origin at the top-left, y growing downward,
+/// `width * height` cells at the charset's subpixel density. Drawing is infallible —
+/// coordinates outside the surface clip away, non-finite coordinates draw nothing.
+/// When several colors land in one cell, the last write wins.
+#[derive(Clone, PartialEq)]
+pub struct Surface {
+    width: usize,
+    height: usize,
+    charset: Charset,
+    columns: usize,
+    rows: usize,
+    cells: Vec<Cell>,
+}
+
+impl Surface {
+    /// Creates an empty surface of `width * height` cells encoded with `charset`.
+    pub fn new(width: usize, height: usize, charset: Charset) -> Surface {
+        let (columns, rows) = charset.pixels_per_cell();
+        Surface {
+            width,
+            height,
+            charset,
+            columns,
+            rows,
+            cells: vec![EMPTY; width * height],
+        }
+    }
+
+    /// The size in cells as `(width, height)`.
+    pub fn size(&self) -> (usize, usize) {
+        (self.width, self.height)
+    }
+
+    /// The size in subpixels as `(width, height)`.
+    pub fn subpixel_size(&self) -> (usize, usize) {
+        (self.width * self.columns, self.height * self.rows)
+    }
+
+    /// Sets the subpixel at `(x, y)`; outside the surface this does nothing.
+    pub fn set(&mut self, x: i64, y: i64, color: Color) {
+        let (sw, sh) = self.subpixel_size();
+        if x < 0 || y < 0 || x >= sw as i64 || y >= sh as i64 {
+            return;
+        }
+        let (x, y) = (x as usize, y as usize);
+        let index = (y / self.rows) * self.width + x / self.columns;
+        let cell = &mut self.cells[index];
+        cell.bits |= self.charset.bit(x % self.columns, y % self.rows);
+        cell.color = color;
+    }
+
+    /// Sets the subpixel nearest to `(x, y)`; non-finite coordinates draw nothing.
+    pub fn dot(&mut self, x: f64, y: f64, color: Color) {
+        if x.is_finite() && y.is_finite() {
+            self.set(x.round() as i64, y.round() as i64, color);
+        }
+    }
+
+    /// Draws a line between two subpixel positions, clipped to the surface.
+    ///
+    /// Non-finite endpoints draw nothing (a gap breaks a polyline before it reaches
+    /// this call, but the surface defends itself regardless).
+    pub fn line(&mut self, from: (f64, f64), to: (f64, f64), color: Color) {
+        if !(from.0.is_finite() && from.1.is_finite() && to.0.is_finite() && to.1.is_finite()) {
+            return;
+        }
+        let (sw, sh) = self.subpixel_size();
+        if sw == 0 || sh == 0 {
+            return;
+        }
+        let window = ((sw - 1) as f64, (sh - 1) as f64);
+        let Some((from, to)) = clip(from, to, window) else {
+            return;
+        };
+        let (x1, y1) = (to.0.round() as i64, to.1.round() as i64);
+        let (mut x, mut y) = (from.0.round() as i64, from.1.round() as i64);
+        let dx = (x1 - x).abs();
+        let dy = -(y1 - y).abs();
+        let sx = if x < x1 { 1 } else { -1 };
+        let sy = if y < y1 { 1 } else { -1 };
+        let mut error = dx + dy;
+        loop {
+            self.set(x, y, color);
+            if x == x1 && y == y1 {
+                return;
+            }
+            let doubled = 2 * error;
+            if doubled >= dy {
+                error += dy;
+                x += sx;
+            }
+            if doubled <= dx {
+                error += dx;
+                y += sy;
+            }
+        }
+    }
+
+    /// Writes text starting at the cell `(column, row)`; cells outside clip away.
+    ///
+    /// Text overrides any pixels in the same cells. One `char` per cell — width
+    /// discipline for wide graphemes arrives with the layout work.
+    pub fn text(&mut self, column: i64, row: i64, text: &str, color: Color) {
+        if row < 0 || row >= self.height as i64 {
+            return;
+        }
+        for (offset, glyph) in text.chars().enumerate() {
+            let column = column + offset as i64;
+            if column < 0 || column >= self.width as i64 {
+                continue;
+            }
+            let cell = &mut self.cells[row as usize * self.width + column as usize];
+            cell.glyph = Some(glyph);
+            cell.color = color;
+        }
+    }
+
+    /// Encodes the surface as plain text: no escape codes, rows joined by newlines,
+    /// trailing spaces trimmed.
+    pub fn to_plain(&self) -> String {
+        let mut out = String::with_capacity((self.width + 1) * self.height);
+        for row in 0..self.height {
+            if row > 0 {
+                out.push('\n');
+            }
+            let mut kept = out.len();
+            for (glyph, _) in self.row(row) {
+                out.push(glyph);
+                if glyph != ' ' {
+                    kept = out.len();
+                }
+            }
+            out.truncate(kept);
+        }
+        out
+    }
+
+    /// Encodes the surface with ANSI colors: SGR codes are emitted only when the
+    /// color changes along a row (with a reset at the end of any colored row), so
+    /// uncolored surfaces encode identically to [`Surface::to_plain`].
+    pub fn to_ansi(&self) -> String {
+        let mut out = String::with_capacity((self.width + 8) * self.height);
+        for row in 0..self.height {
+            if row > 0 {
+                out.push('\n');
+            }
+            let mut current = Color::Default;
+            let mut kept = out.len();
+            for (glyph, color) in self.row(row) {
+                // Spaces carry no visible color; letting them inherit the current
+                // one lengthens runs and keeps trailing whitespace trimmable.
+                if glyph != ' ' && color != current {
+                    let _ = write!(out, "\x1b[{}m", color.sgr());
+                    current = color;
+                }
+                out.push(glyph);
+                if glyph != ' ' {
+                    kept = out.len();
+                }
+            }
+            out.truncate(kept);
+            if current != Color::Default {
+                out.push_str("\x1b[0m");
+            }
+        }
+        out
+    }
+
+    /// The printable glyphs of one row, in order.
+    fn row(&self, row: usize) -> impl Iterator<Item = (char, Color)> + '_ {
+        self.cells[row * self.width..(row + 1) * self.width]
+            .iter()
+            .map(|cell| {
+                let glyph = cell.glyph.unwrap_or_else(|| self.charset.glyph(cell.bits));
+                (glyph, cell.color)
+            })
+    }
+}
+
+impl std::fmt::Debug for Surface {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Surface")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("charset", &self.charset)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Liang–Barsky clipping of the segment `from → to` against `[0, window.0] x
+/// [0, window.1]`; `None` when the segment lies entirely outside.
+fn clip(from: (f64, f64), to: (f64, f64), window: (f64, f64)) -> Option<((f64, f64), (f64, f64))> {
+    let (dx, dy) = (to.0 - from.0, to.1 - from.1);
+    let mut enter = 0.0f64;
+    let mut exit = 1.0f64;
+    let tests = [
+        (-dx, from.0),
+        (dx, window.0 - from.0),
+        (-dy, from.1),
+        (dy, window.1 - from.1),
+    ];
+    for (p, q) in tests {
+        if p == 0.0 {
+            if q < 0.0 {
+                return None;
+            }
+        } else {
+            let r = q / p;
+            if p < 0.0 {
+                if r > exit {
+                    return None;
+                }
+                enter = enter.max(r);
+            } else {
+                if r < enter {
+                    return None;
+                }
+                exit = exit.min(r);
+            }
+        }
+    }
+    if enter > exit {
+        return None;
+    }
+    Some((
+        (from.0 + enter * dx, from.1 + enter * dy),
+        (from.0 + exit * dx, from.1 + exit * dy),
+    ))
+}
+
+#[cfg(test)]
+#[path = "tests/surface_tests.rs"]
+mod tests;

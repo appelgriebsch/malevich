@@ -7,4 +7,5 @@
 #![warn(missing_docs)]
 
 pub mod data;
+pub mod render;
 pub mod scale;

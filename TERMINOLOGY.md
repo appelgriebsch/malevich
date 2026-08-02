@@ -79,15 +79,18 @@ is render state, not plot state — the same `Plot` renders into many frames.
 
 ## Surface
 
-The subpixel grid that marks draw on during rasterization, before glyphs exist. A
-charset codec maps each cell's subpixel pattern to one glyph plus colors. Internal —
-users see strings and widgets, not surfaces. Maps to `render::Surface` *(planned)*.
+The subpixel grid that marks draw on during rasterization, before glyphs exist
+(raster convention: origin top-left, y down; the data-space flip happens in scales). A
+charset codec maps each cell's subpixel pattern to one glyph plus a color; text shares
+the grid and wins over pixels. Drawing is infallible: out-of-surface clips, non-finite
+draws nothing, the last write owns a shared cell's color. Maps to `render::Surface`.
 
 ## Charset
 
 A glyph tier used to encode the surface: `Ascii`, `Blocks`, `Braille`, `Sextants`,
 `Octants`, or `Auto` (environment-sniffed, never probed). Glyph tables are data, not
-code. Maps to `Charset` *(planned)*.
+code. Maps to `render::Charset` — currently `Ascii` and `Braille`; the richer tiers
+and `Auto` arrive with the capability ladder.
 
 ## Theme
 
