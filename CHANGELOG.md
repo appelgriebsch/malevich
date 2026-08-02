@@ -3,7 +3,11 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased (toward 0.11.0 — Polish)
+## 0.11.0 (Polish) — 2026-08-02
+
+The API review before the 1.0 freeze: the breaking changes are settled here, while
+the crate is still pre-1.0 and cheap to move on. A fallible boundary makes external
+specs safe; M4's headline guarantee is real again; a few names stop lying.
 
 - `Scale::Auto` is the new default, distinct from `Scale::Linear`. An automatic axis
   adapts to its layers (categorical when a bars or band-range layer is present,
