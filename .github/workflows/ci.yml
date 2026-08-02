@@ -17,4 +17,5 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --all-targets
       - run: cargo test --doc
+      - run: cargo run --example regen_gallery -- --check
       - run: cargo doc --no-deps

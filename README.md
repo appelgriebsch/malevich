@@ -2,9 +2,27 @@
 
 Terminal plotting for Rust: a small grammar of marks, honest axes, millions of points.
 
-**Status: pre-0.1, under construction.** Nothing usable yet. The first release, *Black
-Square*, ships one thing done properly: a line chart with real axes — principled tick
-placement, braille and ASCII rendering, honest gaps, plain output when piped.
+**Status: pre-0.1, under construction.** The spine works: line charts with real axes —
+extended-Wilkinson tick placement with exact-decimal labels, braille and ASCII
+rendering, function sampling at raster resolution, honest gaps, graceful degradation
+in small frames, plain output when piped. One mark so far; the catalog follows.
+
+```rust
+println!("{}", malevich::line(&[1.0, 5.0, 2.0, 8.0][..]));
+```
+
+```text
+8 ┤                         ⡠⠊
+  │                       ⡠⠊
+  │       ⣀⠤⠒⠤⣀        ⢀⠔⠉
+  │    ⡠⠔⠊     ⠉⠒⠤⣀  ⢀⠔⠁
+  │⢀⡠⠔⠉            ⠉⠒⠁
+0 ┤⠁
+  └┬────────┬───────┬────────┬
+   0        1       2        3
+```
+
+More in the gallery: [EXAMPLES.md](EXAMPLES.md).
 
 ## What it will be
 
