@@ -2,10 +2,13 @@
 
 Terminal plotting for Rust: a small grammar of marks, honest axes, millions of points.
 
-**Status: pre-0.1, under construction.** The spine works: line charts with real axes —
-extended-Wilkinson tick placement with exact-decimal labels, braille and ASCII
-rendering, function sampling at raster resolution, honest gaps, graceful degradation
-in small frames, plain output when piped. One mark so far; the catalog follows.
+**Status: early and moving fast (0.2).** Three marks — lines, points, bars — with real
+axes: extended-Wilkinson tick placement with exact-decimal labels, legends, a zero-
+baseline band scale for bars, function sampling at raster resolution, honest gaps, and
+graceful degradation in small frames. Rendering spans four charsets (braille,
+quadrants, half-blocks, ASCII) and four color tiers (truecolor, 256, 16, plain) with
+honest downhill quantization; output is plain text automatically when piped. Breaking
+changes between releases are expected until 1.0.
 
 ```rust
 println!("{}", malevich::line(&[1.0, 5.0, 2.0, 8.0][..]));
@@ -24,9 +27,28 @@ println!("{}", malevich::line(&[1.0, 5.0, 2.0, 8.0][..]));
 ```
 <!-- /generated -->
 
+```rust
+println!("{}", malevich::bar(["mon", "tue", "wed", "thu", "fri"], &[3.0, 7.0, 4.5, 8.0, 6.0][..]));
+```
+
+<!-- generated:readme_bars -->
+```text
+8 ┤         ▁▁▁▁▁         █████
+  │         █████         █████  ▃▃▃▃▃
+  │         █████         █████  █████
+4 ┤         █████  █████  █████  █████
+  │  ▆▆▆▆▆  █████  █████  █████  █████
+  │  █████  █████  █████  █████  █████
+0 ┤  █████  █████  █████  █████  █████
+  └─────────────────────────────────────
+      mon    tue    wed    thu    fri
+```
+<!-- /generated -->
+
 Every chart in these docs is real program output, spliced in by
-`cargo run --example regen_docs` and verified in CI — never typed by hand.
-More in the gallery: [EXAMPLES.md](EXAMPLES.md).
+`cargo run --example regen_docs` and verified in CI — never typed by hand. More in the
+gallery: [EXAMPLES.md](EXAMPLES.md), and `cargo run --example showcase` renders a
+colored tour sized to your terminal.
 
 ## What it will be
 
