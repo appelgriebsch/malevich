@@ -134,10 +134,15 @@ fn output_of(name: &str) -> String {
 
 fn gallery_content() -> String {
     let mut content = String::from(
-        "# Gallery\n\n\
-         The showcase and the system test in one artifact. Regenerate with\n\
-         `cargo run --example regen_docs`; CI fails when this file is stale.\n\
-         Every example renders a fixed `Frame::plain`, so output is deterministic.\n",
+        "<!-- GENERATED FILE — do not edit. Every byte of this file is produced by\n\
+         examples/regen_docs.rs from the gallery examples; edit those instead and\n\
+         run `cargo run --example regen_docs`. -->\n\n\
+         # Gallery\n\n\
+         The showcase and the system test in one artifact. This whole file is\n\
+         generated from the examples (unlike README.md, which splices marked\n\
+         blocks); regenerate with `cargo run --example regen_docs` — CI fails when\n\
+         it is stale. Every example renders a fixed `Frame::plain`, so output is\n\
+         deterministic.\n",
     );
     for (name, story) in GALLERY {
         content.push_str(&format!(

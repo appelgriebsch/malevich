@@ -1,8 +1,14 @@
+<!-- GENERATED FILE — do not edit. Every byte of this file is produced by
+examples/regen_docs.rs from the gallery examples; edit those instead and
+run `cargo run --example regen_docs`. -->
+
 # Gallery
 
-The showcase and the system test in one artifact. Regenerate with
-`cargo run --example regen_docs`; CI fails when this file is stale.
-Every example renders a fixed `Frame::plain`, so output is deterministic.
+The showcase and the system test in one artifact. This whole file is
+generated from the examples (unlike README.md, which splices marked
+blocks); regenerate with `cargo run --example regen_docs` — CI fails when
+it is stale. Every example renders a fixed `Frame::plain`, so output is
+deterministic.
 
 ## sine
 
