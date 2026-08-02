@@ -1,0 +1,43 @@
+# cargo-deny configuration: dependency advisory, license, and source policy.
+# Run locally with `cargo deny check`; CI runs it on every push.
+
+[graph]
+# Check every optional runtime dependency (serde, ndarray, ratatui-core), not just
+# the default (empty) feature set.
+all-features = true
+
+[advisories]
+version = 2
+# Fail on any RustSec advisory or a dependency pinned to a yanked release.
+yanked = "deny"
+
+[licenses]
+version = 2
+# Permissive licenses only. malevich itself is MIT OR Apache-2.0; everything it
+# builds on (runtime and dev) resolves to one of these. WTFPL and MPL-2.0 appear
+# only through dev-dependencies (crossterm's terminfo/termina), never shipped.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "BSL-1.0",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Unlicense",
+    "WTFPL",
+    "MPL-2.0",
+]
+
+[bans]
+# A duplicated crate version is a warning, not a failure — dev-dep graphs drift.
+multiple-versions = "warn"
+
+[sources]
+# Only crates.io; no unknown registries or git dependencies.
+unknown-registry = "deny"
+unknown-git = "deny"
