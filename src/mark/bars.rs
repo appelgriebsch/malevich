@@ -15,6 +15,7 @@ pub struct Bars<'a> {
     pub(crate) categories: Vec<String>,
     pub(crate) values: Series<'a>,
     pub(crate) color: Option<Color>,
+    pub(crate) label: Option<String>,
 }
 
 impl<'a> Bars<'a> {
@@ -38,6 +39,7 @@ impl<'a> Bars<'a> {
             categories,
             values,
             color: None,
+            label: None,
         }
     }
 
@@ -48,12 +50,21 @@ impl<'a> Bars<'a> {
         self
     }
 
+    /// Names this layer in the legend. The legend appears once any layer is
+    /// labeled (and the frame is tall enough for it).
+    #[must_use]
+    pub fn label(mut self, label: impl Into<String>) -> Bars<'a> {
+        self.label = Some(label.into());
+        self
+    }
+
     /// Detaches from any borrowed storage, making the mark `'static`.
     pub fn into_owned(self) -> Bars<'static> {
         Bars {
             categories: self.categories,
             values: self.values.into_owned(),
             color: self.color,
+            label: self.label,
         }
     }
 }

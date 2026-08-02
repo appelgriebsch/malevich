@@ -4,6 +4,7 @@
 use std::io::IsTerminal;
 
 use crate::render::{Charset, ColorMode};
+use crate::theme::Theme;
 
 /// Where and how to render: size in cells, charset, and color mode.
 ///
@@ -21,6 +22,8 @@ pub struct Frame {
     pub charset: Charset,
     /// How much color the output may carry.
     pub color: ColorMode,
+    /// The colors to draw with.
+    pub theme: Theme,
 }
 
 impl Frame {
@@ -32,6 +35,7 @@ impl Frame {
             height,
             charset: Charset::Braille,
             color: ColorMode::Plain,
+            theme: Theme::DARK,
         }
     }
 
@@ -55,6 +59,7 @@ impl Frame {
             height,
             charset: detect_charset(),
             color: detect_color(),
+            theme: Theme::detect(),
         }
     }
 }

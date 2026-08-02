@@ -54,6 +54,21 @@ fn the_bar_preset_equals_its_grammar_expansion() {
     assert_eq!(preset, grammar);
 }
 
+#[test]
+fn labeled_layers_grow_a_legend_row() {
+    let plot = Plot::new()
+        .layer(Line::y(&[1.0, 2.0][..]).label("first"))
+        .layer(Line::y(&[2.0, 1.0][..]).label("second"));
+    let text = plot.render(&Frame::plain(40, 10));
+    assert!(
+        text.contains("\u{2500}\u{2500} first  \u{2500}\u{2500} second"),
+        "missing legend: {text}"
+    );
+    // Shed before anything else when the frame is short.
+    let short = plot.render(&Frame::plain(40, 7));
+    assert!(!short.contains("first"), "legend not shed: {short}");
+}
+
 const BARS_WITH_TREND: &str = r"           bars with a trend line
 7.5 ┤                             ▃▃▃▃▃▃▃
     │                             ███████

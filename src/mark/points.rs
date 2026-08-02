@@ -9,6 +9,7 @@ pub struct Points<'a> {
     pub(crate) x: Option<Series<'a>>,
     pub(crate) y: Series<'a>,
     pub(crate) color: Option<Color>,
+    pub(crate) label: Option<String>,
 }
 
 impl<'a> Points<'a> {
@@ -18,6 +19,7 @@ impl<'a> Points<'a> {
             x: None,
             y: values.into_series(),
             color: None,
+            label: None,
         }
     }
 
@@ -38,6 +40,7 @@ impl<'a> Points<'a> {
             x: Some(x),
             y,
             color: None,
+            label: None,
         }
     }
 
@@ -48,12 +51,21 @@ impl<'a> Points<'a> {
         self
     }
 
+    /// Names this layer in the legend. The legend appears once any layer is
+    /// labeled (and the frame is tall enough for it).
+    #[must_use]
+    pub fn label(mut self, label: impl Into<String>) -> Points<'a> {
+        self.label = Some(label.into());
+        self
+    }
+
     /// Detaches from any borrowed storage, making the mark `'static`.
     pub fn into_owned(self) -> Points<'static> {
         Points {
             x: self.x.map(Series::into_owned),
             y: self.y.into_owned(),
             color: self.color,
+            label: self.label,
         }
     }
 }

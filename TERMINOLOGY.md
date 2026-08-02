@@ -100,8 +100,9 @@ and `Auto` arrive with the capability ladder.
 
 ## Theme
 
-Colors and styles as a value you pass, never a global: palette, role colors (gap,
-negative, accent), cell aspect ratio. Maps to `Theme` *(planned)*.
+Colors and styles as a value you pass, never a global. Today: the layer palette, with
+dark and light variants and `COLORFGBG` detection; role colors and cell aspect ratio
+join later. Maps to `Theme` (a field of `Frame`).
 
 ## Preset
 

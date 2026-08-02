@@ -15,6 +15,7 @@ use crate::render::Color;
 pub struct Line<'a> {
     pub(crate) source: Source<'a>,
     pub(crate) color: Option<Color>,
+    pub(crate) label: Option<String>,
 }
 
 #[derive(Clone)]
@@ -38,6 +39,7 @@ impl<'a> Line<'a> {
                 y: values.into_series(),
             },
             color: None,
+            label: None,
         }
     }
 
@@ -53,6 +55,7 @@ impl<'a> Line<'a> {
         Line {
             source: Source::Points { x: Some(x), y },
             color: None,
+            label: None,
         }
     }
 
@@ -78,6 +81,7 @@ impl<'a> Line<'a> {
                 function: Arc::new(function),
             },
             color: None,
+            label: None,
         }
     }
 
@@ -85,6 +89,14 @@ impl<'a> Line<'a> {
     #[must_use]
     pub fn color(mut self, color: Color) -> Line<'a> {
         self.color = Some(color);
+        self
+    }
+
+    /// Names this layer in the legend. The legend appears once any layer is
+    /// labeled (and the frame is tall enough for it).
+    #[must_use]
+    pub fn label(mut self, label: impl Into<String>) -> Line<'a> {
+        self.label = Some(label.into());
         self
     }
 
@@ -99,6 +111,7 @@ impl<'a> Line<'a> {
                 Source::Function { domain, function } => Source::Function { domain, function },
             },
             color: self.color,
+            label: self.label,
         }
     }
 }

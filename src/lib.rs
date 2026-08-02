@@ -12,8 +12,10 @@ pub mod plot;
 mod presets;
 pub mod render;
 pub mod scale;
+mod theme;
 
 pub use mark::{Bars, Line, Mark, Points};
 pub use plot::{Frame, Plot};
 pub use presets::{bar, line, scatter};
 pub use render::{Charset, Color, ColorMode};
+pub use theme::Theme;

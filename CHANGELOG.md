@@ -5,6 +5,10 @@ without apology.
 
 ## Unreleased (toward 0.2.0)
 
+- Legends: `.label("…")` on any mark grows a legend row with per-kind colored
+  swatches, shed first when the frame is short.
+- Themes (`Theme`, `Frame::theme`): the palette as a value — `DARK` (default),
+  `LIGHT` (readable on white), `COLORFGBG` detection, or any custom palette.
 - Bars (`mark::Bars`, `scale::Band`, `malevich::bar`): categorical bar charts from a
   zero baseline with eighth-block partial tops, coarse below-baseline fills for
   negative values, band-fitted category labels, and continuous layers (trend lines)

@@ -8,17 +8,6 @@ use crate::mark::{Mark, Source};
 use crate::render::{Charset, Color, Surface, display_width, fit_width};
 use crate::scale::{Band, Linear, Ticks};
 
-/// Layer colors when none are set explicitly. A single layer uses the terminal's
-/// default foreground instead.
-const PALETTE: [Color; 6] = [
-    Color::Cyan,
-    Color::Yellow,
-    Color::Green,
-    Color::Magenta,
-    Color::Blue,
-    Color::Red,
-];
-
 /// A retained chart description: layers of marks plus furniture.
 ///
 /// A plot is a plain value — build it anywhere, clone it, send it across threads,
@@ -87,7 +76,7 @@ impl<'a> Plot<'a> {
         }
         let (px, py) = frame.charset.pixels_per_cell();
 
-        let layers = self.resolve(frame.width * px);
+        let layers = self.resolve(frame.width * px, &frame.theme.palette);
         let categories: Option<&[String]> = layers.iter().find_map(|layer| match layer {
             ResolvedLayer::Bars { categories, .. } if !categories.is_empty() => Some(*categories),
             _ => None,
@@ -100,15 +89,21 @@ impl<'a> Plot<'a> {
             y_data = (y_data.0.min(0.0), y_data.1.max(0.0));
         }
 
-        // Vertical layout: title, plot rows, then the x axis and its labels — shed
-        // in reverse priority when the frame is too short.
+        // Vertical layout: title, legend, plot rows, then the x axis and its
+        // labels — shed in priority order (legend first) when the frame is short.
+        let ascii = frame.charset == Charset::Ascii;
         let title_rows = usize::from(self.title.is_some() && frame.height >= 6);
-        let axis_rows = match frame.height - title_rows {
+        let has_legend = layers
+            .iter()
+            .any(|layer| layer.legend_entry(ascii).is_some());
+        let legend_rows = usize::from(has_legend && frame.height >= 8);
+        let chrome_top = title_rows + legend_rows;
+        let axis_rows = match frame.height - chrome_top {
             0..=1 => 0,
             2..=3 => 1,
             _ => 2,
         };
-        let plot_rows = frame.height - title_rows - axis_rows;
+        let plot_rows = frame.height - chrome_top - axis_rows;
 
         // Horizontal layout: the y-label gutter is measured, not fixed — and shed
         // entirely when it would eat the plot.
@@ -159,7 +154,30 @@ impl<'a> Plot<'a> {
             surface.text(start, 0, &title, Color::Default);
         }
 
-        let plot_top = title_rows;
+        if legend_rows == 1 {
+            let entries: Vec<_> = layers
+                .iter()
+                .filter_map(|layer| layer.legend_entry(ascii))
+                .collect();
+            let total: usize = entries
+                .iter()
+                .map(|(swatch, _, label)| display_width(swatch) + 1 + display_width(label))
+                .sum::<usize>()
+                + 2 * entries.len().saturating_sub(1);
+            let mut column = ((frame.width as i64 - total as i64) / 2).max(0);
+            let row = title_rows as i64;
+            for (index, (swatch, color, label)) in entries.iter().enumerate() {
+                if index > 0 {
+                    column += 2;
+                }
+                surface.text(column, row, swatch, *color);
+                column += display_width(swatch) as i64 + 1;
+                surface.text(column, row, label, Color::Default);
+                column += display_width(label) as i64;
+            }
+        }
+
+        let plot_top = chrome_top;
         if gutter >= 1 {
             let axis_column = (gutter - 1) as i64;
             for row in 0..plot_rows {
@@ -231,7 +249,9 @@ impl<'a> Plot<'a> {
         let y_offset = (plot_top * py) as f64;
         for layer in &layers {
             match layer {
-                ResolvedLayer::Series { x, y, color, kind } => {
+                ResolvedLayer::Series {
+                    x, y, color, kind, ..
+                } => {
                     draw_series(
                         &mut surface,
                         kind,
@@ -265,7 +285,7 @@ impl<'a> Plot<'a> {
 
     /// Materializes every layer into drawable columns plus a resolved color.
     /// Functions are sampled here, once per subpixel column of the frame width.
-    fn resolve(&self, sample_width: usize) -> Vec<ResolvedLayer<'_>> {
+    fn resolve(&self, sample_width: usize, palette: &[Color; 6]) -> Vec<ResolvedLayer<'_>> {
         let single = self.layers.len() == 1;
         self.layers
             .iter()
@@ -275,7 +295,7 @@ impl<'a> Plot<'a> {
                     explicit.unwrap_or(if single {
                         Color::Default
                     } else {
-                        PALETTE[index % PALETTE.len()]
+                        palette[index % palette.len()]
                     })
                 };
                 match mark {
@@ -287,6 +307,7 @@ impl<'a> Plot<'a> {
                                 y: Cow::Borrowed(y.as_slice()),
                                 color,
                                 kind: Kind::Line,
+                                label: line.label.as_deref(),
                             },
                             Source::Function { domain, function } => {
                                 let samples = sample_width.max(2);
@@ -299,6 +320,7 @@ impl<'a> Plot<'a> {
                                     y: Cow::Owned(y),
                                     color,
                                     kind: Kind::Line,
+                                    label: line.label.as_deref(),
                                 }
                             }
                         }
@@ -308,11 +330,13 @@ impl<'a> Plot<'a> {
                         y: Cow::Borrowed(points.y.as_slice()),
                         color: assigned(points.color),
                         kind: Kind::Points,
+                        label: points.label.as_deref(),
                     },
                     Mark::Bars(bars) => ResolvedLayer::Bars {
                         categories: &bars.categories,
                         values: bars.values.as_slice(),
                         color: assigned(bars.color),
+                        label: bars.label.as_deref(),
                     },
                 }
             })
@@ -341,11 +365,13 @@ enum ResolvedLayer<'p> {
         y: Cow<'p, [f64]>,
         color: Color,
         kind: Kind,
+        label: Option<&'p str>,
     },
     Bars {
         categories: &'p [String],
         values: &'p [f64],
         color: Color,
+        label: Option<&'p str>,
     },
 }
 
@@ -365,6 +391,28 @@ impl ResolvedLayer<'_> {
             ResolvedLayer::Series { y, .. } => extent(y),
             ResolvedLayer::Bars { values, .. } => extent(values),
         }
+    }
+
+    /// The legend entry of this layer, if labeled: swatch text, color, label.
+    fn legend_entry(&self, ascii: bool) -> Option<(&'static str, Color, &str)> {
+        let (swatch, color, label) = match self {
+            ResolvedLayer::Series {
+                color, kind, label, ..
+            } => {
+                let swatch = match (kind, ascii) {
+                    (Kind::Line, false) => "\u{2500}\u{2500}",
+                    (Kind::Line, true) => "--",
+                    (Kind::Points, false) => "\u{2022}\u{2022}",
+                    (Kind::Points, true) => "**",
+                };
+                (swatch, *color, *label)
+            }
+            ResolvedLayer::Bars { color, label, .. } => {
+                let swatch = if ascii { "##" } else { "\u{2588}\u{2588}" };
+                (swatch, *color, *label)
+            }
+        };
+        label.map(|label| (swatch, color, label))
     }
 }
 

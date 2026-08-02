@@ -27,6 +27,10 @@ const GALLERY: &[(&str, &str)] = &[
         "languages",
         "Categorical bars from a zero baseline, with eighth-block precision at the top.",
     ),
+    (
+        "clusters",
+        "A labeled scatter: two point layers, named in the legend.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

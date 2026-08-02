@@ -22,8 +22,8 @@ fn main() {
         .collect();
 
     let plot = Plot::new()
-        .layer(Line::xy(&steps[..], &train[..]))
-        .layer(Line::xy(&steps[..], &val[..]))
+        .layer(Line::xy(&steps[..], &train[..]).label("train"))
+        .layer(Line::xy(&steps[..], &val[..]).label("val"))
         .title("loss per training step (synthetic)");
     println!("{}", plot.render(&Frame::plain(76, 18)));
 }
