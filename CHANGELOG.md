@@ -3,7 +3,9 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased
+## 0.1.0 (Black Square) — 2026-08-01
+
+The vertical spine: one mark, every layer of the architecture, done properly.
 
 - The plot pipeline (`Plot`, `Frame`, `mark::Line`, `malevich::line`): layered line
   charts over shared scales with measured (never fixed) layout, collision-aware x
