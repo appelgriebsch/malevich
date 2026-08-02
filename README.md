@@ -94,10 +94,15 @@ colored tour sized to your terminal.
   axes with multi-scale labels (`14:05`, `Aug 2`, `2027`), typed axis specs
   (`Scale::{Linear, Log, Time, Bands}`), axis titles, band scales with fitted
   category labels, collision-aware layout that sheds furniture instead of failing.
-- **Renders everywhere, honestly.** Four charsets (braille, quadrants, half-blocks,
-  ASCII) and four color tiers (truecolor → 256 → 16 → plain) with honest downhill
-  quantization; piped output is automatically clean plain text; CJK labels stay
-  aligned; `NaN` is always a visible gap, never interpolated away.
+- **Renders everywhere, honestly.** Six charsets — Unicode 16 octants (braille
+  density, solid ink — auto-selected on terminals known to render them), braille,
+  sextants, quadrants, half-blocks, ASCII — and four color tiers (truecolor → 256 →
+  16 → plain) with honest downhill quantization; piped output is automatically clean
+  plain text; CJK labels stay aligned; `NaN` is always a visible gap, never
+  interpolated away.
+- **Small multiples and fixed axes.** `Grid` pastes plots side by side
+  (escape-aware alignment); `x_domain`/`y_domain` fix axes matplotlib-style — so
+  shared scales across a dashboard are an explicit composition, not a mode.
 - **Live charts without a framework.** A thread-shared sliding window plus an
   in-place repaint handle (cursor up, erase down, one write): flicker-free streaming
   that survives in scrollback and never takes over your terminal

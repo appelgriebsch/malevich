@@ -3,7 +3,9 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased (toward 0.8.0)
+## 0.8.0 (Black Cross) — 2026-08-02
+
+The layout release: the charset ladder completes, and plots compose into grids.
 
 - Sextant (2×3, Unicode 13) and octant (2×4, Unicode 16) charsets: braille density
   with solid ink. `Frame::detect` now auto-selects octants on terminals known to
