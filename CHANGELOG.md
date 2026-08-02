@@ -3,6 +3,19 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## 0.9.0 (Red Cavalry) — 2026-08-02
+
+Riding into the ratatui ecosystem.
+
+- The ratatui adapter (feature `ratatui`, depending only on `ratatui-core`):
+  `plot.widget()` renders any chart straight into a `Buffer` — no ANSI round-trip,
+  colors map onto cell styles, the host application keeps the terminal. Charset and
+  theme are widget options; `cargo run --example tui --features ratatui` shows a
+  live dashboard.
+- Retained-plot cloning measured at ~10 µs for 12 layers × 5k points
+  (`plot/clone_12x5k_owned`) — cheap enough that no copy-on-write machinery is
+  warranted.
+
 ## 0.8.0 (Black Cross) — 2026-08-02
 
 The layout release: the charset ladder completes, and plots compose into grids.

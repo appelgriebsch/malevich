@@ -175,7 +175,7 @@ impl<'a> Plot<'a> {
         self.rasterize(frame).encode(frame.color)
     }
 
-    fn rasterize(&self, frame: &Frame) -> Surface {
+    pub(crate) fn rasterize(&self, frame: &Frame) -> Surface {
         let mut surface = Surface::new(frame.width, frame.height, frame.charset);
         if frame.width == 0 || frame.height == 0 {
             return surface;

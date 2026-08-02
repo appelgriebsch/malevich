@@ -220,6 +220,20 @@ impl Surface {
         out
     }
 
+    /// Every printable cell as `(column, row, glyph, color)`, skipping wide-glyph
+    /// continuations (the glyph to their left covers them). For adapters that write
+    /// into cell buffers instead of strings.
+    pub(crate) fn cells(&self) -> impl Iterator<Item = (usize, usize, char, Color)> + '_ {
+        self.cells.iter().enumerate().filter_map(|(index, cell)| {
+            let (row, column) = (index / self.width.max(1), index % self.width.max(1));
+            match cell.text {
+                Text::Continuation => None,
+                Text::Glyph(glyph) => Some((column, row, glyph, cell.color)),
+                Text::None => Some((column, row, self.charset.glyph(cell.bits), cell.color)),
+            }
+        })
+    }
+
     /// The printable glyphs of one row, in order. Continuation cells emit nothing:
     /// the wide glyph to their left covers their column.
     fn row(&self, row: usize) -> impl Iterator<Item = (char, Color)> + '_ {

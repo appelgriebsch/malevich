@@ -1,6 +1,6 @@
 [package]
 name = "malevich"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 description = "Terminal plotting: a small grammar of marks, honest axes, millions of points"
 repository = "https://github.com/shergin/malevich"
@@ -9,11 +9,21 @@ keywords = ["plot", "chart", "terminal", "ascii", "visualization"]
 categories = ["visualization", "command-line-interface"]
 
 [dependencies]
+ratatui-core = { version = "0.1", optional = true }
 terminal_size = "0.4"
 unicode-width = "0.2"
 
+[features]
+ratatui = ["dep:ratatui-core"]
+
 [dev-dependencies]
 criterion = "0.5"
+ratatui = "0.30"
+crossterm = "0.28"
+
+[[example]]
+name = "tui"
+required-features = ["ratatui"]
 
 [[bench]]
 name = "ticks"

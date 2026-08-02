@@ -103,6 +103,10 @@ colored tour sized to your terminal.
 - **Small multiples and fixed axes.** `Grid` pastes plots side by side
   (escape-aware alignment); `x_domain`/`y_domain` fix axes matplotlib-style — so
   shared scales across a dashboard are an explicit composition, not a mode.
+- **A ratatui widget, if you want one.** With the `ratatui` feature (depending only
+  on `ratatui-core`), `plot.widget()` drops any chart into a TUI — cells written
+  straight into the buffer, colors as styles, your app keeps the terminal
+  (`cargo run --example tui --features ratatui`).
 - **Live charts without a framework.** A thread-shared sliding window plus an
   in-place repaint handle (cursor up, erase down, one write): flicker-free streaming
   that survives in scrollback and never takes over your terminal

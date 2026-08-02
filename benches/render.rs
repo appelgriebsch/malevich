@@ -97,6 +97,26 @@ fn pathological_layout(c: &mut Criterion) {
     });
 }
 
+fn plot_clone(c: &mut Criterion) {
+    // The D5 gate: adopt cow_vec for the layer list only if cloning retained plots
+    // is a measurable cost. Twelve owned layers, five thousand points each.
+    let layers: Vec<Vec<f64>> = (0..12)
+        .map(|l| {
+            (0..5_000)
+                .map(|i| ((i + l * 7) as f64 * 0.01).sin())
+                .collect()
+        })
+        .collect();
+    let mut plot = malevich::Plot::new();
+    for layer in &layers {
+        plot = plot.layer(malevich::Line::y(layer.clone()));
+    }
+    let plot = plot.into_owned();
+    c.bench_function("plot/clone_12x5k_owned", |b| {
+        b.iter(|| black_box(plot.clone()));
+    });
+}
+
 fn streaming_frame(c: &mut Criterion) {
     // One live frame: snapshot a full ring, build the plot, render — the 60 fps
     // budget is 16 ms; this must be far under it.
@@ -127,6 +147,7 @@ fn kde_density(c: &mut Criterion) {
 
 criterion_group!(
     benches,
+    plot_clone,
     streaming_frame,
     kde_density,
     line_render,

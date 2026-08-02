@@ -33,6 +33,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+#[cfg(feature = "ratatui")]
+mod adapter;
 pub mod data;
 pub mod mark;
 pub mod plot;
@@ -43,6 +45,8 @@ pub mod stat;
 pub mod stream;
 mod theme;
 
+#[cfg(feature = "ratatui")]
+pub use adapter::PlotWidget;
 pub use mark::{Area, Bars, Cells, Line, Mark, Points, Range, Rule, Text};
 pub use plot::{Frame, Grid, Plot};
 pub use presets::{
