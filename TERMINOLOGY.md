@@ -50,7 +50,9 @@ A data transform that runs before scales see the data: `Bin`, `Agg`, `Window`, `
 `Normalize`, `Density`, `Ecdf`, `BoxStats`, `Downsample`, `Contour`. The word follows
 seaborn.objects (`Stat`) and ggplot (`stat_*`). Stats are mergeable: two partial results
 combine associatively, which is what makes host-side parallelism and streaming
-compositions rather than features. Maps to the `stat` module *(planned)*.
+compositions rather than features. Maps to the `stat` module — currently `stat::M4`
+(with `stat::m4`, auto-inserted for large line layers), `stat::lttb`, and
+`stat::Moments`; the rest of the family follows.
 
 ## Reducer
 

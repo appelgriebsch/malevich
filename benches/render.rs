@@ -39,5 +39,34 @@ fn ansi_encoding(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, line_render, scatter_render, ansi_encoding);
+fn ten_million_points(c: &mut Criterion) {
+    let n = 10_000_000;
+    let y: Vec<f64> = (0..n)
+        .map(|i| (i as f64 * 0.0002).sin() * (i as f64 * 0.000013).cos() * 8.0)
+        .collect();
+    let frame = Frame::plain(80, 20);
+    // The headline fence: end to end, ingestion through ANSI-free encoding, with
+    // the automatically inserted M4 doing the heavy lifting.
+    c.bench_function("render/line_10m_80x20", |b| {
+        b.iter(|| black_box(malevich::line(black_box(&y[..])).render(&frame)));
+    });
+    let x: Vec<f64> = (0..n).map(|i| i as f64).collect();
+    c.bench_function("stat/m4_10m_160cols", |b| {
+        b.iter(|| {
+            black_box(malevich::stat::m4(
+                black_box(&x[..]),
+                black_box(&y[..]),
+                160,
+            ))
+        });
+    });
+}
+
+criterion_group!(
+    benches,
+    line_render,
+    scatter_render,
+    ansi_encoding,
+    ten_million_points
+);
 criterion_main!(benches);

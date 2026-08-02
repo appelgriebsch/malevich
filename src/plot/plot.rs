@@ -302,13 +302,39 @@ impl<'a> Plot<'a> {
                     Mark::Line(line) => {
                         let color = assigned(line.color);
                         match &line.source {
-                            Source::Points { x, y } => ResolvedLayer::Series {
-                                x: index_or_borrow(x.as_ref(), y.len()),
-                                y: Cow::Borrowed(y.as_slice()),
-                                color,
-                                kind: Kind::Line,
-                                label: line.label.as_deref(),
-                            },
+                            Source::Points { x, y } => {
+                                // The aggregate-to-raster pipeline: past four points
+                                // per subpixel column, M4 reduces the series with
+                                // zero visual error. Non-monotonic x declines.
+                                let downsampled = if y.len() > 4 * sample_width.max(1) {
+                                    match x {
+                                        Some(series) => crate::stat::m4(
+                                            series.as_slice(),
+                                            y.as_slice(),
+                                            sample_width,
+                                        ),
+                                        None => crate::stat::m4_indexed(y.as_slice(), sample_width),
+                                    }
+                                } else {
+                                    None
+                                };
+                                match downsampled {
+                                    Some((dx, dy)) => ResolvedLayer::Series {
+                                        x: Cow::Owned(dx),
+                                        y: Cow::Owned(dy),
+                                        color,
+                                        kind: Kind::Line,
+                                        label: line.label.as_deref(),
+                                    },
+                                    None => ResolvedLayer::Series {
+                                        x: index_or_borrow(x.as_ref(), y.len()),
+                                        y: Cow::Borrowed(y.as_slice()),
+                                        color,
+                                        kind: Kind::Line,
+                                        label: line.label.as_deref(),
+                                    },
+                                }
+                            }
                             Source::Function { domain, function } => {
                                 let samples = sample_width.max(2);
                                 let step = (domain.1 - domain.0) / (samples - 1) as f64;

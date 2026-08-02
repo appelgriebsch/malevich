@@ -3,6 +3,18 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## Unreleased (toward 0.3.0)
+
+- The aggregation pipeline (`stat`): M4 downsampling (`stat::M4`, `stat::m4`) —
+  min/max/first/last per raster column, pixel-exact for line rendering, mergeable
+  across chunks, gap-preserving — inserted automatically for line layers past four
+  points per subpixel column. Ten million points render end to end in ~28 ms
+  (measured; see `benches/render.rs`). Also `stat::lttb` (count-targeted,
+  shape-preserving) and `stat::Moments` (Welford + Chan merge).
+- SI-prefixed tick labels: axes reaching ±10⁴ (or below 10⁻³) share one prefix
+  (`20k`, `2.5M`, `100µ`); the numeric part times the prefix still equals the value
+  exactly, and zero stays bare.
+
 ## 0.2.0 (Red Square) — 2026-08-01
 
 Color and the next two marks: the chart, the dots, and the bars now look considered

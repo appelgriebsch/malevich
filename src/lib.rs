@@ -12,6 +12,7 @@ pub mod plot;
 mod presets;
 pub mod render;
 pub mod scale;
+pub mod stat;
 mod theme;
 
 pub use mark::{Bars, Line, Mark, Points};

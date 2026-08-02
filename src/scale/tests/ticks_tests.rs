@@ -80,28 +80,75 @@ fn ticks_are_ascending_and_uniformly_spaced() {
     }
 }
 
+/// Splits a label into its numeric part and SI prefix factor.
+fn decode(label: &str) -> (&str, f64) {
+    let prefixes = [
+        ('k', 1e3),
+        ('M', 1e6),
+        ('G', 1e9),
+        ('T', 1e12),
+        ('\u{00B5}', 1e-6),
+        ('n', 1e-9),
+        ('p', 1e-12),
+    ];
+    for (suffix, factor) in prefixes {
+        if let Some(numeric) = label.strip_suffix(suffix) {
+            return (numeric, factor);
+        }
+    }
+    (label, 1.0)
+}
+
 #[test]
 fn labels_parse_back_to_their_exact_values() {
     for (lo, hi, target) in sweep() {
         let ticks = Ticks::linear(lo, hi, target);
         for tick in &ticks {
-            let parsed: f64 = tick.label.parse().unwrap();
+            let (numeric, factor) = decode(&tick.label);
+            let parsed: f64 = numeric.parse().unwrap();
             assert_eq!(
-                parsed, tick.value,
-                "label {:?} does not parse to value {} in [{lo}, {hi}]",
-                tick.label, tick.value
+                parsed * factor,
+                tick.value,
+                "label {:?} does not decode to value {} in [{lo}, {hi}]",
+                tick.label,
+                tick.value
             );
         }
     }
 }
 
 #[test]
+fn large_axes_share_one_si_prefix() {
+    let ticks = Ticks::linear(0.0, 10_000_000.0, 5);
+    let labels: Vec<&str> = ticks.iter().map(|tick| tick.label.as_str()).collect();
+    assert_eq!(labels, ["0", "2.5M", "5.0M", "7.5M", "10.0M"]);
+}
+
+#[test]
+fn tiny_axes_use_micro_prefixes() {
+    let ticks = Ticks::linear(0.0, 0.0004, 4);
+    let labels: Vec<&str> = ticks.iter().map(|tick| tick.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        [
+            "0",
+            "100\u{00B5}",
+            "200\u{00B5}",
+            "300\u{00B5}",
+            "400\u{00B5}"
+        ]
+    );
+}
+
+#[test]
 fn labels_share_one_fraction_width_and_never_render_negative_zero() {
     for (lo, hi, target) in sweep() {
         let ticks = Ticks::linear(lo, hi, target);
+        // Zero keeps its bare "0" on prefixed axes — the deliberate exception.
         let widths: Vec<usize> = ticks
             .iter()
-            .map(|tick| tick.label.split('.').nth(1).map_or(0, str::len))
+            .filter(|tick| tick.value != 0.0)
+            .map(|tick| decode(&tick.label).0.split('.').nth(1).map_or(0, str::len))
             .collect();
         assert!(
             widths.windows(2).all(|pair| pair[0] == pair[1]),

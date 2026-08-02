@@ -55,6 +55,22 @@ fn the_bar_preset_equals_its_grammar_expansion() {
 }
 
 #[test]
+fn large_lines_downsample_without_changing_the_picture() {
+    let n = 50_000;
+    let x: Vec<f64> = (0..n).map(|i| i as f64).collect();
+    let y: Vec<f64> = (0..n)
+        .map(|i| (i as f64 * 0.002).sin() * (i as f64 * 0.0003).cos() * 5.0)
+        .collect();
+    let frame = Frame::plain(70, 15);
+    let full = Plot::new().layer(Line::xy(&x[..], &y[..])).render(&frame);
+    // Manually downsampled to the same raster width; small enough to skip the
+    // automatic path, so equality proves the auto-inserted M4 is pixel-exact.
+    let (dx, dy) = crate::stat::m4(&x, &y, frame.width * 2).unwrap();
+    let manual = Plot::new().layer(Line::xy(&dx[..], &dy[..])).render(&frame);
+    assert_eq!(full, manual);
+}
+
+#[test]
 fn labeled_layers_grow_a_legend_row() {
     let plot = Plot::new()
         .layer(Line::y(&[1.0, 2.0][..]).label("first"))

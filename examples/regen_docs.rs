@@ -31,6 +31,11 @@ const GALLERY: &[(&str, &str)] = &[
         "clusters",
         "A labeled scatter: two point layers, named in the legend.",
     ),
+    (
+        "waveform",
+        "Ten million points through the auto-inserted M4 aggregation — pixel-identical \
+         to drawing every point, in tens of milliseconds.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

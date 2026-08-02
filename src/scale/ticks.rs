@@ -38,6 +38,9 @@ pub struct Tick {
     /// Position in data coordinates.
     pub value: f64,
     /// Label text: an exact decimal rendering of `value`, which parses back to it.
+    /// Axes reaching ten thousand (or a ten-thousandth) carry one shared SI prefix
+    /// (`20k`, `2.5M`, `100µ`); the numeric part times the prefix factor still
+    /// equals `value` exactly. Zero is always plain `0`.
     pub label: String,
 }
 
@@ -227,17 +230,53 @@ fn materialize(candidate: &Candidate) -> Ticks {
         }
         exp10 += 1;
     }
+    let prefix = si_prefix(&mantissas, exp10);
     let ticks: Vec<Tick> = mantissas
         .iter()
         .map(|&mantissa| Tick {
             value: value_of(mantissa, exp10),
-            label: format::decimal(mantissa, exp10),
+            label: match prefix {
+                Some((shift, suffix)) if mantissa != 0 => {
+                    format!("{}{suffix}", format::decimal(mantissa, exp10 - shift))
+                }
+                // On a prefixed axis zero is deliberately bare.
+                Some(_) => "0".to_string(),
+                None => format::decimal(mantissa, exp10),
+            },
         })
         .collect();
     // Computed from the integer mantissa difference, so the step itself is
     // decimal-exact (0.8, never 0.8000000000000003).
     let step = value_of(mantissas[1] - mantissas[0], exp10);
     Ticks { ticks, step }
+}
+
+/// Chooses one SI prefix for a whole axis, from the magnitude of its largest tick:
+/// engaged at ten thousand and up (`k`, `M`, `G`, `T`) or below a thousandth
+/// (`µ`, `n`, `p`). Zero keeps its bare label. The numeric part of a prefixed label
+/// times the prefix factor equals the tick value exactly.
+fn si_prefix(mantissas: &[i128], exp10: i32) -> Option<(i32, char)> {
+    let max = mantissas.iter().map(|m| m.unsigned_abs()).max()?;
+    if max == 0 {
+        return None;
+    }
+    let digits = max.to_string().len() as i32;
+    let magnitude = digits - 1 + exp10;
+    if magnitude < 4 && magnitude > -4 {
+        return None;
+    }
+    let shift = (3 * magnitude.div_euclid(3)).clamp(-12, 12);
+    let suffix = match shift {
+        3 => 'k',
+        6 => 'M',
+        9 => 'G',
+        12 => 'T',
+        -6 => '\u{00B5}',
+        -9 => 'n',
+        -12 => 'p',
+        _ => return None,
+    };
+    Some((shift, suffix))
 }
 
 /// Converts `mantissa * 10^exp10` to the nearest `f64`.
