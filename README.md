@@ -91,7 +91,8 @@ colored tour sized to your terminal.
 - **Axes that are actually good.** Extended-Wilkinson tick placement (Talbot, Lin,
   Hanrahan 2010), exact-decimal labels that parse back to their values, one shared SI
   prefix per axis (`2.5M`, `100µ`), log axes with superscript decades, calendar time
-  axes with multi-scale labels (`14:05`, `Aug 2`, `2027`), band scales with fitted
+  axes with multi-scale labels (`14:05`, `Aug 2`, `2027`), typed axis specs
+  (`Scale::{Linear, Log, Time, Bands}`), axis titles, band scales with fitted
   category labels, collision-aware layout that sheds furniture instead of failing.
 - **Renders everywhere, honestly.** Four charsets (braille, quadrants, half-blocks,
   ASCII) and four color tiers (truecolor → 256 → 16 → plain) with honest downhill

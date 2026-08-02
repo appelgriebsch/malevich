@@ -3,7 +3,10 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased (toward 0.7.0)
+## 0.7.0 (Eight Red Rectangles) — 2026-08-02
+
+The quality release: typed scales, named axes, and honest ASCII — driven by the
+first full audit.
 
 - The scale specification (`Scale`: `Linear | Log | Time | Bands`, via
   `Plot::x_scale`/`y_scale`): one typed axis spec replaces the three boolean flags
