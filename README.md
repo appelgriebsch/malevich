@@ -110,7 +110,8 @@ colored tour sized to your terminal.
   bit-identical to its grammar expansion in tests.
 - **The statistical set no terminal library has.** Box plots with type-7 quartiles
   and Tukey whiskers, violins from a real KDE (Silverman bandwidth), ECDFs, error
-  bars, 2D densities — the charts science and ML actually need.
+  bars, 2D densities (with a colorbar legending the value scale) — the charts
+  science and ML actually need.
 - **Millions of points, measured.** Large line layers are aggregated by M4 —
   min/max/first/last per raster column, bucketed by the column each point renders
   into, so the reduction is *pixel-identical* to drawing every point. Ten million

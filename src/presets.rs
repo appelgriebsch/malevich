@@ -102,17 +102,19 @@ pub fn ecdf<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
 }
 
 /// A heatmap of a row-major grid, `columns` wide: shade-ramp glyphs colored by the
-/// default colormap. Row 0 is the bottom row.
+/// default colormap, with a [colorbar](crate::Plot::colorbar) legending the value
+/// range. Row 0 is the bottom row.
 ///
 /// ```
 /// let grid = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
 /// println!("{}", malevich::heatmap(3, &grid[..]).render(&malevich::Frame::plain(30, 8)));
 /// ```
 pub fn heatmap<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
-    Plot::new().layer(Cells::matrix(columns, values))
+    Plot::new().layer(Cells::matrix(columns, values)).colorbar()
 }
 
-/// A 2D histogram: point density on a uniform grid over the data's extent.
+/// A 2D histogram: point density on a uniform grid over the data's extent, with a
+/// [colorbar](crate::Plot::colorbar) legending the counts.
 ///
 /// ```
 /// let x = [1.0, 1.1, 5.0, 5.1, 5.2];
@@ -131,7 +133,9 @@ pub fn hist2d<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
                 .into_iter()
                 .map(|count| if count == 0.0 { f64::NAN } else { count })
                 .collect();
-            Plot::new().layer(Cells::matrix(grid.columns, counts).extents(grid.x, grid.y))
+            Plot::new()
+                .layer(Cells::matrix(grid.columns, counts).extents(grid.x, grid.y))
+                .colorbar()
         }
         None => Plot::new(),
     }

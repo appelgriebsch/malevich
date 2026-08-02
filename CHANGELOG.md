@@ -3,6 +3,13 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## Unreleased
+
+- Colorbars: `Plot::colorbar()` draws the colormap as a labeled strip down the right
+  edge, legending a `Cells` layer's value range. The `heatmap` and `hist2d` presets
+  turn it on by default (a color-coded grid with no value scale is half a chart); the
+  bare `Cells` grammar stays uncolored-legend for full control. Sheds on narrow frames.
+
 ## 0.11.0 (Polish) — 2026-08-02
 
 The API review before the 1.0 freeze: the breaking changes are settled here, while

@@ -33,6 +33,8 @@ pub struct Plot<'a> {
     y_label: Option<String>,
     x_domain: Option<(f64, f64)>,
     y_domain: Option<(f64, f64)>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    colorbar: bool,
 }
 
 impl<'a> Plot<'a> {
@@ -47,6 +49,7 @@ impl<'a> Plot<'a> {
             y_label: None,
             x_domain: None,
             y_domain: None,
+            colorbar: false,
         }
     }
 
@@ -127,6 +130,16 @@ impl<'a> Plot<'a> {
         self.y_scale(Scale::Log)
     }
 
+    /// Shows a colorbar: a vertical strip of the colormap down the right edge,
+    /// labeled with the value range it encodes. Applies to the plot's first
+    /// [`Cells`](crate::Cells) layer (heatmaps, 2D histograms); ignored when there is
+    /// none, or when the frame is too narrow to spare the room.
+    #[must_use]
+    pub fn colorbar(mut self) -> Plot<'a> {
+        self.colorbar = true;
+        self
+    }
+
     /// Titles the x axis, centered under its tick labels.
     #[must_use]
     pub fn x_label(mut self, label: impl Into<String>) -> Plot<'a> {
@@ -169,6 +182,7 @@ impl<'a> Plot<'a> {
             y_label: self.y_label,
             x_domain: self.x_domain,
             y_domain: self.y_domain,
+            colorbar: self.colorbar,
         }
     }
 
@@ -293,8 +307,15 @@ impl<'a> Plot<'a> {
         let reduce = if downsample {
             let probe =
                 super::resolve::resolve(&self.layers, sample_width, palette, Reduce::Extent);
-            let geometry =
-                super::layout::Layout::compute(frame, &probe, title, scales, labels, domains);
+            let geometry = super::layout::Layout::compute(
+                frame,
+                &probe,
+                title,
+                scales,
+                labels,
+                domains,
+                self.colorbar,
+            );
             Reduce::Mapped {
                 map: geometry.x_scale,
                 columns: geometry.plot_sub_w,
@@ -304,7 +325,15 @@ impl<'a> Plot<'a> {
         };
 
         let layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
-        let layout = super::layout::Layout::compute(frame, &layers, title, scales, labels, domains);
+        let layout = super::layout::Layout::compute(
+            frame,
+            &layers,
+            title,
+            scales,
+            labels,
+            domains,
+            self.colorbar,
+        );
         super::chrome::draw(
             &mut surface,
             &layout,

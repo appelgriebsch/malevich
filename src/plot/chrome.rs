@@ -1,6 +1,6 @@
 //! Chrome: the furniture around the plot area — title, legend, axes, labels.
 
-use crate::plot::layout::Layout;
+use crate::plot::layout::{Colorbar, Layout};
 use crate::render::{Color, Surface, display_width, fit_width_with};
 
 /// Draws all furniture. Marks draw after, into the disjoint plot area.
@@ -163,5 +163,48 @@ pub(crate) fn draw(
                 Color::Default,
             );
         }
+    }
+
+    // The colorbar: a colormap gradient down the right edge, with value labels.
+    if let Some(bar) = &layout.colorbar {
+        draw_colorbar(surface, bar, plot_top, plot_rows);
+    }
+}
+
+/// Draws the colorbar: a one-column colormap gradient (shade ramp plus color, like a
+/// Cells layer, so it reads in plain text too) spanning the plot rows, top = high,
+/// with the value labels beside it at their fractional heights.
+fn draw_colorbar(surface: &mut Surface, bar: &Colorbar, plot_top: usize, plot_rows: usize) {
+    const RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
+    let mut buffer = [0u8; 4];
+    let column = bar.column as i64;
+    for offset in 0..plot_rows {
+        let position = if plot_rows > 1 {
+            1.0 - offset as f64 / (plot_rows - 1) as f64
+        } else {
+            1.0
+        };
+        let glyph = RAMP[((position * 4.0) as usize).min(3)];
+        surface.text(
+            column,
+            (plot_top + offset) as i64,
+            glyph.encode_utf8(&mut buffer),
+            bar.colormap.color(position),
+        );
+    }
+    let spread = bar.high - bar.low;
+    for tick in bar.ticks.iter() {
+        let fraction = if spread > 0.0 {
+            (tick.value - bar.low) / spread
+        } else {
+            0.5
+        };
+        let offset = ((1.0 - fraction) * plot_rows.saturating_sub(1) as f64).round() as i64;
+        surface.text(
+            column + 2,
+            plot_top as i64 + offset,
+            &tick.label,
+            Color::Default,
+        );
     }
 }

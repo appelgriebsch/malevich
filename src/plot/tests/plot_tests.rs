@@ -408,3 +408,30 @@ fn an_explicit_scale_without_categorical_layers_validates() {
     let plot = crate::line(&[1.0, 10.0, 100.0][..]).log_y();
     assert!(plot.validate().is_ok());
 }
+
+#[test]
+fn a_colorbar_legends_the_cells_value_range() {
+    let grid: Vec<f64> = (0..24).map(|i| i as f64).collect();
+    let with = crate::heatmap(6, &grid[..]).render(&Frame::plain(34, 8));
+    // The value extent (0..23) is labeled with nice ticks beside the strip...
+    assert!(
+        with.contains("20") && with.contains("10"),
+        "no value labels:\n{with}"
+    );
+    // ...and the strip itself shows the shade ramp so it reads in plain text.
+    assert!(
+        with.contains('\u{2588}') && with.contains('\u{2591}'),
+        "no gradient"
+    );
+}
+
+#[test]
+fn a_colorbar_without_a_cells_layer_changes_nothing() {
+    let frame = Frame::plain(40, 10);
+    let bare = crate::line(&[1.0, 2.0, 3.0][..]);
+    assert_eq!(
+        bare.clone().colorbar().render(&frame),
+        bare.render(&frame),
+        "colorbar reserved space with nothing to show"
+    );
+}

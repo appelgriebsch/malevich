@@ -1,9 +1,42 @@
 //! Layout: everything geometric, computed once — scales, ticks, gutters, offsets.
 
 use crate::plot::frame::Frame;
-use crate::plot::resolve::{ResolvedLayer, union};
+use crate::plot::resolve::{ResolvedLayer, extent, union};
 use crate::render::{Charset, display_width};
-use crate::scale::{Band, Linear, Scale, Ticks};
+use crate::scale::{Band, Colormap, Linear, Scale, Ticks};
+
+/// A colorbar: the colormap strip drawn down the right edge, legending a Cells
+/// layer's value range.
+pub(crate) struct Colorbar {
+    pub colormap: Colormap,
+    pub low: f64,
+    pub high: f64,
+    pub ticks: Ticks,
+    /// The cell column the gradient strip occupies.
+    pub column: usize,
+}
+
+/// The colormap, value range, ticks, and reserved column count (gap, gradient, gap,
+/// labels) for the first Cells layer with a finite value range.
+fn cells_colorbar(
+    layers: &[ResolvedLayer<'_>],
+    plot_rows: usize,
+) -> Option<(Colormap, f64, f64, Ticks, usize)> {
+    let (values, colormap) = layers.iter().find_map(|layer| match layer {
+        ResolvedLayer::Cells {
+            values, colormap, ..
+        } => Some((*values, colormap.clone())),
+        _ => None,
+    })?;
+    let (low, high) = extent(values)?;
+    let ticks = Ticks::linear(low, high, (plot_rows / 2).clamp(2, 5));
+    let label_width = ticks
+        .iter()
+        .map(|tick| display_width(&tick.label))
+        .max()
+        .unwrap_or(1);
+    Some((colormap, low, high, ticks, 3 + label_width))
+}
 
 /// Manual axis overrides: `(x, y)`, each `Some((min, max))` when fixed.
 pub(crate) type Domains = (Option<(f64, f64)>, Option<(f64, f64)>);
@@ -59,6 +92,7 @@ pub(crate) struct Layout<'p> {
     pub x_ticks: Option<Ticks>,
     pub band: Option<Band>,
     pub categories: Option<&'p [String]>,
+    pub colorbar: Option<Colorbar>,
 }
 
 impl<'p> Layout<'p> {
@@ -70,6 +104,7 @@ impl<'p> Layout<'p> {
         scales: (&'p Scale, &Scale),
         axis_labels: (Option<&str>, Option<&str>),
         domains: Domains,
+        colorbar_requested: bool,
     ) -> Layout<'p> {
         let (x_spec, y_spec) = scales;
         let (has_x_label, has_y_label) = (axis_labels.0.is_some(), axis_labels.1.is_some());
@@ -170,7 +205,26 @@ impl<'p> Layout<'p> {
             label_width = 0;
             gutter = usize::from(frame.width >= 2);
         }
-        let plot_cols = frame.width - gutter;
+        // Reserve right-edge columns for a colorbar when requested and a Cells layer
+        // has a value range to show — shed it when the plot would be left too narrow.
+        let available = frame.width - gutter;
+        let (plot_cols, colorbar) = match colorbar_requested
+            .then(|| cells_colorbar(layers, plot_rows))
+            .flatten()
+        {
+            Some((colormap, low, high, ticks, reserved)) if available > reserved + 12 => {
+                let plot_cols = available - reserved;
+                let bar = Colorbar {
+                    colormap,
+                    low,
+                    high,
+                    ticks,
+                    column: gutter + plot_cols + 1,
+                };
+                (plot_cols, Some(bar))
+            }
+            _ => (available, None),
+        };
 
         // A manual domain is honored exactly; an automatic one grows to its ticks
         // so the axis spans whole round numbers.
@@ -240,6 +294,7 @@ impl<'p> Layout<'p> {
             x_ticks,
             band,
             categories,
+            colorbar,
         }
     }
 }
