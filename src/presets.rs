@@ -156,6 +156,10 @@ pub fn contour<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
     use crate::scale::{Colormap, Ticks};
 
     let series = values.into_series();
+    assert!(
+        columns > 0 && series.len().is_multiple_of(columns),
+        "contour requires a rectangular grid"
+    );
     let mut extent: Option<(f64, f64)> = None;
     for &value in series.as_slice() {
         if value.is_finite() {

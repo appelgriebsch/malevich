@@ -38,3 +38,9 @@ fn degenerate_and_empty_samples_behave() {
     let (_, densities) = kde(&[7.0; 50], 128).unwrap();
     assert!(densities.iter().all(|d| d.is_finite()));
 }
+
+#[test]
+fn a_degenerate_large_offset_sample_declines_without_panicking() {
+    assert!(kde(&[1e20], 16).is_none());
+    assert!(kde(&[1e20, 1e20, 1e20], 32).is_none());
+}

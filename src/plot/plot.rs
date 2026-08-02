@@ -177,12 +177,24 @@ impl<'a> Plot<'a> {
     }
 
     pub(crate) fn rasterize(&self, frame: &Frame) -> Surface {
+        self.rasterize_with(frame, true)
+    }
+
+    /// Rasterizes with M4 line downsampling optionally disabled. With `downsample`
+    /// false, large line layers draw every point — the raw raster that M4 must
+    /// reproduce, used as a test oracle for the aggregate-to-raster claim.
+    pub(crate) fn rasterize_with(&self, frame: &Frame, downsample: bool) -> Surface {
         let mut surface = Surface::new(frame.width, frame.height, frame.charset);
         if frame.width == 0 || frame.height == 0 {
             return surface;
         }
         let (px, _) = frame.charset.pixels_per_cell();
-        let layers = super::resolve::resolve(&self.layers, frame.width * px, &frame.theme.palette);
+        let layers = super::resolve::resolve(
+            &self.layers,
+            frame.width * px,
+            &frame.theme.palette,
+            downsample,
+        );
         let layout = super::layout::Layout::compute(
             frame,
             &layers,

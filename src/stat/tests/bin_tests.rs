@@ -61,3 +61,29 @@ fn no_finite_data_means_no_bins() {
     assert!(Bins::auto(&[f64::NAN], 60).is_none());
     assert!(Bins::auto(&[], 60).is_none());
 }
+
+#[test]
+fn auto_never_drops_finite_values_and_respects_the_cap() {
+    for offset in [0.0, 1e6, 1e12] {
+        for span in [1e-3, 1.0, 1e6] {
+            let values: Vec<f64> = (0..101).map(|i| offset + span * i as f64 / 100.0).collect();
+            for limit in [1usize, 2, 3, 7, 60] {
+                let bins = super::Bins::auto(&values, limit).expect("finite data bins");
+                let sum: u64 = bins.counts().iter().sum();
+                assert_eq!(
+                    sum, 101,
+                    "offset {offset} span {span} limit {limit} dropped data"
+                );
+                assert!(bins.counts().len() <= limit.max(1), "exceeded the cap");
+            }
+        }
+    }
+}
+
+#[test]
+fn bins2_of_constant_data_keeps_a_drawable_extent() {
+    let grid = super::bins2(&[3.0, 3.0, 3.0], &[7.0, 7.0, 7.0], 8, 8).expect("finite pairs");
+    assert!(grid.x.0 < grid.x.1, "x extent must be drawable");
+    assert!(grid.y.0 < grid.y.1, "y extent must be drawable");
+    assert_eq!(grid.counts.iter().sum::<f64>(), 3.0);
+}

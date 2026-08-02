@@ -151,8 +151,23 @@ impl ResolvedLayer<'_> {
                 None => (0.0, (values.len() / (*columns).max(1)) as f64),
             }),
             ResolvedLayer::Range {
-                low, high, marker, ..
-            } => union([extent(low), extent(high), marker.and_then(extent)].into_iter()),
+                low,
+                high,
+                body,
+                marker,
+                ..
+            } => union(
+                [
+                    extent(low),
+                    extent(high),
+                    // The body can reach past the whiskers; every encoded coordinate
+                    // must fit the scale, or it renders clipped.
+                    body.and_then(|(lo, _)| extent(lo)),
+                    body.and_then(|(_, hi)| extent(hi)),
+                    marker.and_then(extent),
+                ]
+                .into_iter(),
+            ),
         }
     }
 
@@ -261,6 +276,7 @@ pub(crate) fn resolve<'p>(
     marks: &'p [Mark<'_>],
     sample_width: usize,
     palette: &[Color; 6],
+    downsample: bool,
 ) -> Vec<ResolvedLayer<'p>> {
     // Annotations (rules, text) draw in the default foreground and do not
     // consume palette slots; a single data layer draws in the default too.
@@ -290,7 +306,7 @@ pub(crate) fn resolve<'p>(
                             // The aggregate-to-raster pipeline: past four points
                             // per subpixel column, M4 reduces the series with
                             // zero visual error. Non-monotonic x declines.
-                            let downsampled = if y.len() > 4 * sample_width.max(1) {
+                            let downsampled = if downsample && y.len() > 4 * sample_width.max(1) {
                                 match x {
                                     Some(series) => crate::stat::m4(
                                         series.as_slice(),

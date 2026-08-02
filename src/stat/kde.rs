@@ -46,6 +46,12 @@ pub fn kde(values: &[f64], points: usize) -> Option<(Vec<f64>, Vec<f64>)> {
     let start = low - 3.0 * bandwidth;
     let end = high + 3.0 * bandwidth;
     let step = (end - start) / (points - 1) as f64;
+    // At extreme magnitudes the ±3σ padding can fall below the value's ULP, so the
+    // grid collapses (step 0 or non-finite). A single point has no density curve;
+    // refuse rather than binning through a zero step into a giant allocation.
+    if !(step.is_finite() && step > 0.0) {
+        return None;
+    }
 
     // Linear binning onto the evaluation grid.
     let mut binned = vec![0.0f64; points];
@@ -61,8 +67,8 @@ pub fn kde(values: &[f64], points: usize) -> Option<(Vec<f64>, Vec<f64>)> {
         }
     }
 
-    // Truncated Gaussian kernel over the binned counts.
-    let radius = ((3.0 * bandwidth / step).ceil() as usize).max(1);
+    // Truncated Gaussian kernel over the binned counts, never wider than the grid.
+    let radius = ((3.0 * bandwidth / step).ceil() as usize).clamp(1, points);
     let kernel: Vec<f64> = (0..=radius)
         .map(|k| {
             let distance = k as f64 * step / bandwidth;

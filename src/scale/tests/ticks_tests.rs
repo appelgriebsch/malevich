@@ -218,3 +218,10 @@ fn the_count_stays_near_the_target() {
         );
     }
 }
+
+#[test]
+fn extreme_but_finite_bounds_do_not_panic() {
+    let _ = Ticks::linear(-f64::MAX, f64::MAX, 6);
+    let _ = Ticks::linear(f64::MIN_POSITIVE, f64::MAX, 8);
+    let _ = Ticks::linear(-1e300, 1e300, 100);
+}

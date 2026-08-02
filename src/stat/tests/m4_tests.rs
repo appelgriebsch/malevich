@@ -71,3 +71,29 @@ fn emitted_points_never_exceed_four_per_column() {
 fn all_gap_series_emit_nothing() {
     assert!(m4(&[f64::NAN, f64::NAN], &[1.0, 2.0], 4).is_none());
 }
+
+#[test]
+fn a_gap_between_finite_values_in_one_column_does_not_reconnect_them() {
+    // Everything lands in a single column; the NaN separates the -1s from the +1s.
+    let x = [0.0, 1.0, 2.0, 3.0, 4.0];
+    let y = [-1.0, -1.0, f64::NAN, 1.0, 1.0];
+    let (_, oy) = m4(&x, &y, 1).unwrap();
+    let gap = oy.iter().position(|v| v.is_nan()).expect("gap preserved");
+    assert!(
+        oy[..gap].iter().all(|&v| v < 0.0),
+        "only the low values precede the break"
+    );
+    assert!(
+        oy[gap + 1..].iter().all(|&v| v > 0.0),
+        "only the high values follow the break"
+    );
+}
+
+#[test]
+fn a_leading_gap_in_a_column_breaks_before_its_points() {
+    let x = [0.0, 1.0, 2.0];
+    let y = [f64::NAN, 3.0, 5.0];
+    let (_, oy) = m4(&x, &y, 1).unwrap();
+    assert!(oy[0].is_nan(), "the break comes first");
+    assert!(oy[1..].iter().all(|v| v.is_finite()));
+}

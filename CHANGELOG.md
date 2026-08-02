@@ -3,6 +3,35 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## 0.10.1
+
+Correctness hardening from an external audit. Most fixes make existing guarantees
+real under composition, deserialization, and extreme inputs.
+
+- Fixed domains (`x_domain`/`y_domain`) are now honored exactly — they no longer
+  widen to the tick range — and every mark is clipped to the plot rectangle, so
+  out-of-range data can no longer leak ink into the axes or a neighboring grid cell.
+- Off-screen bar and area spans are clamped before rasterizing, so distant finite
+  data under a narrow domain can no longer spin a near-unbounded draw loop.
+- `Bins::auto` always covers the data and respects its cap: it widens the bin
+  instead of dropping observations, so counts sum to the finite input count.
+- `Moments::default()` now equals `Moments::new()` (extrema start unset, not `0`).
+- M4 preserves a gap that falls inside a raster column — a `NaN` between two values
+  no longer reconnects them. Downsampling is described honestly as silhouette-
+  preserving; true pixel-exactness (mapped-space bucketing) is tracked for later.
+- Deserialized specs that violate constructor invariants (empty colormap,
+  zero-column grid, ragged range/area channels) now render defensively instead of
+  panicking.
+- `Ticks::linear` no longer panics or hangs on extreme finite bounds; `kde` declines
+  a degenerate large-magnitude sample instead of over-allocating; `hist2d` of
+  constant data renders instead of coming out blank; a log axis with a non-positive
+  manual domain is clamped rather than panicking, and a value that maps off a log
+  axis is treated as a gap.
+- `lttb` and `m4` assert equal-length inputs, like the mark constructors; the
+  `contour` preset validates its geometry and treats all non-finite values as gaps.
+- Range body values now participate in y-axis fitting, so a body reaching past the
+  whiskers is no longer clipped.
+
 ## 0.10.0 (Reach)
 
 - Contour lines: `stat::contours` (marching squares — canonical shared-edge

@@ -43,6 +43,11 @@ pub struct Surface {
     columns: usize,
     rows: usize,
     cells: Vec<Cell>,
+    /// An optional drawing clip in subpixel coordinates `(x0, y0, x1, y1)`, upper
+    /// bounds exclusive. When set, [`Surface::set`] and [`Surface::text`] draw only
+    /// inside it — used to confine marks to the plot rectangle so their ink never
+    /// escapes into the axes or gutter. Chrome is drawn with no clip.
+    clip: Option<(i64, i64, i64, i64)>,
 }
 
 impl Surface {
@@ -56,7 +61,18 @@ impl Surface {
             columns,
             rows,
             cells: vec![EMPTY; width * height],
+            clip: None,
         }
+    }
+
+    /// Confines subsequent drawing to the subpixel rectangle `[x0, x1) x [y0, y1)`.
+    pub(crate) fn set_clip(&mut self, x0: i64, y0: i64, x1: i64, y1: i64) {
+        self.clip = Some((x0, y0, x1, y1));
+    }
+
+    /// Removes any drawing clip.
+    pub(crate) fn clear_clip(&mut self) {
+        self.clip = None;
     }
 
     /// The size in cells as `(width, height)`.
@@ -69,10 +85,16 @@ impl Surface {
         (self.width * self.columns, self.height * self.rows)
     }
 
-    /// Sets the subpixel at `(x, y)`; outside the surface this does nothing.
+    /// Sets the subpixel at `(x, y)`; outside the surface or the active clip this
+    /// does nothing.
     pub fn set(&mut self, x: i64, y: i64, color: Color) {
         let (sw, sh) = self.subpixel_size();
         if x < 0 || y < 0 || x >= sw as i64 || y >= sh as i64 {
+            return;
+        }
+        if let Some((x0, y0, x1, y1)) = self.clip
+            && (x < x0 || y < y0 || x >= x1 || y >= y1)
+        {
             return;
         }
         let (x, y) = (x as usize, y as usize);
@@ -101,8 +123,21 @@ impl Surface {
         if sw == 0 || sh == 0 {
             return;
         }
-        let window = ((sw - 1) as f64, (sh - 1) as f64);
-        let Some((from, to)) = clip(from, to, window) else {
+        // Clip to the surface, tightened to the active clip rectangle: this bounds
+        // the Bresenham walk to the drawable region, so even wildly out-of-range
+        // finite endpoints cost only the pixels actually on screen.
+        let (mut wx0, mut wy0, mut wx1, mut wy1) =
+            (0.0f64, 0.0f64, (sw - 1) as f64, (sh - 1) as f64);
+        if let Some((x0, y0, x1, y1)) = self.clip {
+            wx0 = wx0.max(x0 as f64);
+            wy0 = wy0.max(y0 as f64);
+            wx1 = wx1.min((x1 - 1) as f64);
+            wy1 = wy1.min((y1 - 1) as f64);
+        }
+        if wx0 > wx1 || wy0 > wy1 {
+            return;
+        }
+        let Some((from, to)) = clip(from, to, (wx0, wy0), (wx1, wy1)) else {
             return;
         };
         let (x1, y1) = (to.0.round() as i64, to.1.round() as i64);
@@ -162,6 +197,13 @@ impl Surface {
 
     /// Puts one text slot into a cell, breaking any wide-glyph pair it overlaps.
     fn place(&mut self, row: usize, column: usize, text: Text, color: Color) {
+        if let Some((x0, y0, x1, y1)) = self.clip {
+            let (col, row) = (column as i64, row as i64);
+            let (px, py) = (self.columns as i64, self.rows as i64);
+            if col < x0 / px || col >= x1 / px || row < y0 / py || row >= y1 / py {
+                return;
+            }
+        }
         let base = row * self.width;
         // Overwriting a continuation orphans the wide glyph to its left.
         if self.cells[base + column].text == Text::Continuation && column > 0 {
@@ -258,17 +300,22 @@ impl std::fmt::Debug for Surface {
     }
 }
 
-/// Liang–Barsky clipping of the segment `from → to` against `[0, window.0] x
-/// [0, window.1]`; `None` when the segment lies entirely outside.
-fn clip(from: (f64, f64), to: (f64, f64), window: (f64, f64)) -> Option<((f64, f64), (f64, f64))> {
+/// Liang–Barsky clipping of the segment `from → to` against the rectangle
+/// `[min.0, max.0] x [min.1, max.1]`; `None` when the segment lies entirely outside.
+fn clip(
+    from: (f64, f64),
+    to: (f64, f64),
+    min: (f64, f64),
+    max: (f64, f64),
+) -> Option<((f64, f64), (f64, f64))> {
     let (dx, dy) = (to.0 - from.0, to.1 - from.1);
     let mut enter = 0.0f64;
     let mut exit = 1.0f64;
     let tests = [
-        (-dx, from.0),
-        (dx, window.0 - from.0),
-        (-dy, from.1),
-        (dy, window.1 - from.1),
+        (-dx, from.0 - min.0),
+        (dx, max.0 - from.0),
+        (-dy, from.1 - min.1),
+        (dy, max.1 - from.1),
     ];
     for (p, q) in tests {
         if p == 0.0 {

@@ -72,15 +72,32 @@ impl Bins {
 
         // Snap the bin width and edges to the nice decimals the tick engine picks,
         // so bin boundaries land on readable numbers.
+        let cap = limit.max(1);
         let ticks = Ticks::linear(min, max, target.min(50));
-        let width = if ticks.step() > 0.0 {
+        let mut width = if ticks.step() > 0.0 {
             ticks.step()
         } else {
             (max - min) / target as f64
         };
-        let start = (min / width).floor() * width;
-        let bins = (((max - start) / width).ceil() as usize).max(1);
-        let mut result = Bins::new(start, width, bins.min(limit.max(1) * 2));
+        let mut start = (min / width).floor() * width;
+        let mut bins = (((max - start) / width).ceil() as usize).max(1);
+        // Never drop data to honor the cap: if the nice width needs more bins than
+        // allowed, widen it so the same span fits in `cap` bins. Coverage is the
+        // contract; readable edges are the preference that yields first. With width
+        // (max-min)/(cap-1) and a floored start, ceil((max-start)/width) <= cap and
+        // start + cap*width >= max, so [min, max] is always covered.
+        if bins > cap {
+            if cap == 1 {
+                start = min;
+                width = max - min;
+                bins = 1;
+            } else {
+                width = (max - min) / (cap - 1) as f64;
+                start = (min / width).floor() * width;
+                bins = (((max - start) / width).ceil() as usize).clamp(1, cap);
+            }
+        }
+        let mut result = Bins::new(start, width, bins);
         for &value in &finite {
             result.add(value);
         }
@@ -177,6 +194,17 @@ pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Grid> 
     let (x_extent, y_extent) = (x_extent?, y_extent?);
     let width = (x_extent.1 - x_extent.0).max(f64::MIN_POSITIVE);
     let height = (y_extent.1 - y_extent.0).max(f64::MIN_POSITIVE);
+    // A constant coordinate leaves a zero-width extent that later renders blank
+    // (the inverse mapping rejects equal endpoints). Give it a scale-aware span,
+    // always numerically distinct even at large magnitudes, so the cells show.
+    let widen = |(lo, hi): (f64, f64)| -> (f64, f64) {
+        if lo < hi {
+            (lo, hi)
+        } else {
+            let half = lo.abs() * 0.5 + 0.5;
+            (lo - half, hi + half)
+        }
+    };
     let mut counts = vec![0.0f64; columns * rows];
     for (&xv, &yv) in x.iter().zip(y.iter()) {
         if !xv.is_finite() || !yv.is_finite() {
@@ -189,8 +217,8 @@ pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Grid> 
     Some(Grid {
         counts,
         columns,
-        x: x_extent,
-        y: y_extent,
+        x: widen(x_extent),
+        y: widen(y_extent),
     })
 }
 

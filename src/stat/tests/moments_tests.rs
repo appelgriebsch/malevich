@@ -58,3 +58,17 @@ fn empty_accumulators_answer_none() {
     assert_eq!(moments.mean(), None);
     assert_eq!(moments.min(), None);
 }
+
+#[test]
+fn default_matches_new_so_extrema_start_unset() {
+    let mut a = Moments::new();
+    let mut b = Moments::default();
+    for &v in &[5.0, -3.0, 8.0, -1.0] {
+        a.add(v);
+        b.add(v);
+    }
+    assert_eq!(a.min(), b.min());
+    assert_eq!(a.max(), b.max());
+    assert_eq!(b.min(), Some(-3.0));
+    assert_eq!(b.max(), Some(8.0));
+}

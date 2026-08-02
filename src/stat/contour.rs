@@ -20,8 +20,8 @@ pub struct Contour {
 /// Classic marching squares: every 2×2 block of grid values contributes the
 /// segments of the crossing contour, with endpoints linearly interpolated onto the
 /// block's edges. Saddle blocks are disambiguated by the block's center average.
-/// Blocks touching a NaN value produce nothing — gaps in the data are gaps in the
-/// contour. Adjacent blocks interpolate shared edges identically, so joined
+/// Blocks touching a non-finite value produce nothing — gaps in the data are gaps
+/// in the contour. Adjacent blocks interpolate shared edges identically, so joined
 /// segments meet exactly.
 ///
 /// # Panics
@@ -49,7 +49,7 @@ pub fn contours(values: &[f64], columns: usize, levels: &[f64]) -> Vec<Contour> 
                         values[(r + 1) * columns + c + 1], // top-right
                         values[(r + 1) * columns + c],     // top-left
                     ];
-                    if corners.iter().any(|v| v.is_nan()) {
+                    if corners.iter().any(|v| !v.is_finite()) {
                         continue;
                     }
                     march(&mut line, (c as f64, r as f64), corners, level);

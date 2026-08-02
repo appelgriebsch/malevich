@@ -195,8 +195,15 @@ const MAX_INDEX: f64 = 1e14;
 
 fn search(dmin: f64, dmax: f64, target: usize) -> Option<Candidate> {
     let range = dmax - dmin;
+    // A span so wide it overflows to infinity has no nice ticks; fall back to the
+    // endpoints rather than driving the magnitude search into non-finite arithmetic.
+    if !range.is_finite() {
+        return None;
+    }
     let target_f = target as f64;
-    let count_cap = 10 * target + 10;
+    // Ten times the target covers the useful density range; cap it absolutely so an
+    // extreme target cannot blow the search up (no axis wants hundreds of ticks).
+    let count_cap = target.saturating_mul(10).saturating_add(10).min(200);
     let mut best: Option<Candidate> = None;
     let mut best_score = f64::NEG_INFINITY;
 
@@ -229,6 +236,12 @@ fn search(dmin: f64, dmax: f64, target: usize) -> Option<Candidate> {
                         continue;
                     }
                     if min_start > max_start {
+                        continue;
+                    }
+                    // The useful grid offsets span at most a few tick counts; a
+                    // window wider than that means a step so fine the candidate is
+                    // hopeless anyway. Skip it rather than walk 10^14 start indices.
+                    if max_start - min_start > 4.0 * count as f64 {
                         continue;
                     }
                     let unit = step_value * 10f64.powi(z);

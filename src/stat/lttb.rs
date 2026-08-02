@@ -4,7 +4,8 @@
 //! University of Iceland, 2013). Shape-preserving, count-targeted downsampling:
 //! pick, per bucket, the point forming the largest triangle with its neighbors.
 //! Complementary to [`super::m4`] — LTTB targets a point *count* and preserves
-//! visual character, M4 targets a raster *width* and is pixel-exact there.
+//! visual character, M4 targets a raster *width* and preserves each column's
+//! silhouette there.
 
 /// Downsamples the series to at most `target` points, keeping the first and last.
 ///
@@ -12,7 +13,12 @@
 /// are dropped before sampling. Returns the input (filtered) when it is already at
 /// or under `target`, and empty vectors when nothing finite remains. A `target`
 /// below 3 is treated as 3 — LTTB needs both endpoints plus room to choose.
+///
+/// # Panics
+///
+/// Panics if `x` and `y` have different lengths, as the mark constructors do.
 pub fn lttb(x: &[f64], y: &[f64], target: usize) -> (Vec<f64>, Vec<f64>) {
+    assert_eq!(x.len(), y.len(), "lttb requires series of equal length");
     let target = target.max(3);
     let points: Vec<(f64, f64)> = x
         .iter()

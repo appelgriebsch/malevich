@@ -42,7 +42,18 @@ impl Colormap {
     }
 
     /// The color at `position` in `[0, 1]` (clamped; `NaN` maps to the low end).
+    ///
+    /// A colormap built through [`Colormap::new`] always has at least two stops;
+    /// one deserialized with too few degrades gracefully rather than panicking.
     pub fn color(&self, position: f64) -> Color {
+        match self.stops.len() {
+            0 => return Color::Default,
+            1 => {
+                let (r, g, b) = self.stops[0];
+                return Color::Rgb(r, g, b);
+            }
+            _ => {}
+        }
         let position = if position.is_finite() {
             position.clamp(0.0, 1.0)
         } else {

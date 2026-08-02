@@ -66,6 +66,26 @@ fn a_grid_of_plots_round_trips() {
 }
 
 #[test]
+fn malformed_payloads_render_without_panicking() {
+    // Deserialization can produce states the constructors forbid; rendering must
+    // shed them, never panic (COR-04).
+    let colormap: crate::scale::Colormap =
+        serde_json::from_str(r#"{"stops":[]}"#).expect("empty colormap deserializes");
+    assert_eq!(colormap.color(0.5), Color::Default);
+
+    let grid: Grid = serde_json::from_str(
+        r#"{"columns":0,"plots":[{"layers":[],"title":null,"x":"Linear","y":"Linear","x_label":null,"y_label":null,"x_domain":null,"y_domain":null}]}"#,
+    )
+    .expect("zero-column grid deserializes");
+    let _ = grid.render(&frame());
+
+    // A Range with ragged x/low/high/marker channels inside a plot.
+    let ragged = r#"{"layers":[{"Range":{"placement":{"Numeric":[0.0,1.0,2.0]},"low":[0.0],"high":[5.0,6.0],"body":null,"marker":[1.0,2.0,3.0,4.0],"color":null,"label":null}}],"title":null,"x":"Linear","y":"Linear","x_label":null,"y_label":null,"x_domain":null,"y_domain":null}"#;
+    let plot: Plot = serde_json::from_str(ragged).expect("ragged range deserializes");
+    let _ = plot.render(&frame());
+}
+
+#[test]
 fn a_function_line_refuses_to_serialize() {
     let plot = Plot::new().layer(Line::function(0.0..10.0, f64::sin));
     let error = serde_json::to_string(&plot).expect_err("closures have no data form");

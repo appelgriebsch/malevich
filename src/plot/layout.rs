@@ -97,15 +97,25 @@ impl<'p> Layout<'p> {
         let log_x = matches!(x_spec, Scale::Log) && categories.is_none();
         let time_y = matches!(y_spec, Scale::Time);
         let log_y = matches!(y_spec, Scale::Log);
+        // A log axis cannot place a non-positive bound; a manual domain that gives
+        // one is clamped into the positive decade below its top rather than panicking.
+        let clamp_log = |(lo, hi): (f64, f64)| -> (f64, f64) {
+            if lo > 0.0 {
+                (lo, hi.max(lo * 10.0))
+            } else {
+                let hi = if hi > 0.0 { hi } else { 100.0 };
+                (hi / 1000.0, hi)
+            }
+        };
         let x_data = if let Some(fixed) = domains.0.filter(|_| categories.is_none()) {
-            fixed
+            if log_x { clamp_log(fixed) } else { fixed }
         } else if log_x {
             union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
             union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0))
         };
         let mut y_data = if let Some(fixed) = domains.1 {
-            fixed
+            if log_y { clamp_log(fixed) } else { fixed }
         } else if log_y {
             union(layers.iter().map(ResolvedLayer::y_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
@@ -158,7 +168,15 @@ impl<'p> Layout<'p> {
         }
         let plot_cols = frame.width - gutter;
 
-        let y_domain = domain_with_ticks(y_data, &y_ticks);
+        // A manual domain is honored exactly; an automatic one grows to its ticks
+        // so the axis spans whole round numbers.
+        let y_fixed = domains.1.is_some();
+        let x_fixed = domains.0.is_some() && categories.is_none();
+        let y_domain = if y_fixed {
+            y_data
+        } else {
+            domain_with_ticks(y_data, &y_ticks)
+        };
         let plot_sub_w = (plot_cols * px).max(1);
         let plot_sub_h = (plot_rows * py).max(1);
 
@@ -181,6 +199,7 @@ impl<'p> Layout<'p> {
         };
         let x_domain = match (&band, &x_ticks) {
             (Some(band), _) => (0.0, (band.count() - 1) as f64),
+            (None, Some(_)) if x_fixed => x_data,
             (None, Some(ticks)) => domain_with_ticks(x_data, ticks),
             (None, None) => x_data,
         };

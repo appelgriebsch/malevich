@@ -62,7 +62,9 @@ impl<'a> Grid<'a> {
         if self.plots.is_empty() || frame.width == 0 || frame.height == 0 {
             return String::new();
         }
-        let columns = self.columns.min(self.plots.len());
+        // Grid::new forbids zero columns, but a deserialized grid can carry one;
+        // treat it as a single column rather than dividing by zero.
+        let columns = self.columns.max(1).min(self.plots.len());
         let rows = self.plots.len().div_ceil(columns);
         let cell_frame = Frame {
             width: (frame.width.saturating_sub(columns - 1) / columns).max(1),

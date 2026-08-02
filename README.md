@@ -112,8 +112,9 @@ colored tour sized to your terminal.
   and Tukey whiskers, violins from a real KDE (Silverman bandwidth), ECDFs, error
   bars, 2D densities — the charts science and ML actually need.
 - **Millions of points, measured.** Large line layers are aggregated by M4 —
-  min/max/first/last per raster column, *provably pixel-identical* to drawing every
-  point. Ten million points render end to end in ~28 ms single-threaded; a million
+  min/max/first/last per raster column, a faithful reduction that keeps every
+  column's silhouette. Ten million points render end to end in ~28 ms
+  single-threaded; a million
   KDE samples take 23 ms (`cargo bench --bench render`). Every aggregator is a
   mergeable monoid, so host-side parallelism and streaming are compositions, not
   features.

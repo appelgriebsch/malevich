@@ -4,7 +4,7 @@
 //! [`Rule`], [`Text`]) compose over shared scales into the basic chart catalog;
 //! presets like [`line()`], [`hist`], [`box_plot`], and [`violin`] are one-line fronts
 //! over that grammar. Large series aggregate to the raster before drawing (M4 —
-//! pixel-exact for lines), axes use extended-Wilkinson tick placement with
+//! silhouette-preserving for lines), axes use extended-Wilkinson tick placement with
 //! exact-decimal labels, and everything renders to a plain `String` — colored for
 //! your terminal via [`Frame::detect`], deterministic via [`Frame::plain`].
 //!

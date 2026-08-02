@@ -6,7 +6,7 @@
 /// A mergeable monoid: partial results over chunks combine with [`Moments::merge`]
 /// (Chan's parallel formula) into the same statistics a single pass produces.
 /// Non-finite values are ignored.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Moments {
     count: u64,
     mean: f64,
@@ -86,6 +86,14 @@ impl Moments {
     /// The largest value, or `None` before any value.
     pub fn max(&self) -> Option<f64> {
         (self.count > 0).then_some(self.max)
+    }
+}
+
+impl Default for Moments {
+    /// The empty accumulator — identical to [`Moments::new`]. Derived `Default`
+    /// would start the extrema at `0`, which corrupts min/max on the first value.
+    fn default() -> Moments {
+        Moments::new()
     }
 }
 

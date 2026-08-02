@@ -55,19 +55,70 @@ fn the_bar_preset_equals_its_grammar_expansion() {
 }
 
 #[test]
-fn large_lines_downsample_without_changing_the_picture() {
+fn large_lines_downsample_faithfully_against_the_raw_raster() {
     let n = 50_000;
     let x: Vec<f64> = (0..n).map(|i| i as f64).collect();
     let y: Vec<f64> = (0..n)
         .map(|i| (i as f64 * 0.002).sin() * (i as f64 * 0.0003).cos() * 5.0)
         .collect();
     let frame = Frame::plain(70, 15);
-    let full = Plot::new().layer(Line::xy(&x[..], &y[..])).render(&frame);
-    // Manually downsampled to the same raster width; small enough to skip the
-    // automatic path, so equality proves the auto-inserted M4 is pixel-exact.
-    let (dx, dy) = crate::stat::m4(&x, &y, frame.width * 2).unwrap();
-    let manual = Plot::new().layer(Line::xy(&dx[..], &dy[..])).render(&frame);
-    assert_eq!(full, manual);
+    let plot = Plot::new().layer(Line::xy(&x[..], &y[..]));
+    // The oracle is the *raw* raster — every one of the 50k points drawn, M4
+    // disabled — not another M4 pass. M4 currently reduces to the frame width over
+    // the data extent, so for a signal that oscillates every few pixels the buckets
+    // do not land exactly on raster columns and the two are faithful, not identical
+    // (see private/IMPROVEMENTS.md — true pixel-exactness wants mapped-space M4).
+    let downsampled = inked_cells(&plot.rasterize_with(&frame, true).to_plain());
+    let raw = inked_cells(&plot.rasterize_with(&frame, false).to_plain());
+    let shared = downsampled.intersection(&raw).count();
+    let union = downsampled.union(&raw).count();
+    let agreement = shared as f64 / union as f64;
+    assert!(
+        agreement >= 0.85,
+        "downsample diverged from the raw raster: {agreement:.3} cell agreement"
+    );
+}
+
+/// The set of inked `(row, column)` cells in a rendered plot.
+#[cfg(test)]
+fn inked_cells(rendered: &str) -> std::collections::HashSet<(usize, usize)> {
+    rendered
+        .lines()
+        .enumerate()
+        .flat_map(|(row, line)| {
+            line.chars()
+                .enumerate()
+                .filter(|(_, glyph)| !glyph.is_whitespace())
+                .map(move |(column, _)| (row, column))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+#[test]
+fn a_gap_inside_a_raster_column_stays_a_break() {
+    // Many points per column with a NaN between a jump from low to high: the raw
+    // render breaks the line there, and the downsampled one must too (COR-03).
+    let n = 20_000;
+    let mut x = Vec::with_capacity(n);
+    let mut y = Vec::with_capacity(n);
+    for i in 0..n {
+        x.push(i as f64);
+        y.push(if i == n / 2 {
+            f64::NAN
+        } else if i < n / 2 {
+            -4.0
+        } else {
+            4.0
+        });
+    }
+    let frame = Frame::plain(40, 11);
+    let plot = Plot::new().layer(Line::xy(&x[..], &y[..]));
+    assert_eq!(
+        plot.rasterize_with(&frame, true).to_plain(),
+        plot.rasterize_with(&frame, false).to_plain(),
+        "M4 must reproduce the raw raster's gap, not bridge it"
+    );
 }
 
 #[test]

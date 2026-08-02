@@ -26,6 +26,16 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
     let y_scale = &layout.y_scale;
     let band = &layout.band;
     let charset = layout.charset;
+    // Confine every mark to the plot rectangle: ink that maps outside the data
+    // region (out-of-domain points, overshooting bars, distant finite values) is
+    // clipped here rather than escaping into the axes, gutter, or a neighbor in a
+    // grid. Chrome has already been drawn, unclipped.
+    surface.set_clip(
+        x_offset as i64,
+        y_offset as i64,
+        x_offset as i64 + plot_sub_w as i64,
+        y_offset as i64 + plot_sub_h as i64,
+    );
     for layer in layers {
         match layer {
             ResolvedLayer::Series {
@@ -69,6 +79,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                     x_scale,
                     y_scale,
                     (x_offset, y_offset),
+                    (plot_sub_w, plot_sub_h),
                 );
             }
             ResolvedLayer::Cells {
@@ -168,7 +179,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                             y_scale,
                             values,
                             *color,
-                            (gutter, plot_top, plot_rows),
+                            (gutter, plot_top, plot_cols, plot_rows),
                             (px, py),
                             charset,
                         );
@@ -185,7 +196,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                         y_scale,
                         values,
                         *color,
-                        (gutter, plot_top, plot_rows),
+                        (gutter, plot_top, plot_cols, plot_rows),
                         (px, py),
                         charset,
                     );
@@ -193,6 +204,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
             },
         }
     }
+    surface.clear_clip();
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -218,6 +230,12 @@ fn draw_series(
                     continue;
                 }
                 let position = (offset.0 + x_scale.map(xv), offset.1 + y_scale.map(yv));
+                // A finite value can still map to nothing — a non-positive value on
+                // a log axis. That is a gap, not a point to connect across.
+                if !position.0.is_finite() || !position.1.is_finite() {
+                    previous = None;
+                    continue;
+                }
                 match previous {
                     Some(from) => surface.line(from, position, color),
                     None => surface.dot(position.0, position.1, color),
@@ -276,6 +294,10 @@ fn draw_corners(surface: &mut Surface, layout: &Layout<'_>, x: &[f64], y: &[f64]
         }
         let sx = x_offset + layout.x_scale.map(xv);
         let sy = y_offset + layout.y_scale.map(yv);
+        if !sx.is_finite() || !sy.is_finite() {
+            previous = None;
+            continue;
+        }
         if let Some((px_, py_)) = previous {
             let (from, to) = if px_ <= sx { (px_, sx) } else { (sx, px_) };
             let span = sx - px_;
@@ -351,11 +373,11 @@ fn draw_bars(
     y_scale: &Map,
     values: &[f64],
     color: Color,
-    place: (usize, usize, usize),
+    place: (usize, usize, usize, usize),
     density: (usize, usize),
     charset: Charset,
 ) {
-    let (gutter, plot_top, plot_rows) = place;
+    let (gutter, plot_top, plot_cols, plot_rows) = place;
     let (px, py) = density;
     let ramp = charset.fill_ramp();
     let eighths = ramp.len() == 8;
@@ -372,6 +394,11 @@ fn draw_bars(
         }
         let left = (left_sub / px as f64).round() as i64;
         let right = ((right_sub / px as f64).round() as i64).max(left + 1);
+        // Clamp to the plot columns before iterating: a bar whose span maps far
+        // off-screen (distant data under a narrow domain) must not spin a giant
+        // loop just to have every cell clipped away.
+        let left = left.clamp(0, plot_cols as i64);
+        let right = right.clamp(0, plot_cols as i64);
         let end = y_scale.map(value) / py as f64;
 
         for column in left..right {
@@ -454,7 +481,10 @@ fn draw_ranges(
 ) {
     let (half_width, px, py) = geometry;
     let cap = (half_width * 0.6).max(1.0);
-    for index in 0..low.len() {
+    // Bound to the shortest required channel: constructors keep these equal, but a
+    // deserialized range can arrive ragged, and rendering must not index past an end.
+    let count = x.len().min(low.len()).min(high.len());
+    for index in 0..count {
         let (xv, lv, hv) = (x[index], low[index], high[index]);
         if !xv.is_finite() || !lv.is_finite() || !hv.is_finite() {
             continue;
@@ -468,7 +498,9 @@ fn draw_ranges(
         surface.line((sx - cap, sh), (sx + cap, sh), color);
         // The body: vertical subpixel runs across the width.
         if let Some((body_low, body_high)) = body {
-            let (bl, bh) = (body_low[index], body_high[index]);
+            let (Some(&bl), Some(&bh)) = (body_low.get(index), body_high.get(index)) else {
+                continue;
+            };
             if bl.is_finite() && bh.is_finite() {
                 let sbl = offset.1 + y_scale.map(bl);
                 let sbh = offset.1 + y_scale.map(bh);
@@ -481,7 +513,9 @@ fn draw_ranges(
         }
         // The marker crossbar, as text: it must read over the fill.
         if let Some(marker) = marker {
-            let mv = marker[index];
+            let Some(&mv) = marker.get(index) else {
+                continue;
+            };
             if mv.is_finite() {
                 let sy = offset.1 + y_scale.map(mv);
                 let row = (sy / py).round() as i64;
@@ -592,6 +626,7 @@ fn draw_area(
     x_scale: &Map,
     y_scale: &Map,
     offset: (f64, f64),
+    bounds: (usize, usize),
 ) {
     // In the vertical (default) orientation the channel is x and fills run in y;
     // horizontally the channel is y and fills run in x. `place` restores raster
@@ -603,11 +638,26 @@ fn draw_area(
             (main, cross)
         }
     };
+    // The main axis runs along x for vertical areas, y for horizontal ones; its
+    // subpixel extent bounds the fill loop so distant points cannot spin it.
+    let main_limit = if horizontal { bounds.1 } else { bounds.0 } as i64;
     let mut previous: Option<(f64, f64, f64)> = None;
-    for index in 0..high.len() {
+    // Constructors keep channel and edges equal length; a deserialized area may not,
+    // so bound to the shortest and read the optional low edge by index.
+    let count = channel.len().min(high.len());
+    for index in 0..count {
         let cv = channel[index];
         let hv = high[index];
-        let lv = low.map_or(0.0, |low| low[index]);
+        let lv = match low {
+            Some(low) => match low.get(index) {
+                Some(&value) => value,
+                None => {
+                    previous = None;
+                    continue;
+                }
+            },
+            None => 0.0,
+        };
         if !cv.is_finite() || !hv.is_finite() || !lv.is_finite() {
             previous = None;
             continue;
@@ -629,7 +679,9 @@ fn draw_area(
             Some((pm, pl, ph)) => {
                 let (from, to) = if pm <= main { (pm, main) } else { (main, pm) };
                 let span = main - pm;
-                for step in (from.round() as i64)..=(to.round() as i64) {
+                let lo = (from.round() as i64).max(0);
+                let hi = (to.round() as i64).min(main_limit - 1);
+                for step in lo..=hi {
                     let t = if span.abs() < f64::EPSILON {
                         0.0
                     } else {
