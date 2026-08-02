@@ -11,17 +11,21 @@ in small frames, plain output when piped. One mark so far; the catalog follows.
 println!("{}", malevich::line(&[1.0, 5.0, 2.0, 8.0][..]));
 ```
 
+<!-- generated:readme_sample -->
 ```text
 8 ┤                         ⡠⠊
   │                       ⡠⠊
   │       ⣀⠤⠒⠤⣀        ⢀⠔⠉
-  │    ⡠⠔⠊     ⠉⠒⠤⣀  ⢀⠔⠁
+4 ┤    ⡠⠔⠊     ⠉⠒⠤⣀  ⢀⠔⠁
   │⢀⡠⠔⠉            ⠉⠒⠁
 0 ┤⠁
   └┬────────┬───────┬────────┬
    0        1       2        3
 ```
+<!-- /generated -->
 
+Every chart in these docs is real program output, spliced in by
+`cargo run --example regen_docs` and verified in CI — never typed by hand.
 More in the gallery: [EXAMPLES.md](EXAMPLES.md).
 
 ## What it will be

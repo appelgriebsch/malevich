@@ -1,7 +1,7 @@
 # Gallery
 
 The showcase and the system test in one artifact. Regenerate with
-`cargo run --example regen_gallery`; CI fails when this file is stale.
+`cargo run --example regen_docs`; CI fails when this file is stale.
 Every example renders a fixed `Frame::plain`, so output is deterministic.
 
 ## sine
