@@ -143,6 +143,18 @@ colored tour sized to your terminal.
 - **Plots from ndarray.** With the `ndarray` feature, one-dimensional arrays and
   views plot directly — contiguous storage zero-copy, a strided matrix column
   converted once, like any other input.
+- **Plots from polars, with no dependency.** polars is too big to depend on, but it
+  needs no special support: a contiguous column borrows zero-copy, and its
+  null-yielding iterator maps straight onto the gap convention.
+
+  ```rust
+  // Contiguous and null-free: borrowed, no copy.
+  let chart = malevich::line(df.column("loss")?.f64()?.cont_slice()?);
+
+  // Anything else: nulls become gaps (NaN), converted once at ingestion.
+  let series = df.column("loss")?.f64()?.iter().map(|v| v.unwrap_or(f64::NAN));
+  let chart = malevich::line(series.collect::<Vec<_>>());
+  ```
 - **Live charts without a framework.** A thread-shared sliding window plus an
   in-place repaint handle (cursor up, erase down, one write): flicker-free streaming
   that survives in scrollback and never takes over your terminal

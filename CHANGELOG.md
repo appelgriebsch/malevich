@@ -3,19 +3,24 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased (toward 0.10.0)
+## 0.10.0 (Reach)
 
 - Contour lines: `stat::contours` (marching squares — canonical shared-edge
   interpolation, center-average saddles, NaN gaps) and the `contour` preset with
   tick-chosen levels, colormap-graded and legend-labeled.
+- `quiver` preset: a vector field as arrows drawn in data coordinates.
 - `serde` feature: every spec type round-trips (plots, marks, scales, themes,
   frames, grids). Series gaps encode as `null` in JSON and decode back to gaps;
   function-backed lines refuse to serialize honestly.
-- `Colormap` stops are copy-on-write (`Colormap::new` is still const); `Colormap`
-  is no longer `Copy`.
-- `quiver` preset: a vector field as arrows drawn in data coordinates.
 - `ndarray` feature: one-dimensional arrays and views ingest directly, zero-copy
   when contiguous.
+- `Colormap` stops are copy-on-write (`Colormap::new` is still const); `Colormap`
+  is no longer `Copy`.
+
+Deliberately not added: a pie preset (no x/y scales — it fights the marks-over-scales
+grammar; part-to-whole is served by `bar`) and a `polars` dependency (too large;
+polars already reaches a chart with no dependency through the zero-copy slice path —
+see the README).
 
 ## 0.9.0 (Red Cavalry) — 2026-08-02
 
