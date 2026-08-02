@@ -3,7 +3,13 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased
+## 1.11.0 (White on White) — 2026-08-02
+
+Crossing into 1.x. The version lineage is kept (major bumped, minor/patch as they
+were) rather than reset — this is the same crate, matured, not a rewrite. The API is
+what the Polish sweep settled; semver discipline begins here, so breaking changes now
+mean a 2.0. (The remaining 1.0-hygiene items — a declared MSRV, `cargo-semver-checks`
+and advisory scanning in CI — are tracked as follow-ups, not blockers.)
 
 - Colorbars: `Plot::colorbar()` draws the colormap as a labeled strip down the right
   edge, legending a `Cells` layer's value range. The `heatmap` and `hist2d` presets
