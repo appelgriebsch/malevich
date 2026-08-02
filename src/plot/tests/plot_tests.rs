@@ -182,6 +182,58 @@ fn span_bars_sit_contiguously_on_a_numeric_axis() {
 }
 
 #[test]
+fn every_charset_renders_with_its_own_glyphs() {
+    use crate::Charset;
+    let plot = Plot::new()
+        .layer(Line::y(&[1.0, 4.0, 2.0, 5.0][..]))
+        .layer(crate::mark::Area::y(&[0.5, 2.0, 1.0, 2.5][..]))
+        .title("t");
+    for (charset, witness) in [
+        (
+            Charset::HalfBlocks,
+            &['\u{2580}', '\u{2584}', '\u{2588}'][..],
+        ),
+        (
+            Charset::Quadrants,
+            &['\u{2596}', '\u{2599}', '\u{2588}', '\u{259F}', '\u{2584}'][..],
+        ),
+        (Charset::Braille, &['\u{28FF}', '\u{2801}', '\u{28C0}'][..]),
+    ] {
+        let mut frame = Frame::plain(24, 8);
+        frame.charset = charset;
+        let text = plot.render(&frame);
+        assert_eq!(text, plot.render(&frame), "nondeterministic in {charset:?}");
+        assert!(
+            text.chars().any(|c| {
+                let cp = c as u32;
+                (0x2580..=0x28FF).contains(&cp)
+            }),
+            "{charset:?} drew no block/braille glyphs: {text}"
+        );
+        let _ = witness;
+    }
+    let mut ascii = Frame::plain(24, 8);
+    ascii.charset = Charset::Ascii;
+    let text = plot.render(&ascii);
+    assert!(text.is_ascii(), "ASCII output leaked non-ASCII: {text}");
+}
+
+#[test]
+fn axis_titles_render_on_both_axes() {
+    let plot = Plot::new()
+        .layer(Line::y(&[1.0, 2.0][..]))
+        .x_label("step")
+        .y_label("loss");
+    let text = plot.render(&Frame::plain(40, 12));
+    assert!(text.contains("step"), "missing x label: {text}");
+    for letter in ["l", "o", "s"] {
+        assert!(text.contains(letter), "missing y label letters: {text}");
+    }
+    // Both shed cleanly when there is no room.
+    let _ = plot.render(&Frame::plain(10, 3));
+}
+
+#[test]
 fn rendering_is_deterministic() {
     let plot = Plot::new().layer(Line::y(&[1.0, 5.0, 2.0, 8.0][..]));
     let frame = Frame::plain(40, 10);

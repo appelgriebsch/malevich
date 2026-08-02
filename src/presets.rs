@@ -268,11 +268,9 @@ pub fn violin<'a>(
         densities.len(),
         "violin requires one category per group"
     );
-    let count = categories.len();
-    // A data-free band-placed range declares the categorical axis; the violins
-    // themselves are horizontal areas over the band centers.
-    let gaps = vec![f64::NAN; count];
-    let mut plot = Plot::new().layer(Range::over(categories, gaps.clone(), gaps));
+    // The Bands spec declares the categorical axis; the violins themselves are
+    // horizontal areas over the band centers.
+    let mut plot = Plot::new().x_scale(crate::scale::Scale::bands(categories));
     for (index, density) in densities.into_iter().enumerate() {
         let Some((positions, values)) = density else {
             continue;

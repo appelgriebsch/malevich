@@ -3,7 +3,7 @@
 use crate::plot::frame::Frame;
 use crate::plot::resolve::{ResolvedLayer, union};
 use crate::render::{Charset, display_width};
-use crate::scale::{Band, Linear, Ticks};
+use crate::scale::{Band, Linear, Scale, Ticks};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Map {
@@ -39,6 +39,8 @@ pub(crate) struct Layout<'p> {
     pub title_rows: usize,
     pub legend_rows: usize,
     pub axis_rows: usize,
+    pub x_label_rows: usize,
+    pub y_label_cols: usize,
     pub plot_top: usize,
     pub plot_rows: usize,
     pub gutter: usize,
@@ -62,27 +64,35 @@ impl<'p> Layout<'p> {
         frame: &Frame,
         layers: &'p [ResolvedLayer<'p>],
         has_title: bool,
-        axes: (bool, bool, bool),
+        scales: (&'p Scale, &Scale),
+        axis_labels: (Option<&str>, Option<&str>),
     ) -> Layout<'p> {
-        let (time_x_requested, log_x_requested, log_y) = axes;
+        let (x_spec, y_spec) = scales;
+        let (has_x_label, has_y_label) = (axis_labels.0.is_some(), axis_labels.1.is_some());
         let (px, py) = frame.charset.pixels_per_cell();
-        let categories: Option<&[String]> = layers.iter().find_map(|layer| match layer {
-            ResolvedLayer::Bars {
-                placement: crate::mark::Placement::Bands(categories),
-                ..
-            } if !categories.is_empty() => Some(categories.as_slice()),
-            ResolvedLayer::Range {
-                categories: Some(categories),
-                ..
-            } if !categories.is_empty() => Some(*categories),
-            _ => None,
-        });
+        // An explicit Bands spec wins; otherwise band layers imply the categories.
+        let categories: Option<&[String]> = match x_spec {
+            Scale::Bands(categories) if !categories.is_empty() => Some(categories.as_slice()),
+            _ => layers.iter().find_map(|layer| match layer {
+                ResolvedLayer::Bars {
+                    placement: crate::mark::Placement::Bands(categories),
+                    ..
+                } if !categories.is_empty() => Some(categories.as_slice()),
+                ResolvedLayer::Range {
+                    categories: Some(categories),
+                    ..
+                } if !categories.is_empty() => Some(*categories),
+                _ => None,
+            }),
+        };
         let has_bars = layers
             .iter()
             .any(|layer| matches!(layer, ResolvedLayer::Bars { .. }));
 
-        let time_x = time_x_requested && categories.is_none();
-        let log_x = log_x_requested && categories.is_none() && !time_x;
+        let time_x = matches!(x_spec, Scale::Time) && categories.is_none();
+        let log_x = matches!(x_spec, Scale::Log) && categories.is_none();
+        let time_y = matches!(y_spec, Scale::Time);
+        let log_y = matches!(y_spec, Scale::Log);
         let x_data = if log_x {
             union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
@@ -112,12 +122,17 @@ impl<'p> Layout<'p> {
             2..=3 => 1,
             _ => 2,
         };
-        let plot_rows = frame.height - chrome_top - axis_rows;
+        let x_label_rows = usize::from(
+            has_x_label && axis_rows == 2 && frame.height - chrome_top - axis_rows >= 4,
+        );
+        let plot_rows = frame.height - chrome_top - axis_rows - x_label_rows;
 
         // Horizontal layout: the y-label gutter is measured, not fixed — and shed
         // entirely when it would eat the plot.
         let target = (plot_rows / 2).clamp(2, 8);
-        let y_ticks = if log_y {
+        let y_ticks = if time_y {
+            Ticks::time(y_data.0, y_data.1, target)
+        } else if log_y {
             Ticks::log10(y_data.0, y_data.1, target)
         } else {
             Ticks::linear(y_data.0, y_data.1, target)
@@ -127,7 +142,8 @@ impl<'p> Layout<'p> {
             .map(|tick| display_width(&tick.label))
             .max()
             .unwrap_or(0);
-        let mut gutter = label_width + 2;
+        let y_label_cols = usize::from(has_y_label && frame.width >= label_width + 12) * 2;
+        let mut gutter = y_label_cols + label_width + 2;
         if gutter + 4 > frame.width {
             label_width = 0;
             gutter = usize::from(frame.width >= 2);
@@ -176,6 +192,8 @@ impl<'p> Layout<'p> {
             title_rows,
             legend_rows,
             axis_rows,
+            x_label_rows,
+            y_label_cols,
             plot_top: chrome_top,
             plot_rows,
             gutter,

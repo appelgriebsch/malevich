@@ -11,8 +11,8 @@ pub(crate) fn display_width(text: &str) -> usize {
     text.chars().map(|glyph| glyph.width().unwrap_or(0)).sum()
 }
 
-/// Fits `text` into at most `max` columns, truncating with `…` when needed.
-pub(crate) fn fit_width(text: &str, max: usize) -> String {
+/// Fits `text` into at most `max` columns, truncating with `ellipsis` when needed.
+pub(crate) fn fit_width_with(text: &str, max: usize, ellipsis: char) -> String {
     if display_width(text) <= max {
         return text.to_string();
     }
@@ -27,7 +27,7 @@ pub(crate) fn fit_width(text: &str, max: usize) -> String {
         used += width;
     }
     if max >= 1 {
-        out.push('\u{2026}');
+        out.push(ellipsis);
     }
     out
 }

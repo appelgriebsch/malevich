@@ -104,6 +104,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                     y_scale,
                     (x_offset, y_offset),
                     (half_width, px as f64, py as f64),
+                    charset,
                 );
             }
             ResolvedLayer::Rule {
@@ -334,6 +335,7 @@ fn draw_ranges(
     y_scale: &Map,
     offset: (f64, f64),
     geometry: (f64, f64, f64),
+    charset: Charset,
 ) {
     let (half_width, px, py) = geometry;
     let cap = (half_width * 0.6).max(1.0);
@@ -370,8 +372,9 @@ fn draw_ranges(
                 let row = (sy / py).round() as i64;
                 let from_cell = ((sx - half_width) / px).round() as i64;
                 let to_cell = ((sx + half_width) / px).round() as i64;
+                let glyph = charset.chrome().marker;
                 for cell in from_cell..=to_cell {
-                    surface.text(cell, row, "\u{2501}", color);
+                    surface.text(cell, row, glyph, color);
                 }
             }
         }

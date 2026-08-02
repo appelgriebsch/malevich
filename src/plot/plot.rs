@@ -4,6 +4,7 @@
 use super::frame::Frame;
 use crate::mark::Mark;
 use crate::render::Surface;
+use crate::scale::Scale;
 
 /// A retained chart description: layers of marks plus furniture.
 ///
@@ -25,9 +26,10 @@ use crate::render::Surface;
 pub struct Plot<'a> {
     layers: Vec<Mark<'a>>,
     title: Option<String>,
-    log_x: bool,
-    log_y: bool,
-    time_x: bool,
+    x: Scale,
+    y: Scale,
+    x_label: Option<String>,
+    y_label: Option<String>,
 }
 
 impl<'a> Plot<'a> {
@@ -36,36 +38,68 @@ impl<'a> Plot<'a> {
         Plot {
             layers: Vec::new(),
             title: None,
-            log_x: false,
-            log_y: false,
-            time_x: false,
+            x: Scale::Linear,
+            y: Scale::Linear,
+            x_label: None,
+            y_label: None,
         }
     }
 
-    /// Reads the x axis as time: unix seconds (UTC), with calendar-aligned ticks
-    /// and multi-scale labels (`14:05`, `Aug 2`, `2027`). Takes precedence over
-    /// [`Plot::log_x`]; ignored when a bars layer owns the x axis.
+    /// Sets the x axis scale. Band layers (bars, band-placed ranges) imply
+    /// [`Scale::Bands`] when none is set explicitly.
     #[must_use]
-    pub fn time_x(mut self) -> Plot<'a> {
-        self.time_x = true;
+    pub fn x_scale(mut self, scale: Scale) -> Plot<'a> {
+        self.x = scale;
         self
     }
 
-    /// Puts the x axis on a base-10 logarithmic scale: decade ticks (`10²`-style),
-    /// and values at or below zero become gaps — a log axis cannot place them
-    /// honestly. Ignored when a bars layer owns the x axis.
+    /// Sets the y axis scale.
+    ///
+    /// # Panics
+    ///
+    /// Panics on [`Scale::Bands`] — categorical y axes are not supported yet.
     #[must_use]
-    pub fn log_x(mut self) -> Plot<'a> {
-        self.log_x = true;
+    pub fn y_scale(mut self, scale: Scale) -> Plot<'a> {
+        assert!(
+            !matches!(scale, Scale::Bands(_)),
+            "categorical y axes are not supported yet"
+        );
+        self.y = scale;
         self
     }
 
-    /// Puts the y axis on a base-10 logarithmic scale: decade ticks (`10²`-style),
-    /// and values at or below zero become gaps — a log axis cannot place them
-    /// honestly.
+    /// Sugar for [`Plot::x_scale`] with [`Scale::Time`]: unix seconds (UTC) with
+    /// calendar-aligned, multi-scale tick labels (`14:05`, `Aug 2`, `2027`).
     #[must_use]
-    pub fn log_y(mut self) -> Plot<'a> {
-        self.log_y = true;
+    pub fn time_x(self) -> Plot<'a> {
+        self.x_scale(Scale::Time)
+    }
+
+    /// Sugar for [`Plot::x_scale`] with [`Scale::Log`]: decade ticks, and values at
+    /// or below zero become gaps — a log axis cannot place them honestly.
+    #[must_use]
+    pub fn log_x(self) -> Plot<'a> {
+        self.x_scale(Scale::Log)
+    }
+
+    /// Sugar for [`Plot::y_scale`] with [`Scale::Log`]: decade ticks, and values at
+    /// or below zero become gaps — a log axis cannot place them honestly.
+    #[must_use]
+    pub fn log_y(self) -> Plot<'a> {
+        self.y_scale(Scale::Log)
+    }
+
+    /// Titles the x axis, centered under its tick labels.
+    #[must_use]
+    pub fn x_label(mut self, label: impl Into<String>) -> Plot<'a> {
+        self.x_label = Some(label.into());
+        self
+    }
+
+    /// Titles the y axis, written vertically along the left edge.
+    #[must_use]
+    pub fn y_label(mut self, label: impl Into<String>) -> Plot<'a> {
+        self.y_label = Some(label.into());
         self
     }
 
@@ -91,9 +125,10 @@ impl<'a> Plot<'a> {
         Plot {
             layers: self.layers.into_iter().map(Mark::into_owned).collect(),
             title: self.title,
-            log_x: self.log_x,
-            log_y: self.log_y,
-            time_x: self.time_x,
+            x: self.x,
+            y: self.y,
+            x_label: self.x_label,
+            y_label: self.y_label,
         }
     }
 
@@ -113,9 +148,16 @@ impl<'a> Plot<'a> {
             frame,
             &layers,
             self.title.is_some(),
-            (self.time_x, self.log_x, self.log_y),
+            (&self.x, &self.y),
+            (self.x_label.as_deref(), self.y_label.as_deref()),
         );
-        super::chrome::draw(&mut surface, &layout, self.title.as_deref(), &layers);
+        super::chrome::draw(
+            &mut surface,
+            &layout,
+            self.title.as_deref(),
+            (self.x_label.as_deref(), self.y_label.as_deref()),
+            &layers,
+        );
         super::draw::layers(&mut surface, &layout, &layers);
         surface
     }

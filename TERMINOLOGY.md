@@ -75,8 +75,11 @@ A mapping from data domain to raster range with the d3-scale contract: `nice`,
 module — currently `scale::Linear` (the affine map, including the raster y-flip),
 `scale::Band` (categories across a range, d3 padding model), and `scale::Ticks`
 (extended-Wilkinson linear placement, `Ticks::log10` decades, and `Ticks::time`
-calendar ticks over unix seconds — UTC, exact Gregorian arithmetic); log and time
-axes are
+calendar ticks over unix seconds — UTC, exact Gregorian arithmetic); the axis
+specification is `scale::Scale` (`Linear | Log | Time | Bands`) set via
+`Plot::x_scale`/`y_scale` (with `log_y()`-style sugar kept), axis titles come from
+`Plot::x_label`/`y_label` (x centered below, y vertical along the left edge), and
+log/time axes are also
 enabled per plot with `Plot::log_x`/`Plot::log_y`/`Plot::time_x`, `scale::Colormap` covers the
 sequential color scale, and the richer scale-spec API arrives with the time work.
 

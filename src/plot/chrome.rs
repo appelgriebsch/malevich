@@ -1,13 +1,14 @@
 //! Chrome: the furniture around the plot area — title, legend, axes, labels.
 
 use crate::plot::layout::Layout;
-use crate::render::{Color, Surface, display_width, fit_width};
+use crate::render::{Color, Surface, display_width, fit_width_with};
 
 /// Draws all furniture. Marks draw after, into the disjoint plot area.
 pub(crate) fn draw(
     surface: &mut Surface,
     layout: &Layout<'_>,
     title: Option<&str>,
+    axis_labels: (Option<&str>, Option<&str>),
     layers: &[crate::plot::resolve::ResolvedLayer<'_>],
 ) {
     let Layout {
@@ -28,12 +29,13 @@ pub(crate) fn draw(
     let y_ticks = &layout.y_ticks;
     let x_ticks = &layout.x_ticks;
     let y_scale = &layout.y_scale;
+    let glyphs = layout.charset.chrome();
     let x_scale = &layout.x_scale;
     // Chrome first, marks last: marks own the plot area, chrome owns the rest.
     if title_rows == 1
         && let Some(title) = title
     {
-        let title = fit_width(title, frame_width);
+        let title = fit_width_with(title, frame_width, glyphs.ellipsis);
         let len = display_width(&title) as i64;
         let start = ((frame_width as i64 - len) / 2).max(0);
         surface.text(start, 0, &title, Color::Default);
@@ -68,7 +70,7 @@ pub(crate) fn draw(
             surface.text(
                 axis_column,
                 (plot_top + row) as i64,
-                "\u{2502}",
+                glyphs.y_axis,
                 Color::Default,
             );
         }
@@ -85,9 +87,10 @@ pub(crate) fn draw(
                 }
                 used[row] = true;
                 let cell_row = (plot_top + row) as i64;
-                let start = label_width as i64 - display_width(&tick.label) as i64;
+                let start =
+                    (layout.y_label_cols + label_width) as i64 - display_width(&tick.label) as i64;
                 surface.text(start, cell_row, &tick.label, Color::Default);
-                surface.text(axis_column, cell_row, "\u{2524}", Color::Default);
+                surface.text(axis_column, cell_row, glyphs.y_tick, Color::Default);
             }
         }
     }
@@ -95,10 +98,15 @@ pub(crate) fn draw(
     if axis_rows >= 1 {
         let axis_row = (plot_top + plot_rows) as i64;
         if gutter >= 1 {
-            surface.text((gutter - 1) as i64, axis_row, "\u{2514}", Color::Default);
+            surface.text((gutter - 1) as i64, axis_row, glyphs.corner, Color::Default);
         }
         for col in 0..plot_cols {
-            surface.text((gutter + col) as i64, axis_row, "\u{2500}", Color::Default);
+            surface.text(
+                (gutter + col) as i64,
+                axis_row,
+                glyphs.x_axis,
+                Color::Default,
+            );
         }
         if let Some(ticks) = x_ticks {
             for tick in ticks {
@@ -106,7 +114,7 @@ pub(crate) fn draw(
                 surface.text(
                     (gutter + column) as i64,
                     axis_row,
-                    "\u{252C}",
+                    glyphs.x_tick,
                     Color::Default,
                 );
                 let len = display_width(&tick.label) as i64;
@@ -120,12 +128,40 @@ pub(crate) fn draw(
         {
             let budget = ((band.step() / px as f64).round() as usize).max(2) - 1;
             for (index, category) in categories.iter().enumerate() {
-                let label = fit_width(category, budget);
+                let label = fit_width_with(category, budget, glyphs.ellipsis);
                 let len = display_width(&label) as i64;
                 let center = gutter as i64 + (band.center(index) / px as f64).round() as i64;
                 let start = (center - len / 2).clamp(0, (frame_width as i64 - len).max(0));
                 surface.text(start, axis_row + 1, &label, Color::Default);
             }
+        }
+    }
+
+    // Axis titles: x centered on its own bottom row, y written vertically along
+    // the left edge, centered on the plot rows.
+    if layout.x_label_rows == 1
+        && let Some(label) = axis_labels.0
+    {
+        let label = fit_width_with(label, layout.plot_cols.max(1), glyphs.ellipsis);
+        let len = display_width(&label) as i64;
+        let center = (gutter + layout.plot_cols / 2) as i64;
+        let start = (center - len / 2).clamp(0, (frame_width as i64 - len).max(0));
+        let row = (layout.plot_top + plot_rows + axis_rows) as i64;
+        surface.text(start, row, &label, Color::Default);
+    }
+    if layout.y_label_cols == 2
+        && let Some(label) = axis_labels.1
+    {
+        let glyphs: Vec<char> = label.chars().take(plot_rows).collect();
+        let start = layout.plot_top + (plot_rows.saturating_sub(glyphs.len())) / 2;
+        let mut buffer = [0u8; 4];
+        for (offset, glyph) in glyphs.into_iter().enumerate() {
+            surface.text(
+                0,
+                (start + offset) as i64,
+                glyph.encode_utf8(&mut buffer),
+                Color::Default,
+            );
         }
     }
 }

@@ -49,4 +49,5 @@ pub use presets::{
     bar, box_plot, density, ecdf, error_bars, heatmap, hist, hist2d, line, scatter, stairs, violin,
 };
 pub use render::{Charset, Color, ColorMode};
+pub use scale::Scale;
 pub use theme::Theme;

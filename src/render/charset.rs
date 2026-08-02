@@ -68,6 +68,32 @@ impl Charset {
         }
     }
 
+    /// The furniture glyphs for this tier: axis lines, ticks, corner, range marker,
+    /// and the truncation ellipsis. ASCII gets ASCII; everything richer gets box
+    /// drawing.
+    pub(crate) fn chrome(self) -> Chrome {
+        match self {
+            Charset::Ascii => Chrome {
+                y_axis: "|",
+                y_tick: "+",
+                x_axis: "-",
+                corner: "+",
+                x_tick: "+",
+                marker: "=",
+                ellipsis: '.',
+            },
+            _ => Chrome {
+                y_axis: "\u{2502}",
+                y_tick: "\u{2524}",
+                x_axis: "\u{2500}",
+                corner: "\u{2514}",
+                x_tick: "\u{252C}",
+                marker: "\u{2501}",
+                ellipsis: '\u{2026}',
+            },
+        }
+    }
+
     /// The glyph for a cell's pattern; an empty pattern is a space.
     pub(crate) fn glyph(self, bits: u8) -> char {
         if bits == 0 {
@@ -86,6 +112,18 @@ impl Charset {
             }
         }
     }
+}
+
+/// The furniture glyph set of a charset tier.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Chrome {
+    pub y_axis: &'static str,
+    pub y_tick: &'static str,
+    pub x_axis: &'static str,
+    pub corner: &'static str,
+    pub x_tick: &'static str,
+    pub marker: &'static str,
+    pub ellipsis: char,
 }
 
 #[cfg(test)]

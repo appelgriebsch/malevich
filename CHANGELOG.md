@@ -5,6 +5,17 @@ without apology.
 
 ## Unreleased (toward 0.7.0)
 
+- The scale specification (`Scale`: `Linear | Log | Time | Bands`, via
+  `Plot::x_scale`/`y_scale`): one typed axis spec replaces the three boolean flags
+  (which remain as sugar); an explicit `Scale::Bands` declares a categorical axis
+  without needing a bar layer — the violin preset now uses it instead of a
+  data-free range.
+- Axis titles (`Plot::x_label`, `Plot::y_label`): x centered under the tick labels,
+  y written vertically along the left edge; both shed when the frame is tight.
+- Internal: the plot pipeline split into stage modules (resolve → layout → chrome →
+  draw) — verified byte-identical by the golden suite; crate-level rustdoc rewritten
+  (it had been six releases stale).
+
 ## 0.6.0 (The Knife Grinder) — 2026-08-02
 
 Time and motion: calendar axes, rolling windows, and live charts.

@@ -29,6 +29,8 @@ fn main() {
             .layer(Rule::h(0.5).label("target"))
             .layer(Text::at(60.0, 2.0, "< converging"))
             .title("loss with annotations (synthetic)")
+            .x_label("step")
+            .y_label("loss")
             .render(&frame)
     );
 
