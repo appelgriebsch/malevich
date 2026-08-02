@@ -18,5 +18,13 @@ criterion = "0.5"
 name = "ticks"
 harness = false
 
+[[bench]]
+name = "render"
+harness = false
+
+[[bench]]
+name = "alloc"
+harness = false
+
 [profile.bench]
 codegen-units = 1
