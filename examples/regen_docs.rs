@@ -81,6 +81,10 @@ const GALLERY: &[(&str, &str)] = &[
         "smoothing",
         "The Window stat: a rolling mean laid over its noisy source.",
     ),
+    (
+        "multiples",
+        "Small multiples: a Grid of independent plots, axes shared by fixing          domains explicitly.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

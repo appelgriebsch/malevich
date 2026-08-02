@@ -16,10 +16,36 @@ pub enum Charset {
     HalfBlocks,
     /// Quadrants (`▘▚▟`…): 2×2 pixels per cell. Solid blocks at four pixels a cell.
     Quadrants,
+    /// Sextants (Unicode 13, U+1FB00 block): 2×3 solid pixels per cell.
+    Sextants,
+    /// Octants (Unicode 16, U+1CD00 block): 2×4 solid pixels per cell — braille
+    /// density with contiguous ink. Needs a recent terminal and font;
+    /// [`crate::Frame::detect`] enables it only where it is known to render.
+    Octants,
     /// Braille patterns (U+2800–U+28FF): 2×4 pixels per cell. Universally available
     /// in monospace fonts; the default for lines and scatter.
     Braille,
 }
+
+/// The octant glyph for every 2×4 bit pattern (row-major bits, top-left first).
+/// Patterns that predate Unicode 16 keep their legacy glyphs (`▘`, `▌`, `▄`, …);
+/// the table matches the mapping shipped by tui-big-text and foot.
+const OCTANTS: [char; 256] = [
+    ' ', '𜺨', '𜺫', '🮂', '𜴀', '▘', '𜴁', '𜴂', '𜴃', '𜴄', '▝', '𜴅', '𜴆', '𜴇', '𜴈', '▀', '𜴉', '𜴊', '𜴋',
+    '𜴌', '🯦', '𜴍', '𜴎', '𜴏', '𜴐', '𜴑', '𜴒', '𜴓', '𜴔', '𜴕', '𜴖', '𜴗', '𜴘', '𜴙', '𜴚', '𜴛', '𜴜', '𜴝',
+    '𜴞', '𜴟', '🯧', '𜴠', '𜴡', '𜴢', '𜴣', '𜴤', '𜴥', '𜴦', '𜴧', '𜴨', '𜴩', '𜴪', '𜴫', '𜴬', '𜴭', '𜴮', '𜴯',
+    '𜴰', '𜴱', '𜴲', '𜴳', '𜴴', '𜴵', '🮅', '𜺣', '𜴶', '𜴷', '𜴸', '𜴹', '𜴺', '𜴻', '𜴼', '𜴽', '𜴾', '𜴿', '𜵀',
+    '𜵁', '𜵂', '𜵃', '𜵄', '▖', '𜵅', '𜵆', '𜵇', '𜵈', '▌', '𜵉', '𜵊', '𜵋', '𜵌', '▞', '𜵍', '𜵎', '𜵏', '𜵐',
+    '▛', '𜵑', '𜵒', '𜵓', '𜵔', '𜵕', '𜵖', '𜵗', '𜵘', '𜵙', '𜵚', '𜵛', '𜵜', '𜵝', '𜵞', '𜵟', '𜵠', '𜵡', '𜵢',
+    '𜵣', '𜵤', '𜵥', '𜵦', '𜵧', '𜵨', '𜵩', '𜵪', '𜵫', '𜵬', '𜵭', '𜵮', '𜵯', '𜵰', '𜺠', '𜵱', '𜵲', '𜵳', '𜵴',
+    '𜵵', '𜵶', '𜵷', '𜵸', '𜵹', '𜵺', '𜵻', '𜵼', '𜵽', '𜵾', '𜵿', '𜶀', '𜶁', '𜶂', '𜶃', '𜶄', '𜶅', '𜶆', '𜶇',
+    '𜶈', '𜶉', '𜶊', '𜶋', '𜶌', '𜶍', '𜶎', '𜶏', '▗', '𜶐', '𜶑', '𜶒', '𜶓', '▚', '𜶔', '𜶕', '𜶖', '𜶗', '▐',
+    '𜶘', '𜶙', '𜶚', '𜶛', '▜', '𜶜', '𜶝', '𜶞', '𜶟', '𜶠', '𜶡', '𜶢', '𜶣', '𜶤', '𜶥', '𜶦', '𜶧', '𜶨', '𜶩',
+    '𜶪', '𜶫', '▂', '𜶬', '𜶭', '𜶮', '𜶯', '𜶰', '𜶱', '𜶲', '𜶳', '𜶴', '𜶵', '𜶶', '𜶷', '𜶸', '𜶹', '𜶺', '𜶻',
+    '𜶼', '𜶽', '𜶾', '𜶿', '𜷀', '𜷁', '𜷂', '𜷃', '𜷄', '𜷅', '𜷆', '𜷇', '𜷈', '𜷉', '𜷊', '𜷋', '𜷌', '𜷍', '𜷎',
+    '𜷏', '𜷐', '𜷑', '𜷒', '𜷓', '𜷔', '𜷕', '𜷖', '𜷗', '𜷘', '𜷙', '𜷚', '▄', '𜷛', '𜷜', '𜷝', '𜷞', '▙', '𜷟',
+    '𜷠', '𜷡', '𜷢', '▟', '𜷣', '▆', '𜷤', '𜷥', '█',
+];
 
 /// Quadrant glyphs indexed by bit pattern: bit 0 top-left, bit 1 top-right,
 /// bit 2 bottom-left, bit 3 bottom-right.
@@ -41,7 +67,8 @@ impl Charset {
             Charset::Ascii => (1, 1),
             Charset::HalfBlocks => (1, 2),
             Charset::Quadrants => (2, 2),
-            Charset::Braille => (2, 4),
+            Charset::Sextants => (2, 3),
+            Charset::Octants | Charset::Braille => (2, 4),
         }
     }
 
@@ -50,7 +77,7 @@ impl Charset {
         match self {
             Charset::Ascii => 1,
             Charset::HalfBlocks => 1 << row,
-            Charset::Quadrants => 1 << (row * 2 + column),
+            Charset::Quadrants | Charset::Sextants | Charset::Octants => 1 << (row * 2 + column),
             Charset::Braille => BRAILLE_DOTS[row * 2 + column],
         }
     }
@@ -107,6 +134,17 @@ impl Charset {
                 _ => '\u{2588}',
             },
             Charset::Quadrants => QUADRANTS[usize::from(bits & 0x0F)],
+            Charset::Sextants => match bits & 0x3F {
+                21 => '\u{258C}',
+                42 => '\u{2590}',
+                63 => '\u{2588}',
+                bits => {
+                    let skipped = u32::from(bits > 21) + u32::from(bits > 42);
+                    char::from_u32(0x1FB00 + u32::from(bits) - 1 - skipped)
+                        .expect("sextant block is dense")
+                }
+            },
+            Charset::Octants => OCTANTS[usize::from(bits)],
             Charset::Braille => {
                 char::from_u32(0x2800 + u32::from(bits)).expect("braille block is contiguous")
             }

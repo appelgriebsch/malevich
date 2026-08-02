@@ -58,3 +58,40 @@ fn ascii_draws_any_lit_pattern_as_a_star() {
     assert_eq!(Charset::Ascii.bit(0, 0), 1);
     assert_eq!(Charset::Ascii.glyph(1), '*');
 }
+
+#[test]
+fn sextant_glyphs_follow_the_legacy_computing_formula() {
+    assert_eq!(Charset::Sextants.pixels_per_cell(), (2, 3));
+    assert_eq!(Charset::Sextants.glyph(0), ' ');
+    // The three legacy exceptions keep their old glyphs.
+    assert_eq!(Charset::Sextants.glyph(21), '\u{258C}');
+    assert_eq!(Charset::Sextants.glyph(42), '\u{2590}');
+    assert_eq!(Charset::Sextants.glyph(63), '\u{2588}');
+    // The block starts right after the empty pattern…
+    assert_eq!(Charset::Sextants.glyph(1), '\u{1FB00}');
+    // …and skips the exceptions as it goes: the last dense pattern is 62.
+    assert_eq!(Charset::Sextants.glyph(62), '\u{1FB3B}');
+}
+
+#[test]
+fn octant_glyphs_reuse_legacy_characters_where_they_exist() {
+    assert_eq!(Charset::Octants.pixels_per_cell(), (2, 4));
+    assert_eq!(Charset::Octants.glyph(0), ' ');
+    assert_eq!(Charset::Octants.glyph(0b0000_0101), '\u{2598}'); // upper-left quadrant
+    assert_eq!(Charset::Octants.glyph(0b0000_1111), '\u{2580}'); // upper half
+    assert_eq!(Charset::Octants.glyph(0b0101_0101), '\u{258C}'); // left half
+    assert_eq!(Charset::Octants.glyph(0b1111_0000), '\u{2584}'); // lower half
+    assert_eq!(Charset::Octants.glyph(255), '\u{2588}');
+    // A pattern with no legacy twin lands in the Unicode 16 legacy-computing
+    // supplement (the octants span its main run plus a few outliers).
+    for novel_bits in [
+        0b0000_0001u8,
+        0b0000_0010,
+        0b0100_0000,
+        0b1000_0000,
+        0b0001_0110,
+    ] {
+        let novel = Charset::Octants.glyph(novel_bits) as u32;
+        assert!((0x1CC00..=0x1CEBF).contains(&novel), "got {novel:#x}");
+    }
+}

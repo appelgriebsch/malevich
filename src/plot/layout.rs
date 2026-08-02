@@ -5,6 +5,9 @@ use crate::plot::resolve::{ResolvedLayer, union};
 use crate::render::{Charset, display_width};
 use crate::scale::{Band, Linear, Scale, Ticks};
 
+/// Manual axis overrides: `(x, y)`, each `Some((min, max))` when fixed.
+pub(crate) type Domains = (Option<(f64, f64)>, Option<(f64, f64)>);
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Map {
     Linear(Linear),
@@ -66,6 +69,7 @@ impl<'p> Layout<'p> {
         has_title: bool,
         scales: (&'p Scale, &Scale),
         axis_labels: (Option<&str>, Option<&str>),
+        domains: Domains,
     ) -> Layout<'p> {
         let (x_spec, y_spec) = scales;
         let (has_x_label, has_y_label) = (axis_labels.0.is_some(), axis_labels.1.is_some());
@@ -93,17 +97,21 @@ impl<'p> Layout<'p> {
         let log_x = matches!(x_spec, Scale::Log) && categories.is_none();
         let time_y = matches!(y_spec, Scale::Time);
         let log_y = matches!(y_spec, Scale::Log);
-        let x_data = if log_x {
+        let x_data = if let Some(fixed) = domains.0.filter(|_| categories.is_none()) {
+            fixed
+        } else if log_x {
             union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
             union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0))
         };
-        let mut y_data = if log_y {
+        let mut y_data = if let Some(fixed) = domains.1 {
+            fixed
+        } else if log_y {
             union(layers.iter().map(ResolvedLayer::y_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
             union(layers.iter().map(ResolvedLayer::y_extent)).unwrap_or((0.0, 1.0))
         };
-        if has_bars && !log_y {
+        if has_bars && !log_y && domains.1.is_none() {
             // Bar length is the encoding, so the baseline must be in view.
             y_data = (y_data.0.min(0.0), y_data.1.max(0.0));
         }

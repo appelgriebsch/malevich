@@ -76,14 +76,39 @@ fn detect_charset() -> Charset {
     // default, which means UTF-8.
     for name in ["LC_ALL", "LC_CTYPE", "LANG"] {
         if let Some(locale) = variable(name) {
-            return if locale.to_ascii_lowercase().contains("utf") {
-                Charset::Braille
-            } else {
-                Charset::Ascii
-            };
+            if !locale.to_ascii_lowercase().contains("utf") {
+                return Charset::Ascii;
+            }
+            break;
         }
     }
-    Charset::Braille
+    if renders_octants() {
+        Charset::Octants
+    } else {
+        Charset::Braille
+    }
+}
+
+/// Whether this terminal is known to draw Unicode 16 octants itself (no font
+/// gamble). Glyph support cannot be probed, only recognized — the conservative
+/// list: kitty, ghostty, WezTerm, foot, recent VTE, Windows Terminal.
+fn renders_octants() -> bool {
+    if variable("KITTY_WINDOW_ID").is_some() || variable("WT_SESSION").is_some() {
+        return true;
+    }
+    if let Some(program) = variable("TERM_PROGRAM") {
+        let program = program.to_ascii_lowercase();
+        if program.contains("ghostty") || program.contains("wezterm") {
+            return true;
+        }
+    }
+    if let Some(vte) = variable("VTE_VERSION")
+        && vte.parse::<u32>().is_ok_and(|version| version >= 7800)
+    {
+        return true;
+    }
+    let term = variable("TERM").unwrap_or_default();
+    term.contains("kitty") || term.contains("foot") || term.contains("ghostty")
 }
 
 fn detect_color() -> ColorMode {

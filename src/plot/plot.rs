@@ -30,6 +30,8 @@ pub struct Plot<'a> {
     y: Scale,
     x_label: Option<String>,
     y_label: Option<String>,
+    x_domain: Option<(f64, f64)>,
+    y_domain: Option<(f64, f64)>,
 }
 
 impl<'a> Plot<'a> {
@@ -42,7 +44,41 @@ impl<'a> Plot<'a> {
             y: Scale::Linear,
             x_label: None,
             y_label: None,
+            x_domain: None,
+            y_domain: None,
         }
+    }
+
+    /// Fixes the x axis to `[min, max]` instead of fitting the data — matplotlib's
+    /// `xlim`. Data outside clips honestly. Ignored on a bands axis.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bounds are not finite.
+    #[must_use]
+    pub fn x_domain(mut self, min: f64, max: f64) -> Plot<'a> {
+        assert!(
+            min.is_finite() && max.is_finite(),
+            "Plot::x_domain requires finite bounds"
+        );
+        self.x_domain = Some((min.min(max), max.max(min)));
+        self
+    }
+
+    /// Fixes the y axis to `[min, max]` instead of fitting the data — matplotlib's
+    /// `ylim`. Data outside clips honestly.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bounds are not finite.
+    #[must_use]
+    pub fn y_domain(mut self, min: f64, max: f64) -> Plot<'a> {
+        assert!(
+            min.is_finite() && max.is_finite(),
+            "Plot::y_domain requires finite bounds"
+        );
+        self.y_domain = Some((min.min(max), max.max(min)));
+        self
     }
 
     /// Sets the x axis scale. Band layers (bars, band-placed ranges) imply
@@ -129,6 +165,8 @@ impl<'a> Plot<'a> {
             y: self.y,
             x_label: self.x_label,
             y_label: self.y_label,
+            x_domain: self.x_domain,
+            y_domain: self.y_domain,
         }
     }
 
@@ -150,6 +188,7 @@ impl<'a> Plot<'a> {
             self.title.is_some(),
             (&self.x, &self.y),
             (self.x_label.as_deref(), self.y_label.as_deref()),
+            (self.x_domain, self.y_domain),
         );
         super::chrome::draw(
             &mut surface,

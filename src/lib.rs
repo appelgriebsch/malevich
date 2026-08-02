@@ -44,7 +44,7 @@ pub mod stream;
 mod theme;
 
 pub use mark::{Area, Bars, Cells, Line, Mark, Points, Range, Rule, Text};
-pub use plot::{Frame, Plot};
+pub use plot::{Frame, Grid, Plot};
 pub use presets::{
     bar, box_plot, density, ecdf, error_bars, heatmap, hist, hist2d, line, scatter, stairs, violin,
 };

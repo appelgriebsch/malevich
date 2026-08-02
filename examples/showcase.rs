@@ -6,7 +6,7 @@
 //! you run it, which is the point. For the moving version of this tour, run
 //! `cargo run --example live`.
 
-use malevich::{Area, Frame, Line, Plot, Points, Rule, Text};
+use malevich::{Area, Frame, Grid, Line, Plot, Points, Rule, Text};
 
 fn main() {
     let frame = Frame::detect();
@@ -172,6 +172,21 @@ fn main() {
         "{}\n",
         malevich::hist2d(&cx[..], &cy[..])
             .title("2d density (synthetic)")
+            .render(&frame)
+    );
+
+    // Small multiples.
+    let alpha: Vec<f64> = (0..50).map(|i| (i as f64 * 0.2).sin() * 3.0).collect();
+    let beta: Vec<f64> = (0..50).map(|i| (i as f64 * 0.13).cos() * 5.0).collect();
+    println!(
+        "{}\n",
+        Grid::new(2)
+            .with(
+                malevich::line(&alpha[..])
+                    .title("alpha")
+                    .y_domain(-6.0, 6.0)
+            )
+            .with(malevich::line(&beta[..]).title("beta").y_domain(-6.0, 6.0))
             .render(&frame)
     );
 

@@ -3,6 +3,17 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## Unreleased (toward 0.8.0)
+
+- Sextant (2×3, Unicode 13) and octant (2×4, Unicode 16) charsets: braille density
+  with solid ink. `Frame::detect` now auto-selects octants on terminals known to
+  render them (kitty, ghostty, WezTerm, foot, recent VTE, Windows Terminal) —
+  sniffed, never probed.
+- Small multiples (`Grid`): plots pasted side by side with escape-aware padding;
+  share axes by fixing domains, not by a mode.
+- Manual axis domains (`Plot::x_domain`, `Plot::y_domain`): matplotlib's xlim/ylim;
+  data outside clips honestly.
+
 ## 0.7.0 (Eight Red Rectangles) — 2026-08-02
 
 The quality release: typed scales, named axes, and honest ASCII — driven by the

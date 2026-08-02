@@ -111,14 +111,24 @@ draws nothing, the last write owns a shared cell's color. Maps to `render::Surfa
 
 A glyph tier used to encode the surface: `Ascii`, `Blocks`, `Braille`, `Sextants`,
 `Octants`, or `Auto` (environment-sniffed, never probed). Glyph tables are data, not
-code. Maps to `render::Charset` — currently `Ascii`, `HalfBlocks`, `Quadrants`, and
-`Braille`; sextants, octants, and `Auto` arrive with the capability ladder.
+code. Maps to `render::Charset`: `Ascii`, `HalfBlocks`, `Quadrants`, `Sextants`
+(Unicode 13), `Octants` (Unicode 16 — braille density with solid ink), and
+`Braille`. `Frame::detect` sniffs the environment (never probes): octants on
+terminals known to render them (kitty, ghostty, WezTerm, foot, recent VTE, Windows
+Terminal), braille otherwise, ASCII for `TERM=dumb` and non-UTF-8 locales.
 
 ## Theme
 
 Colors and styles as a value you pass, never a global. Today: the layer palette, with
 dark and light variants and `COLORFGBG` detection; role colors and cell aspect ratio
 join later. Maps to `Theme` (a field of `Frame`).
+
+## Grid
+
+Small multiples: independently rendered plots pasted side by side
+(escape-aware padding), rows filled left to right. Axis sharing is a composition —
+fix domains with `Plot::x_domain`/`y_domain` — never a hidden mode. Maps to
+`plot::Grid` (re-exported at the root).
 
 ## Preset
 
