@@ -65,8 +65,9 @@ A mapping from data domain to raster range with the d3-scale contract: `nice`,
 
 The axis values a scale chooses to label, placed by the extended Wilkinson algorithm
 (Talbot, Lin, Hanrahan, InfoVis 2010) — scored for simplicity, coverage, density, and
-legibility. Ticks are computed, never supplied as strings. Maps to `scale::ticks`
-*(planned)*.
+legibility. Ticks are computed, never supplied as strings, and carry exact-decimal
+labels (integer mantissa times a power of ten): labels parse back to their values, share
+one fraction width per axis, and never show float artifacts. Maps to `scale::Ticks`.
 
 ## Frame
 
