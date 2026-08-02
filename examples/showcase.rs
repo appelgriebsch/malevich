@@ -1,15 +1,16 @@
-//! A colored tour of the current marks, rendered for *your* terminal.
+//! A colored tour of every mark and preset, rendered for *your* terminal.
 //!
 //! Uses `Frame::detect()`: charts size themselves to the terminal width, use color
 //! when the terminal has any, and degrade to plain text when piped. This example is
 //! deliberately not part of the deterministic gallery — its output depends on where
 //! you run it, which is the point.
 
-use malevich::{Frame, Line, Plot, Points};
+use malevich::{Area, Frame, Line, Plot, Points, Rule, Text};
 
 fn main() {
     let frame = Frame::detect();
 
+    // Lines, legend, annotations: the training-loop story.
     let steps: Vec<f64> = (0..120).map(f64::from).collect();
     let train: Vec<f64> = steps
         .iter()
@@ -24,10 +25,28 @@ fn main() {
         Plot::new()
             .layer(Line::xy(&steps[..], &train[..]).label("train"))
             .layer(Line::xy(&steps[..], &val[..]).label("val"))
-            .title("loss (synthetic)")
+            .layer(Rule::h(0.5).label("target"))
+            .layer(Text::at(60.0, 2.0, "< converging"))
+            .title("loss with annotations (synthetic)")
             .render(&frame)
     );
 
+    // Ten million points, downsampled pixel-exactly on the way in.
+    let n = 10_000_000;
+    let wave: Vec<f64> = (0..n)
+        .map(|i| {
+            let i = i as f64;
+            (i * 0.0002).sin() * (i * 0.000013).cos() * 8.0
+        })
+        .collect();
+    println!(
+        "{}\n",
+        malevich::line(&wave[..])
+            .title("10,000,000 points through M4")
+            .render(&frame)
+    );
+
+    // Bars and a histogram.
     println!(
         "{}\n",
         malevich::bar(
@@ -37,9 +56,103 @@ fn main() {
         .title("admired languages, % (synthetic)")
         .render(&frame)
     );
+    let samples: Vec<f64> = (0..4000)
+        .map(|i| {
+            let i = i as f64;
+            ((i * 0.731).sin() + (i * 1.13).sin() + (i * 2.71).sin()) * 2.0 + 10.0
+        })
+        .collect();
+    println!(
+        "{}\n",
+        malevich::hist(&samples[..])
+            .title("histogram, automatic bins")
+            .render(&frame)
+    );
 
-    let blob = |n: usize, cx: f64, cy: f64, spread: f64| -> (Vec<f64>, Vec<f64>) {
-        (0..n)
+    // Stacked areas.
+    let x: Vec<f64> = (0..80).map(f64::from).collect();
+    let solar: Vec<f64> = x.iter().map(|v| 3.0 + (v * 0.2).sin() + v * 0.02).collect();
+    let wind: Vec<f64> = x
+        .iter()
+        .map(|v| 2.0 + (v * 0.13).cos().abs() * 1.5)
+        .collect();
+    let hydro: Vec<f64> = x.iter().map(|v| 1.0 + (v * 0.07).sin().abs()).collect();
+    let bands = malevich::stat::stack(&[&solar, &wind, &hydro]);
+    let mut stacked = Plot::new().title("energy mix, stacked (synthetic)");
+    for ((low, high), label) in bands.iter().zip(["solar", "wind", "hydro"]) {
+        stacked = stacked.layer(Area::between(&x[..], &low[..], &high[..]).label(label));
+    }
+    println!("{}\n", stacked.render(&frame));
+
+    // A heatmap and a 2D histogram.
+    let size = 8usize;
+    let grid: Vec<f64> = (0..size * size)
+        .map(|i| {
+            let (row, column) = ((i / size) as f64, (i % size) as f64);
+            if row == column {
+                1.0
+            } else {
+                ((row - column).abs() * -0.4).exp()
+            }
+        })
+        .collect();
+    println!(
+        "{}\n",
+        malevich::heatmap(size, &grid[..])
+            .title("correlation matrix (synthetic)")
+            .render(&frame)
+    );
+    let bell = |i: f64, seed: f64| -> f64 {
+        ((i * 0.97 + seed).sin() + (i * 1.31 + seed * 2.0).sin() + (i * 2.63 + seed * 3.0).sin())
+            / 3.0
+    };
+    let points = 6000;
+    let cx: Vec<f64> = (0..points)
+        .map(|i| {
+            let i = i as f64;
+            if i as i64 % 2 == 0 {
+                3.0 + bell(i, 1.0) * 1.8
+            } else {
+                7.0 + bell(i, 4.0) * 1.2
+            }
+        })
+        .collect();
+    let cy: Vec<f64> = (0..points)
+        .map(|i| {
+            let i = i as f64;
+            if i as i64 % 2 == 0 {
+                3.0 + bell(i, 7.0) * 1.4
+            } else {
+                6.5 + bell(i, 9.0) * 1.7
+            }
+        })
+        .collect();
+    println!(
+        "{}\n",
+        malevich::hist2d(&cx[..], &cy[..])
+            .title("2d density (synthetic)")
+            .render(&frame)
+    );
+
+    // Log-log axes, an ECDF, and a labeled scatter to close.
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Line::function(1.0..100_000.0, |x| 0.5 * x.powf(1.5)).label("0.5 x^1.5"))
+            .layer(Line::function(1.0..100_000.0, |x| 20.0 * x.sqrt()).label("20 sqrt x"))
+            .title("power laws, log-log")
+            .log_x()
+            .log_y()
+            .render(&frame)
+    );
+    println!(
+        "{}\n",
+        malevich::ecdf(&samples[..])
+            .title("ecdf of the histogram sample")
+            .render(&frame)
+    );
+    let blob = |count: usize, cx: f64, cy: f64, spread: f64| -> (Vec<f64>, Vec<f64>) {
+        (0..count)
             .map(|i| {
                 let i = i as f64;
                 (
@@ -52,20 +165,11 @@ fn main() {
     let (ax, ay) = blob(80, 3.0, 4.0, 1.6);
     let (bx, by) = blob(80, 7.5, 7.0, 1.9);
     println!(
-        "{}\n",
+        "{}",
         Plot::new()
             .layer(Points::xy(&ax[..], &ay[..]).label("colony a"))
             .layer(Points::xy(&bx[..], &by[..]).label("colony b"))
             .title("two colonies (synthetic)")
-            .render(&frame)
-    );
-
-    println!(
-        "{}",
-        Plot::new()
-            .layer(Line::function(0.0..12.6, f64::sin).label("sin"))
-            .layer(Line::function(0.0..12.6, |x| (x * 0.5).cos() * 0.6).label("cos/2"))
-            .title("function sampling")
             .render(&frame)
     );
 }
