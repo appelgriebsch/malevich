@@ -57,3 +57,46 @@ pub fn hist<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
         None => Plot::new(),
     }
 }
+
+/// A step chart: `values` held flat between indices — counters, rates, states.
+///
+/// ```
+/// println!("{}", malevich::stairs(&[1.0, 3.0, 2.0][..]).render(&malevich::Frame::plain(40, 8)));
+/// ```
+pub fn stairs<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    let series = values.into_series();
+    let mut x = Vec::with_capacity(series.len() * 2);
+    let mut y = Vec::with_capacity(series.len() * 2);
+    for (index, value) in series.iter().enumerate() {
+        if index > 0 {
+            x.push(index as f64);
+            y.push(y.last().copied().unwrap_or(value));
+        }
+        x.push(index as f64);
+        y.push(value);
+    }
+    Plot::new().layer(Line::xy(x, y))
+}
+
+/// An ECDF chart: the fraction of `values` at or below each value, as a step line
+/// from 0 to 1.
+///
+/// ```
+/// let samples = [3.0, 1.0, 4.0, 1.0, 5.0];
+/// println!("{}", malevich::ecdf(&samples[..]).render(&malevich::Frame::plain(40, 8)));
+/// ```
+pub fn ecdf<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    let series = values.into_series();
+    let (sorted, fractions) = crate::stat::ecdf(series.as_slice());
+    let mut x = Vec::with_capacity(sorted.len() * 2);
+    let mut y = Vec::with_capacity(sorted.len() * 2);
+    let mut previous = 0.0f64;
+    for (value, fraction) in sorted.into_iter().zip(fractions) {
+        x.push(value);
+        y.push(previous);
+        x.push(value);
+        y.push(fraction);
+        previous = fraction;
+    }
+    Plot::new().layer(Line::xy(x, y))
+}

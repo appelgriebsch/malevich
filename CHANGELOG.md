@@ -3,6 +3,17 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## Unreleased (toward 0.4.0)
+
+- Area (`mark::Area`): baseline fills and between-bands, drawn as vertical subpixel
+  runs — solid in every charset, subpixel edge precision, gap-breaking. `stat::stack`
+  turns series into cumulative bands for stacked areas.
+- Annotations (`mark::Rule`, `mark::Text`): reference lines and notes at data
+  coordinates; both extend the axis domains, draw in the default foreground, and
+  never consume palette slots.
+- Steps (`malevich::stairs`, `malevich::ecdf`, `stat::ecdf`): step charts and
+  empirical distributions as presets over the line mark.
+
 ## 0.3.0 (Airplane Flying) — 2026-08-01
 
 The pipeline release: the stat layer lands, and ten million points become cheap.

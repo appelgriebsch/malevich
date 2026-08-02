@@ -1,0 +1,114 @@
+//! The area mark: a filled region between two edges.
+
+use crate::data::{IntoSeries, Series};
+use crate::render::Color;
+
+/// A filled region: from the zero baseline up to a series, or between two series.
+///
+/// Fills are drawn as vertical subpixel runs, so they are solid in every charset
+/// and their edges keep subpixel precision. Gaps (`NaN`) in any edge break the fill.
+#[derive(Clone)]
+pub struct Area<'a> {
+    pub(crate) x: Option<Series<'a>>,
+    pub(crate) low: Option<Series<'a>>,
+    pub(crate) high: Series<'a>,
+    pub(crate) color: Option<Color>,
+    pub(crate) label: Option<String>,
+}
+
+impl<'a> Area<'a> {
+    /// A fill from zero up to `values`, against their indices.
+    pub fn y(values: impl IntoSeries<'a>) -> Area<'a> {
+        Area {
+            x: None,
+            low: None,
+            high: values.into_series(),
+            color: None,
+            label: None,
+        }
+    }
+
+    /// A fill from zero up to `y` over `x`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the two series have different lengths.
+    pub fn xy(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Area<'a> {
+        let x = x.into_series();
+        let y = y.into_series();
+        assert_eq!(x.len(), y.len(), "Area::xy requires series of equal length");
+        Area {
+            x: Some(x),
+            low: None,
+            high: y,
+            color: None,
+            label: None,
+        }
+    }
+
+    /// A band between `low` and `high` over `x` — confidence intervals, stacked
+    /// layers, min/max envelopes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the three series have different lengths.
+    pub fn between(
+        x: impl IntoSeries<'a>,
+        low: impl IntoSeries<'a>,
+        high: impl IntoSeries<'a>,
+    ) -> Area<'a> {
+        let x = x.into_series();
+        let low = low.into_series();
+        let high = high.into_series();
+        assert!(
+            x.len() == low.len() && low.len() == high.len(),
+            "Area::between requires series of equal length"
+        );
+        Area {
+            x: Some(x),
+            low: Some(low),
+            high,
+            color: None,
+            label: None,
+        }
+    }
+
+    /// Sets an explicit color; without one, layers take colors from the palette.
+    #[must_use]
+    pub fn color(mut self, color: Color) -> Area<'a> {
+        self.color = Some(color);
+        self
+    }
+
+    /// Names this layer in the legend.
+    #[must_use]
+    pub fn label(mut self, label: impl Into<String>) -> Area<'a> {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Detaches from any borrowed storage, making the mark `'static`.
+    pub fn into_owned(self) -> Area<'static> {
+        Area {
+            x: self.x.map(Series::into_owned),
+            low: self.low.map(Series::into_owned),
+            high: self.high.into_owned(),
+            color: self.color,
+            label: self.label,
+        }
+    }
+}
+
+impl std::fmt::Debug for Area<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Area")
+            .field("points", &self.high.len())
+            .field("banded", &self.low.is_some())
+            .field("color", &self.color)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/area_tests.rs"]
+mod tests;

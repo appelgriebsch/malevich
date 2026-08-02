@@ -45,6 +45,14 @@ const GALLERY: &[(&str, &str)] = &[
         "powerlaw",
         "Log-log axes: power laws render straight, with decade ticks on both axes.",
     ),
+    (
+        "energy",
+        "Stacked areas via the Stack stat: each layer sits on the sum of the ones below.",
+    ),
+    (
+        "annotated",
+        "Annotations: a Rule for the target line, a Text note at data coordinates.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

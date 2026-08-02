@@ -8,13 +8,17 @@
 
 mod agg;
 mod bin;
+mod ecdf;
 mod lttb;
 mod m4;
 mod moments;
+mod stack;
 
 pub use agg::Agg;
 pub use bin::Bins;
+pub use ecdf::ecdf;
 pub use lttb::lttb;
 pub(crate) use m4::m4_indexed;
 pub use m4::{M4, m4};
 pub use moments::Moments;
+pub use stack::stack;

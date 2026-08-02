@@ -26,8 +26,10 @@ A family of geometric primitives that draw data: `Line`, `Points`, `Bars`, `Area
 ("mark"), chosen over matplotlib's "artist" (too broad) and "geom" (ggplot jargon).
 Chart types are compositions of marks, never peers of them. Maps to the `mark`
 module — currently `mark::Line` (points, paired series, or a sampled function),
-`mark::Points`, and `mark::Bars` (categorical, zero-baseline), joined under the closed
-`mark::Mark` enum; the rest of the family follows.
+`mark::Points`, `mark::Bars` (bands or numeric spans, zero-baseline), `mark::Area`
+(baseline fills and bands), `mark::Rule` (reference lines), and `mark::Text`
+(annotations at data coordinates), joined under the closed `mark::Mark` enum;
+`Cells` and `Range` complete the family next.
 
 ## Channel
 

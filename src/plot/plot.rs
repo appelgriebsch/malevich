@@ -4,7 +4,7 @@
 use std::borrow::Cow;
 
 use super::frame::Frame;
-use crate::mark::{Mark, Placement, Source};
+use crate::mark::{Mark, Orientation, Placement, Source};
 use crate::render::{Charset, Color, Surface, display_width, fit_width};
 use crate::scale::{Band, Linear, Ticks};
 
@@ -315,6 +315,56 @@ impl<'a> Plot<'a> {
                         (x_offset, y_offset),
                     );
                 }
+                ResolvedLayer::Area {
+                    x,
+                    low,
+                    high,
+                    color,
+                    ..
+                } => {
+                    draw_area(
+                        &mut surface,
+                        x,
+                        *low,
+                        high,
+                        *color,
+                        &x_scale,
+                        &y_scale,
+                        (x_offset, y_offset),
+                    );
+                }
+                ResolvedLayer::Rule {
+                    orientation, color, ..
+                } => match orientation {
+                    Orientation::Horizontal(y) => {
+                        let sy = y_offset + y_scale.map(*y);
+                        surface.line(
+                            (x_offset, sy),
+                            (x_offset + (plot_sub_w - 1) as f64, sy),
+                            *color,
+                        );
+                    }
+                    Orientation::Vertical(x) => {
+                        let sx = x_offset + x_scale.map(*x);
+                        surface.line(
+                            (sx, y_offset),
+                            (sx, y_offset + (plot_sub_h - 1) as f64),
+                            *color,
+                        );
+                    }
+                },
+                ResolvedLayer::Text { x, y, text, color } => {
+                    let sx = x_offset + x_scale.map(*x);
+                    let sy = y_offset + y_scale.map(*y);
+                    if sx.is_finite() && sy.is_finite() {
+                        surface.text(
+                            (sx / px as f64).round() as i64,
+                            (sy / py as f64).round() as i64,
+                            text,
+                            *color,
+                        );
+                    }
+                }
                 ResolvedLayer::Bars {
                     placement,
                     values,
@@ -366,12 +416,21 @@ impl<'a> Plot<'a> {
     /// Materializes every layer into drawable columns plus a resolved color.
     /// Functions are sampled here, once per subpixel column of the frame width.
     fn resolve(&self, sample_width: usize, palette: &[Color; 6]) -> Vec<ResolvedLayer<'_>> {
-        let single = self.layers.len() == 1;
+        // Annotations (rules, text) draw in the default foreground and do not
+        // consume palette slots; a single data layer draws in the default too.
+        let data_layers = self
+            .layers
+            .iter()
+            .filter(|mark| !matches!(mark, Mark::Rule(_) | Mark::Text(_)))
+            .count();
+        let single = data_layers == 1;
+        let mut palette_index = 0usize;
         self.layers
             .iter()
-            .enumerate()
-            .map(|(index, mark)| {
-                let assigned = |explicit: Option<Color>| {
+            .map(|mark| {
+                let mut assigned = |explicit: Option<Color>| {
+                    let index = palette_index;
+                    palette_index += 1;
                     explicit.unwrap_or(if single {
                         Color::Default
                     } else {
@@ -444,6 +503,24 @@ impl<'a> Plot<'a> {
                         color: assigned(bars.color),
                         label: bars.label.as_deref(),
                     },
+                    Mark::Area(area) => ResolvedLayer::Area {
+                        x: index_or_borrow(area.x.as_ref(), area.high.len()),
+                        low: area.low.as_ref().map(|series| series.as_slice()),
+                        high: area.high.as_slice(),
+                        color: assigned(area.color),
+                        label: area.label.as_deref(),
+                    },
+                    Mark::Rule(rule) => ResolvedLayer::Rule {
+                        orientation: rule.orientation,
+                        color: rule.color.unwrap_or(Color::Default),
+                        label: rule.label.as_deref(),
+                    },
+                    Mark::Text(text) => ResolvedLayer::Text {
+                        x: text.x,
+                        y: text.y,
+                        text: &text.text,
+                        color: text.color.unwrap_or(Color::Default),
+                    },
                 }
             })
             .collect()
@@ -506,6 +583,24 @@ enum ResolvedLayer<'p> {
         color: Color,
         label: Option<&'p str>,
     },
+    Area {
+        x: Cow<'p, [f64]>,
+        low: Option<&'p [f64]>,
+        high: &'p [f64],
+        color: Color,
+        label: Option<&'p str>,
+    },
+    Rule {
+        orientation: Orientation,
+        color: Color,
+        label: Option<&'p str>,
+    },
+    Text {
+        x: f64,
+        y: f64,
+        text: &'p str,
+        color: Color,
+    },
 }
 
 impl ResolvedLayer<'_> {
@@ -520,6 +615,13 @@ impl ResolvedLayer<'_> {
                 ..
             } => Some((*start, start + width * values.len() as f64)),
             ResolvedLayer::Bars { .. } => None,
+            ResolvedLayer::Area { x, .. } => extent(x),
+            ResolvedLayer::Rule {
+                orientation: Orientation::Vertical(x),
+                ..
+            } => Some((*x, *x)),
+            ResolvedLayer::Rule { .. } => None,
+            ResolvedLayer::Text { x, .. } => Some((*x, *x)),
         }
     }
 
@@ -528,6 +630,21 @@ impl ResolvedLayer<'_> {
         match self {
             ResolvedLayer::Series { y, .. } => extent(y),
             ResolvedLayer::Bars { values, .. } => extent(values),
+            ResolvedLayer::Area { low, high, .. } => {
+                let highs = extent(high);
+                let lows = match low {
+                    Some(low) => extent(low),
+                    // A baseline fill keeps zero in view, like bars.
+                    None => Some((0.0, 0.0)),
+                };
+                union([highs, lows].into_iter())
+            }
+            ResolvedLayer::Rule {
+                orientation: Orientation::Horizontal(y),
+                ..
+            } => Some((*y, *y)),
+            ResolvedLayer::Rule { .. } => None,
+            ResolvedLayer::Text { y, .. } => Some((*y, *y)),
         }
     }
 
@@ -535,7 +652,13 @@ impl ResolvedLayer<'_> {
     fn x_extent_positive(&self) -> Option<(f64, f64)> {
         match self {
             ResolvedLayer::Series { x, .. } => extent_positive(x),
-            ResolvedLayer::Bars { .. } => None,
+            ResolvedLayer::Area { x, .. } => extent_positive(x),
+            ResolvedLayer::Rule {
+                orientation: Orientation::Vertical(x),
+                ..
+            } if *x > 0.0 => Some((*x, *x)),
+            ResolvedLayer::Text { x, .. } if *x > 0.0 => Some((*x, *x)),
+            _ => None,
         }
     }
 
@@ -544,6 +667,17 @@ impl ResolvedLayer<'_> {
         match self {
             ResolvedLayer::Series { y, .. } => extent_positive(y),
             ResolvedLayer::Bars { values, .. } => extent_positive(values),
+            ResolvedLayer::Area { low, high, .. } => {
+                let highs = extent_positive(high);
+                let lows = low.and_then(extent_positive);
+                union([highs, lows].into_iter())
+            }
+            ResolvedLayer::Rule {
+                orientation: Orientation::Horizontal(y),
+                ..
+            } if *y > 0.0 => Some((*y, *y)),
+            ResolvedLayer::Text { y, .. } if *y > 0.0 => Some((*y, *y)),
+            _ => None,
         }
     }
 
@@ -565,6 +699,15 @@ impl ResolvedLayer<'_> {
                 let swatch = if ascii { "##" } else { "\u{2588}\u{2588}" };
                 (swatch, *color, *label)
             }
+            ResolvedLayer::Area { color, label, .. } => {
+                let swatch = if ascii { "##" } else { "\u{2584}\u{2584}" };
+                (swatch, *color, *label)
+            }
+            ResolvedLayer::Rule { color, label, .. } => {
+                let swatch = if ascii { "--" } else { "\u{2500}\u{2500}" };
+                (swatch, *color, *label)
+            }
+            ResolvedLayer::Text { .. } => return None,
         };
         label.map(|label| (swatch, color, label))
     }
@@ -701,6 +844,57 @@ fn draw_bars(
                 }
             }
         }
+    }
+}
+
+/// Draws one area layer: for every subpixel column a segment covers, a vertical
+/// run between its interpolated low and high edges — solid in every charset, with
+/// subpixel edge precision.
+#[allow(clippy::too_many_arguments)]
+fn draw_area(
+    surface: &mut Surface,
+    x: &[f64],
+    low: Option<&[f64]>,
+    high: &[f64],
+    color: Color,
+    x_scale: &Map,
+    y_scale: &Map,
+    offset: (f64, f64),
+) {
+    let mut previous: Option<(f64, f64, f64)> = None;
+    for index in 0..high.len() {
+        let xv = x[index];
+        let hv = high[index];
+        let lv = low.map_or(0.0, |low| low[index]);
+        if !xv.is_finite() || !hv.is_finite() || !lv.is_finite() {
+            previous = None;
+            continue;
+        }
+        let sx = offset.0 + x_scale.map(xv);
+        let sh = offset.1 + y_scale.map(hv);
+        let sl = offset.1 + y_scale.map(lv);
+        match previous {
+            Some((px_, pl, ph)) => {
+                let (from, to) = if px_ <= sx { (px_, sx) } else { (sx, px_) };
+                let span = sx - px_;
+                for column in (from.round() as i64)..=(to.round() as i64) {
+                    let t = if span.abs() < f64::EPSILON {
+                        0.0
+                    } else {
+                        ((column as f64 - px_) / span).clamp(0.0, 1.0)
+                    };
+                    let column_low = pl + (sl - pl) * t;
+                    let column_high = ph + (sh - ph) * t;
+                    surface.line(
+                        (column as f64, column_low),
+                        (column as f64, column_high),
+                        color,
+                    );
+                }
+            }
+            None => surface.line((sx, sl), (sx, sh), color),
+        }
+        previous = Some((sx, sl, sh));
     }
 }
 
