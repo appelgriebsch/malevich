@@ -77,20 +77,57 @@ const GALLERY: &[(&str, &str)] = &[
     ),
     (
         "timeseries",
-        "A time axis: calendar-aligned ticks with multi-scale labels — midnight          becomes the date, January becomes the year.",
+        "The Keeling curve: monthly CO2 at Mauna Loa since 1958 (NOAA), on a calendar axis.",
     ),
     (
         "multiples",
         "Small multiples: a Grid of independent plots, axes shared by fixing          domains explicitly.",
+    ),
+    (
+        "corners",
+        "The asciichart homage: box-drawing corners, one glyph per column — with real axes underneath.",
+    ),
+    (
+        "steps",
+        "Step charts: stairs hold values flat between indices; an ECDF climbs a distribution from zero to one.",
     ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.
 const SPLICED: &[&str] = &["README.md"];
 
+/// Examples that are deliberately not in the gallery: infrastructure, the colored
+/// tour (environment-dependent), interactive demos, and README splice sources.
+const EXEMPT: &[&str] = &[
+    "regen_docs",
+    "showcase",
+    "live",
+    "tui",
+    "readme_sample",
+    "readme_bars",
+];
+
 fn main() {
     let check = std::env::args().any(|argument| argument == "--check");
     let mut stale = Vec::new();
+
+    // No example may silently drop out of the docs: everything in examples/ must
+    // be in the gallery, spliced into a doc, or explicitly exempt above.
+    let mut missing = Vec::new();
+    for entry in std::fs::read_dir("examples").expect("examples directory") {
+        let name = entry.expect("directory entry").file_name();
+        let Some(name) = name.to_str().and_then(|n| n.strip_suffix(".rs")) else {
+            continue;
+        };
+        if EXEMPT.contains(&name) || GALLERY.iter().any(|(listed, _)| *listed == name) {
+            continue;
+        }
+        missing.push(name.to_string());
+    }
+    assert!(
+        missing.is_empty(),
+        "examples missing from the gallery (list them or exempt them): {missing:?}"
+    );
 
     let gallery = gallery_content();
     apply("EXAMPLES.md", gallery, check, &mut stale);

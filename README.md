@@ -68,6 +68,34 @@ m 200 ┤          ⡇           ⢰⣶⣶⣶⣾⣶⣶⣶⡆
 ```
 <!-- /generated -->
 
+And the classic asciichart look, one glyph per column, whenever you want charts
+this quiet — with real axes underneath, which the original never had:
+
+```rust
+Plot::new().layer(Line::y(&values[..]).style(LineStyle::Corners))
+```
+
+<!-- generated:corners -->
+```text
+                          the corners style
+ 15 ┤              ╭───────────╮
+    │            ╭─╯           ╰─╮
+ 10 ┤          ╭─╯               ╰──╮
+    │        ╭─╯                    ╰╮
+  5 ┤      ╭─╯                       ╰─╮
+    │     ╭╯                           ╰─╮
+  0 ┤     ╯                              ╰╮
+    │                                     ╰─╮
+ -5 ┤                                       ╰─╮
+    │                                         ╰╮                   ╭──
+-10 ┤                                          ╰──╮              ╭─╯
+    │                                             ╰─╮         ╭──╯
+-15 ┤                                               ╰─────────╯
+    └┬──────────┬─────────┬──────────┬──────────┬──────────┬─────────┬
+     0         10        20         30         40         50        60
+```
+<!-- /generated -->
+
 Every chart in these docs is real program output, spliced in by
 `cargo run --example regen_docs` and verified in CI — never typed by hand. More in the
 gallery: [EXAMPLES.md](EXAMPLES.md), and `cargo run --example showcase` renders a

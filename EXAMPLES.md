@@ -346,7 +346,7 @@ Source: [examples/measurements.rs](examples/measurements.rs)
 
 ## timeseries
 
-A time axis: calendar-aligned ticks with multi-scale labels — midnight          becomes the date, January becomes the year.
+The Keeling curve: monthly CO2 at Mauna Loa since 1958 (NOAA), on a calendar axis.
 Source: [examples/timeseries.rs](examples/timeseries.rs)
 
 ```text
@@ -398,4 +398,49 @@ Source: [examples/multiples.rs](examples/multiples.rs)
  0 ┤█████████████████████████████████  0 ┤█████████████████████████████████
    └──┬─────────────┬─────────────┬──    └──┬─────────────┬─────────────┬──
     -2.5           0.0           2.5       -5             0             5
+```
+
+## corners
+
+The asciichart homage: box-drawing corners, one glyph per column — with real axes underneath.
+Source: [examples/corners.rs](examples/corners.rs)
+
+```text
+                          the corners style
+ 15 ┤              ╭───────────╮
+    │            ╭─╯           ╰─╮
+ 10 ┤          ╭─╯               ╰──╮
+    │        ╭─╯                    ╰╮
+  5 ┤      ╭─╯                       ╰─╮
+    │     ╭╯                           ╰─╮
+  0 ┤     ╯                              ╰╮
+    │                                     ╰─╮
+ -5 ┤                                       ╰─╮
+    │                                         ╰╮                   ╭──
+-10 ┤                                          ╰──╮              ╭─╯
+    │                                             ╰─╮         ╭──╯
+-15 ┤                                               ╰─────────╯
+    └┬──────────┬─────────┬──────────┬──────────┬──────────┬─────────┬
+     0         10        20         30         40         50        60
+```
+
+## steps
+
+Step charts: stairs hold values flat between indices; an ECDF climbs a distribution from zero to one.
+Source: [examples/steps.rs](examples/steps.rs)
+
+```text
+         requests per window                      latency ecdf
+30 ┤                     ⢸⠉⠉⠉⢹        1.00 ┤                           ⣀⡤⠜⠉
+   │                     ⢸   ⢸             │                       ⢀⡠⠔⠊⠁
+25 ┤                     ⢸   ⠘⠒⠒⠒⡆    0.75 ┤                    ⢀⣰⠚⠉
+   │              ⢀⣀⣀⣀⣀⣀⣀⣸       ⡇         │                  ⢀⠜⠁
+   │              ⢸              ⡇         │                 ⡔⠃
+20 ┤       ⡤⠤⠤⠤⡄  ⢸              ⡇    0.50 ┤               ⢀⠜
+   │       ⡇   ⡇  ⢸              ⠉⠉⠉⠉      │             ⣠⠒⠉
+15 ┤       ⡇   ⡇  ⢸                   0.25 ┤          ⣠⠴⠋
+   │⣀⣀⣀⣀⣀⣀⣀⡇   ⠉⠉⠉⠉                        │       ⣀⡤⠋
+10 ┤                                  0.00 ┤   ⡤⠴⠊⠉
+   └┬──────────┬─────────┬──────────┬      └┬─────────────┬─────────────┬──
+    0          3         6          9       0             5            10
 ```
