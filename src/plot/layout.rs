@@ -1,0 +1,271 @@
+//! Layout: everything geometric, computed once — scales, ticks, gutters, offsets.
+
+use crate::plot::frame::Frame;
+use crate::plot::resolve::{ResolvedLayer, union};
+use crate::render::{Charset, display_width};
+use crate::scale::{Band, Linear, Ticks};
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Map {
+    Linear(Linear),
+    Log(Linear),
+}
+
+impl Map {
+    pub(crate) fn build(domain: (f64, f64), range: (f64, f64), log: bool) -> Map {
+        if log {
+            Map::Log(Linear::new((domain.0.log10(), domain.1.log10()), range))
+        } else {
+            Map::Linear(Linear::new(domain, range))
+        }
+    }
+
+    pub(crate) fn map(&self, value: f64) -> f64 {
+        match self {
+            Map::Linear(linear) => linear.map(value),
+            Map::Log(linear) => linear.map(value.log10()),
+        }
+    }
+}
+
+/// The resolved geometry of one render: where everything goes and how data maps
+/// onto it. Computed once per render, read by chrome and mark drawing.
+pub(crate) struct Layout<'p> {
+    pub frame_width: usize,
+    pub px: usize,
+    pub py: usize,
+    pub ascii: bool,
+    pub charset: Charset,
+    pub title_rows: usize,
+    pub legend_rows: usize,
+    pub axis_rows: usize,
+    pub plot_top: usize,
+    pub plot_rows: usize,
+    pub gutter: usize,
+    pub label_width: usize,
+    pub plot_cols: usize,
+    pub plot_sub_w: usize,
+    pub plot_sub_h: usize,
+    pub x_offset: f64,
+    pub y_offset: f64,
+    pub x_scale: Map,
+    pub y_scale: Map,
+    pub y_ticks: Ticks,
+    pub x_ticks: Option<Ticks>,
+    pub band: Option<Band>,
+    pub categories: Option<&'p [String]>,
+}
+
+impl<'p> Layout<'p> {
+    /// Computes the full geometry for `layers` in `frame`.
+    pub(crate) fn compute(
+        frame: &Frame,
+        layers: &'p [ResolvedLayer<'p>],
+        has_title: bool,
+        axes: (bool, bool, bool),
+    ) -> Layout<'p> {
+        let (time_x_requested, log_x_requested, log_y) = axes;
+        let (px, py) = frame.charset.pixels_per_cell();
+        let categories: Option<&[String]> = layers.iter().find_map(|layer| match layer {
+            ResolvedLayer::Bars {
+                placement: crate::mark::Placement::Bands(categories),
+                ..
+            } if !categories.is_empty() => Some(categories.as_slice()),
+            ResolvedLayer::Range {
+                categories: Some(categories),
+                ..
+            } if !categories.is_empty() => Some(*categories),
+            _ => None,
+        });
+        let has_bars = layers
+            .iter()
+            .any(|layer| matches!(layer, ResolvedLayer::Bars { .. }));
+
+        let time_x = time_x_requested && categories.is_none();
+        let log_x = log_x_requested && categories.is_none() && !time_x;
+        let x_data = if log_x {
+            union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
+        } else {
+            union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0))
+        };
+        let mut y_data = if log_y {
+            union(layers.iter().map(ResolvedLayer::y_extent_positive)).unwrap_or((1.0, 100.0))
+        } else {
+            union(layers.iter().map(ResolvedLayer::y_extent)).unwrap_or((0.0, 1.0))
+        };
+        if has_bars && !log_y {
+            // Bar length is the encoding, so the baseline must be in view.
+            y_data = (y_data.0.min(0.0), y_data.1.max(0.0));
+        }
+
+        // Vertical layout: title, legend, plot rows, then the x axis and its
+        // labels — shed in priority order (legend first) when the frame is short.
+        let ascii = frame.charset == Charset::Ascii;
+        let title_rows = usize::from(has_title && frame.height >= 6);
+        let has_legend = layers
+            .iter()
+            .any(|layer| layer.legend_entry(ascii).is_some());
+        let legend_rows = usize::from(has_legend && frame.height >= 8);
+        let chrome_top = title_rows + legend_rows;
+        let axis_rows = match frame.height - chrome_top {
+            0..=1 => 0,
+            2..=3 => 1,
+            _ => 2,
+        };
+        let plot_rows = frame.height - chrome_top - axis_rows;
+
+        // Horizontal layout: the y-label gutter is measured, not fixed — and shed
+        // entirely when it would eat the plot.
+        let target = (plot_rows / 2).clamp(2, 8);
+        let y_ticks = if log_y {
+            Ticks::log10(y_data.0, y_data.1, target)
+        } else {
+            Ticks::linear(y_data.0, y_data.1, target)
+        };
+        let mut label_width = y_ticks
+            .iter()
+            .map(|tick| display_width(&tick.label))
+            .max()
+            .unwrap_or(0);
+        let mut gutter = label_width + 2;
+        if gutter + 4 > frame.width {
+            label_width = 0;
+            gutter = usize::from(frame.width >= 2);
+        }
+        let plot_cols = frame.width - gutter;
+
+        let y_domain = domain_with_ticks(y_data, &y_ticks);
+        let plot_sub_w = (plot_cols * px).max(1);
+        let plot_sub_h = (plot_rows * py).max(1);
+
+        // The x axis: a band scale when a bars layer is present, ticks otherwise.
+        let band = categories.map(|c| Band::new(c.len(), (0.0, (plot_sub_w - 1) as f64)));
+        let x_ticks = if band.is_none() && axis_rows == 2 {
+            if time_x {
+                fit_time_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
+            } else if log_x {
+                Some(Ticks::log10(
+                    x_data.0,
+                    x_data.1,
+                    (plot_cols / 10).clamp(2, 8),
+                ))
+            } else {
+                fit_x_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
+            }
+        } else {
+            None
+        };
+        let x_domain = match (&band, &x_ticks) {
+            (Some(band), _) => (0.0, (band.count() - 1) as f64),
+            (None, Some(ticks)) => domain_with_ticks(x_data, ticks),
+            (None, None) => x_data,
+        };
+        let x_range = match &band {
+            Some(band) => (band.center(0), band.center(band.count() - 1)),
+            None => (0.0, (plot_sub_w - 1) as f64),
+        };
+        let x_scale = Map::build(x_domain, x_range, log_x);
+        let y_scale = Map::build(y_domain, ((plot_sub_h - 1) as f64, 0.0), log_y);
+
+        Layout {
+            frame_width: frame.width,
+            px,
+            py,
+            ascii,
+            charset: frame.charset,
+            title_rows,
+            legend_rows,
+            axis_rows,
+            plot_top: chrome_top,
+            plot_rows,
+            gutter,
+            label_width,
+            plot_cols,
+            plot_sub_w,
+            plot_sub_h,
+            x_offset: (gutter * px) as f64,
+            y_offset: (chrome_top * py) as f64,
+            x_scale,
+            y_scale,
+            y_ticks,
+            x_ticks,
+            band,
+            categories,
+        }
+    }
+}
+
+fn domain_with_ticks(data: (f64, f64), ticks: &Ticks) -> (f64, f64) {
+    match (ticks.as_slice().first(), ticks.as_slice().last()) {
+        (Some(first), Some(last)) => (data.0.min(first.value), data.1.max(last.value)),
+        _ => data,
+    }
+}
+
+/// Whether tick labels fit without collisions: centered under their ticks, clamped
+/// to the frame, at least two cells apart.
+fn labels_fit(
+    ticks: &Ticks,
+    domain: (f64, f64),
+    plot_sub_w: usize,
+    px: usize,
+    gutter: usize,
+    frame_width: usize,
+) -> bool {
+    let scale = Linear::new(domain, (0.0, (plot_sub_w - 1) as f64));
+    let mut last_end: i64 = i64::MIN;
+    for tick in ticks {
+        let column = (scale.map(tick.value).round() as usize) / px;
+        let len = display_width(&tick.label) as i64;
+        let center = (gutter + column) as i64;
+        let start = (center - len / 2).clamp(0, (frame_width as i64 - len).max(0));
+        if start < last_end + 2 {
+            return false;
+        }
+        last_end = start + len;
+    }
+    true
+}
+
+/// Chooses the densest calendar labeling that fits without collisions.
+fn fit_time_ticks(
+    data: (f64, f64),
+    plot_cols: usize,
+    plot_sub_w: usize,
+    px: usize,
+    gutter: usize,
+    frame_width: usize,
+) -> Option<Ticks> {
+    let densest = (plot_cols / 8).clamp(2, 12);
+    for target in (2..=densest).rev() {
+        let ticks = Ticks::time(data.0, data.1, target);
+        if ticks.is_empty() {
+            continue;
+        }
+        if labels_fit(&ticks, data, plot_sub_w, px, gutter, frame_width) {
+            return Some(ticks);
+        }
+    }
+    None
+}
+
+/// Chooses the densest x labeling whose labels fit without collisions: centered
+/// under their ticks, clamped to the frame, at least two cells apart.
+fn fit_x_ticks(
+    data: (f64, f64),
+    plot_cols: usize,
+    plot_sub_w: usize,
+    px: usize,
+    gutter: usize,
+    frame_width: usize,
+) -> Option<Ticks> {
+    let densest = (plot_cols / 8).clamp(2, 12);
+    for target in (2..=densest).rev() {
+        let ticks = Ticks::linear(data.0, data.1, target);
+        let domain = domain_with_ticks(data, &ticks);
+        if labels_fit(&ticks, domain, plot_sub_w, px, gutter, frame_width) {
+            return Some(ticks);
+        }
+    }
+    None
+}
