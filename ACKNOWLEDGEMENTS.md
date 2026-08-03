@@ -18,6 +18,13 @@ not a courtesy list; each one taught this project something specific, named here
   surface promise "drawing never fails".
 - The Unicode Consortium's **Braille Patterns** block (U+2800–U+28FF), the quiet
   workhorse of sub-cell terminal graphics.
+- **Daniel Hepper's [font8x8](https://github.com/dhepper/font8x8)** (public domain,
+  after Marcel Sondaar and the IBM PC BIOS fonts) — the 8×8 bitmap font baked into
+  the `pixel` feature so in-panel text can render without a font stack.
+- **DEC's sixel format** (VT340, 1987) and **kitty's graphics protocol** (Kovid
+  Goyal) — the two ends of the terminal-image lineage our pixel encoders speak,
+  with the transparency-by-omission trick (`P2=1`) learned from how notcurses and
+  chafa handle backgrounds.
 
 ## Terminal plotting — the tradition we join
 

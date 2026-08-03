@@ -5,6 +5,23 @@ without apology.
 
 ## Unreleased
 
+- Pixel graphics (new feature `pixel`): `Plot::render_pixels` renders the plot
+  panel as a real image — sixel, kitty graphics, or iTerm2 inline PNG — while
+  title, axes, tick labels, and legend stay text cells. Marks draw at
+  device-pixel resolution through the same generic pipeline (`render::Canvas`,
+  new): M4 buckets per pixel column, heatmap cells sample per pixel, bars fill
+  exact rectangles, box-plot medians read as cleared gaps, and in-panel `Text`
+  marks blit a baked public-domain 8×8 font. Undrawn panel area is transparent
+  (sixel `P2=1`, kitty alpha, PNG alpha) so the terminal background shows
+  through; output remains a deterministic `String` woven with DECSC/DECRC
+  relative cursor moves. `pixel::Graphics::detect()` sniffs the terminal's best
+  protocol (kitty/ghostty → kitty; iTerm2/WezTerm → iTerm2; foot, Konsole ≥
+  22.04, Windows Terminal → sixel; tmux, pipes, unknown → `None`) and reads the
+  cell size from `TIOCGWINSZ`. All three encoders are hand-rolled — including
+  the stored-deflate PNG with its checksums — adding zero required
+  dependencies (`rustix`, already in-tree, joins as an optional dep for the
+  cell-size ioctl). Try `cargo run --example pixels --features pixel`.
+
 - Second demo app: `sysmon`, a live system monitor (`cargo run -p sysmon`) — a
   sampler thread streams CPU, memory, and network readings through
   `stream::Ring` sliding windows (network counters via `stream::Rate`) into a

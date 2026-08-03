@@ -118,6 +118,33 @@ code. Maps to `render::Charset`: `Ascii`, `HalfBlocks`, `Quadrants`, `Sextants`
 terminals known to render them (kitty, ghostty, WezTerm, foot, recent VTE, Windows
 Terminal), braille otherwise, ASCII for `TERM=dumb` and non-UTF-8 locales.
 
+## Canvas
+
+The drawing-target contract marks rasterize through, generic over fidelity: the cell
+`Surface` fills with eighth-block ramps and glyph textures, the pixel canvas with
+exact rectangles and real pixels — same mark code, monomorphized per target.
+Mid-level operations (`bar`, `marker`, `patch`) exist precisely where the two
+fidelities diverge. Crate-private; maps to `render::Canvas`, implemented by
+`render::Surface` and `pixel::PixelCanvas`.
+
+## Graphics
+
+How to draw the plot panel as a real image (feature `pixel`): which protocol, at
+what cell size in device pixels. Render state like `Frame`, and a plain value like
+everything else — `Graphics::detect()` is the environment edge (sniffed, like
+charsets: pixel protocols *are* actively probeable, but probing is a planned
+upgrade, not v1), and `None` means the caller falls back to cells. Output stays
+hybrid: chrome as text, only the plot rectangle as pixels, undrawn panel
+transparent. Maps to `pixel::Graphics`.
+
+## Protocol
+
+A terminal image protocol the panel can be emitted in: `Sixel` (DEC 1987,
+palette-banded, the most widely spoken), `Kitty` (raw RGBA with alpha, the most
+capable), `ITerm2` (an inline PNG pinned to the panel's cell box). Encoders are
+hand-rolled and dependency-free; each is a thin layer over the shared pixel panel.
+Maps to `pixel::Protocol`.
+
 ## Theme
 
 Colors and styles as a value you pass, never a global. Today: the layer palette, with

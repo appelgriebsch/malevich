@@ -131,6 +131,15 @@ colored tour sized to your terminal.
   16 → plain) with honest downhill quantization; piped output is automatically clean
   plain text; CJK labels stay aligned; `NaN` is always a visible gap, never
   interpolated away.
+- **Real pixels where the terminal speaks them (feature `pixel`).** The ladder's
+  top rung: `plot.render_pixels(&frame, &graphics)` keeps title, axes, and legend
+  as crisp text cells and draws the plot rectangle as an actual image — sixel,
+  kitty graphics, or iTerm2 inline PNG, all hand-rolled, no new dependencies.
+  Marks rasterize at device-pixel resolution through the same pipeline (M4 buckets
+  per pixel column; heatmaps sample per pixel), undrawn panel stays transparent to
+  your terminal background, and the result is still a deterministic `String`.
+  `Graphics::detect()` picks the terminal's best protocol, or `None` so the fall
+  back to cells is yours (`cargo run --example pixels --features pixel`).
 - **Small multiples and fixed axes.** `Grid` pastes plots side by side
   (escape-aware alignment); `x_domain`/`y_domain` fix axes matplotlib-style — so
   shared scales across a dashboard are an explicit composition, not a mode.
