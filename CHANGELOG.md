@@ -1,9 +1,15 @@
 # Changelog
 
-Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
-without apology.
+Notable changes, written for humans. Since 1.0, breaking changes mean a major
+release; the pre-1.0 entries below recorded breakage freely, without apology.
 
-## Unreleased
+## 1.12.0 (Cow and Violin) — 2026-08-03
+
+The pixel release. Malevich painted a cow onto a cubist composition to collide
+two systems of representation in one picture; this release does the same to the
+terminal — text chrome and a real image, woven into one deterministic string.
+Cell output remains the product; pixels are the new top rung of the resolution
+ladder, behind the `pixel` feature, and everything below it is untouched.
 
 - `Plot::render_pixels_at(frame, graphics, column)`: pixel output anchored at
   a cell column — every text row and the image cursor walk start with an

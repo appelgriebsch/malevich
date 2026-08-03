@@ -38,6 +38,10 @@
 //!
 //! - `ndarray` — one-dimensional arrays and views plot directly; contiguous
 //!   storage is zero-copy.
+//! - `pixel` — the plot panel as a real image (sixel, kitty graphics, or iTerm2
+//!   inline PNG) with text chrome around it: [`Plot::render_pixels`], the
+//!   [`pixel::Capabilities`] query API, and [`Plot::render_best`] picking the
+//!   best tier the terminal offers.
 //! - `ratatui` — [`PlotWidget`], a `ratatui` widget rendering any plot into a
 //!   `Buffer`.
 //! - `serde` — every spec type (plots, marks, scales, themes, frames)

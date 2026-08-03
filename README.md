@@ -138,8 +138,12 @@ colored tour sized to your terminal.
   Marks rasterize at device-pixel resolution through the same pipeline (M4 buckets
   per pixel column; heatmaps sample per pixel), undrawn panel stays transparent to
   your terminal background, and the result is still a deterministic `String`.
-  `Graphics::detect()` picks the terminal's best protocol, or `None` so the fall
-  back to cells is yours (`cargo run --example pixels --features pixel`).
+  `Capabilities::detect()` asks the terminal itself what it speaks — one probed
+  round trip (cached per process) that, unlike environment sniffing, survives
+  ssh — and `plot.render_best(&frame)` is the one-call ladder top: pixels when
+  capable, cells everywhere else. Every gallery example upgrades with
+  `--features pixel`, and `cargo run --example showcase --features pixel` renders
+  each chart side by side, cells against pixels.
 - **Small multiples and fixed axes.** `Grid` pastes plots side by side
   (escape-aware alignment); `x_domain`/`y_domain` fix axes matplotlib-style — so
   shared scales across a dashboard are an explicit composition, not a mode.
@@ -177,9 +181,10 @@ colored tour sized to your terminal.
   function of plot and frame — build on one thread, render on another, snapshot-test
   the strings. Two tiny dependencies (`terminal_size`, `unicode-width`).
 
-**Pre-1.0**: APIs break between releases while we make them right. The concept
-vocabulary is documented in [TERMINOLOGY.md](TERMINOLOGY.md) and changes are in the
-[CHANGELOG](CHANGELOG.md).
+**Stability**: the crate is 1.x — the public API follows semver (breaking changes
+mean a 2.0), guarded in CI by `cargo-semver-checks` against the last published
+release. The concept vocabulary is documented in [TERMINOLOGY.md](TERMINOLOGY.md)
+and changes are in the [CHANGELOG](CHANGELOG.md).
 
 ## What it will not be
 
