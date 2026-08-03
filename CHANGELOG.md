@@ -3,7 +3,7 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
-## Unreleased
+## 1.11.1 — 2026-08-02
 
 - Declared MSRV: Rust 1.88 (`rust-version` in `Cargo.toml`), verified by a pinned
   CI job — the crate's let-chains and edition 2024 set the floor.
