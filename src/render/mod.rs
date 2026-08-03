@@ -12,7 +12,9 @@ mod color;
 mod surface;
 mod width;
 
-pub(crate) use canvas::{Canvas, PlotRect, trace_line};
+#[cfg(feature = "pixel")]
+pub(crate) use canvas::trace_line;
+pub(crate) use canvas::{Canvas, PlotRect};
 pub use charset::Charset;
 pub use color::{Color, ColorMode};
 #[cfg(feature = "pixel")]
