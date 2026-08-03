@@ -1,76 +1,65 @@
-//! Graphics detection: which pixel protocol this terminal speaks, and at what
-//! cell size — sniffed from the environment, never probed (active probing via
-//! DA1/XTSMGRAPHICS is a planned upgrade; sniffing is free, instant, and wrong
-//! only by omission: unknown terminals get cells, never garbage).
+//! The sniffing tier of detection: protocols from environment variables.
+//!
+//! Free, instant, never touches the terminal, and wrong only by omission —
+//! unknown terminals get cells, never garbage. The probing tier
+//! ([`super::capabilities`]) asks the terminal itself and merges with this.
 
-use std::io::IsTerminal;
-
-use super::{Graphics, Protocol};
+use super::{Capabilities, Graphics, Protocol};
 
 impl Graphics {
-    /// Detects pixel graphics support from the environment, or `None` when the
-    /// terminal gives no evidence of any — including when stdout is not a
-    /// terminal, inside tmux/screen (no passthrough handling yet), and in
-    /// emulators whose support is off by default (VS Code). Callers fall back
-    /// to cell rendering; an explicit [`Graphics`] value always overrides.
-    ///
-    /// The cell size comes from the terminal's reported pixel geometry
-    /// (`TIOCGWINSZ`), falling back to 8×16 when it reports none.
+    /// The best pixel graphics the terminal offers, or `None` when cells are
+    /// the ceiling. Sugar for [`Capabilities::detect`]`().best()` — which
+    /// probes the terminal itself (once per process) where that is safe, and
+    /// falls back to environment sniffing everywhere else: pipes, tmux/screen,
+    /// `TERM=dumb`, non-unix. An explicit [`Graphics`] value always overrides.
     pub fn detect() -> Option<Graphics> {
-        if !std::io::stdout().is_terminal() {
-            return None;
-        }
-        let protocol = sniff(|name| std::env::var(name).ok().filter(|value| !value.is_empty()))?;
-        Some(Graphics {
-            protocol,
-            cell_size: cell_size().unwrap_or((8, 16)),
-        })
+        Capabilities::detect().best()
     }
 }
 
-/// The protocol the environment advertises. Pure over its lookup, so tests
-/// need no process-global environment mutation.
-fn sniff(variable: impl Fn(&str) -> Option<String>) -> Option<Protocol> {
+/// The protocols the environment advertises, best first. Pure over its
+/// lookup, so tests need no process-global environment mutation.
+pub(crate) fn sniff(variable: &impl Fn(&str) -> Option<String>) -> Vec<Protocol> {
     // Multiplexers sit between us and the terminal: without passthrough
     // handling, an image escape would be swallowed or mangled.
     if variable("TMUX").is_some() {
-        return None;
+        return Vec::new();
     }
     let term = variable("TERM").unwrap_or_default();
     if term == "dumb" || term.starts_with("screen") || term.starts_with("tmux") {
-        return None;
+        return Vec::new();
     }
     if variable("KITTY_WINDOW_ID").is_some() || term.contains("kitty") || term.contains("ghostty") {
-        return Some(Protocol::Kitty);
+        return vec![Protocol::Kitty];
     }
     let program = variable("TERM_PROGRAM")
         .unwrap_or_default()
         .to_ascii_lowercase();
     if program.contains("ghostty") {
-        return Some(Protocol::Kitty);
+        return vec![Protocol::Kitty];
     }
-    // iTerm2 and WezTerm both speak sixel too, but their native inline-image
-    // protocol pins the panel to its cell box, which sixel cannot.
+    // Both also speak sixel; their native inline-image protocol ranks first
+    // because it pins the panel to its cell box, which sixel cannot.
     if program.contains("iterm") || program.contains("wezterm") {
-        return Some(Protocol::ITerm2);
+        return vec![Protocol::ITerm2, Protocol::Sixel];
     }
     if term.contains("foot") {
-        return Some(Protocol::Sixel);
+        return vec![Protocol::Sixel];
     }
     // Konsole grew sixel in 22.04; its version variable predates that by years.
     if variable("KONSOLE_VERSION").is_some_and(|v| v.parse::<u32>().is_ok_and(|v| v >= 220400)) {
-        return Some(Protocol::Sixel);
+        return vec![Protocol::Sixel];
     }
     if variable("WT_SESSION").is_some() {
-        return Some(Protocol::Sixel);
+        return vec![Protocol::Sixel];
     }
-    None
+    Vec::new()
 }
 
 /// The cell size in device pixels from the kernel's window size, when the
 /// terminal fills in the pixel fields (kitty, iTerm2, WezTerm, foot do).
 #[cfg(unix)]
-fn cell_size() -> Option<(u16, u16)> {
+pub(crate) fn cell_size() -> Option<(u16, u16)> {
     let size = rustix::termios::tcgetwinsize(std::io::stdout()).ok()?;
     if size.ws_col == 0 || size.ws_row == 0 {
         return None;
@@ -81,7 +70,7 @@ fn cell_size() -> Option<(u16, u16)> {
 }
 
 #[cfg(not(unix))]
-fn cell_size() -> Option<(u16, u16)> {
+pub(crate) fn cell_size() -> Option<(u16, u16)> {
     None
 }
 

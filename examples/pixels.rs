@@ -9,10 +9,18 @@
 //! cargo run --example pixels --features pixel -- --sixel   # force a protocol
 //! ```
 
-use malevich::pixel::{Graphics, Protocol};
+use malevich::pixel::{Capabilities, Graphics, Protocol};
 use malevich::{Frame, Line, Plot, Points, Rule};
 
 fn main() {
+    if std::env::args().any(|flag| flag == "--capabilities") {
+        let capabilities = Capabilities::detect();
+        println!("source:    {:?}", capabilities.source);
+        println!("protocols: {:?}", capabilities.protocols);
+        println!("cell size: {:?}", capabilities.cell_size);
+        println!("best:      {:?}", capabilities.best());
+        return;
+    }
     let x: Vec<f64> = (0..400).map(|i| f64::from(i) * 0.025).collect();
     let wave: Vec<f64> = x
         .iter()

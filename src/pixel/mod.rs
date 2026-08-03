@@ -13,15 +13,19 @@
 
 mod base64;
 mod canvas;
+mod capabilities;
 mod detect;
 mod font;
 mod iterm;
 mod kitty;
 mod png;
+mod probe;
+mod query;
 mod render;
 mod sixel;
 
 pub(crate) use canvas::PixelCanvas;
+pub use capabilities::{Capabilities, Source};
 pub(crate) use render::render;
 
 /// The image protocol to emit.

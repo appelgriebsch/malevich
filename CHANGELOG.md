@@ -5,6 +5,19 @@ without apology.
 
 ## Unreleased
 
+- `pixel::Capabilities`: terminal capabilities as a plain queryable value —
+  the protocols the terminal accepts (best first), its cell size in device
+  pixels, and whether the answer was `Probed` or `Sniffed`.
+  `Capabilities::detect()` now actively probes the terminal where that is
+  safe (a real tty, no tmux/screen, `TERM` not dumb): one raw-mode
+  `/dev/tty` round trip carrying the kitty graphics query, XTVERSION,
+  XTSMGRAPHICS, and `CSI 16 t`, with DA1 as the ordering barrier — ground
+  truth that, unlike `TERM_PROGRAM` sniffing, survives ssh. The probe runs
+  at most once per process (~100 ms on answering terminals, 300 ms budget
+  otherwise), an unanswered probe degrades to the sniff answer, and
+  `Graphics::detect()` is now sugar for `Capabilities::detect().best()` —
+  so `render_best` and the examples pick up probing for free. Try
+  `cargo run --example pixels --features pixel -- --capabilities`.
 - `Plot::render_best(&frame)`: renders at the best graphics tier the terminal
   offers — the plot panel becomes a real image when the `pixel` feature is on
   and a protocol is detected, and is exactly `render(&frame)` everywhere else

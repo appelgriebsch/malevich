@@ -131,11 +131,23 @@ fidelities diverge. Crate-private; maps to `render::Canvas`, implemented by
 
 How to draw the plot panel as a real image (feature `pixel`): which protocol, at
 what cell size in device pixels. Render state like `Frame`, and a plain value like
-everything else — `Graphics::detect()` is the environment edge (sniffed, like
-charsets: pixel protocols *are* actively probeable, but probing is a planned
-upgrade, not v1), and `None` means the caller falls back to cells. Output stays
-hybrid: chrome as text, only the plot rectangle as pixels, undrawn panel
-transparent. Maps to `pixel::Graphics`.
+everything else — `Graphics::detect()` is sugar for `Capabilities::detect().best()`,
+and `None` means the caller falls back to cells. Output stays hybrid: chrome as
+text, only the plot rectangle as pixels, undrawn panel transparent. Maps to
+`pixel::Graphics`.
+
+## Capabilities
+
+What the terminal can do, as a plain queryable value: the protocols it accepts
+(best first), its cell size in device pixels, and how the answer was obtained
+(`Source::Probed` or `Source::Sniffed`). Two detection tiers: sniffing reads
+environment variables — free, instant, wrong only by omission; probing asks the
+terminal itself over one raw-mode `/dev/tty` round trip (kitty graphics query,
+XTVERSION, XTSMGRAPHICS, `CSI 16 t`, with DA1 as the ordering barrier) — ground
+truth that survives ssh, ~100 ms once per process, and only where writing escapes
+is safe: a real tty, no tmux/screen between, `TERM` not dumb. An unanswered probe
+is not evidence; it degrades to the sniff answer. Maps to `pixel::Capabilities`
+and `pixel::Source`.
 
 ## Protocol
 
