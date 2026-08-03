@@ -309,6 +309,7 @@ impl<'a> Plot<'a> {
                 super::resolve::resolve(&self.layers, sample_width, palette, Reduce::Extent);
             let geometry = super::layout::Layout::compute(
                 frame,
+                frame.charset.pixels_per_cell(),
                 &probe,
                 title,
                 scales,
@@ -327,6 +328,7 @@ impl<'a> Plot<'a> {
         let layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
         let layout = super::layout::Layout::compute(
             frame,
+            frame.charset.pixels_per_cell(),
             &layers,
             title,
             scales,

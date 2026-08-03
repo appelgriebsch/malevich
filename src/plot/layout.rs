@@ -96,9 +96,14 @@ pub(crate) struct Layout<'p> {
 }
 
 impl<'p> Layout<'p> {
-    /// Computes the full geometry for `layers` in `frame`.
+    /// Computes the full geometry for `layers` in `frame`, at `density` subpixels
+    /// per cell — the charset's density for glyph output, the cell size in device
+    /// pixels for pixel output. Chrome geometry is in cells either way; only the
+    /// scales' range resolution changes.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn compute(
         frame: &Frame,
+        density: (usize, usize),
         layers: &'p [ResolvedLayer<'p>],
         has_title: bool,
         scales: (&'p Scale, &Scale),
@@ -108,7 +113,7 @@ impl<'p> Layout<'p> {
     ) -> Layout<'p> {
         let (x_spec, y_spec) = scales;
         let (has_x_label, has_y_label) = (axis_labels.0.is_some(), axis_labels.1.is_some());
-        let (px, py) = frame.charset.pixels_per_cell();
+        let (px, py) = density;
         // An explicit Bands spec wins; otherwise band layers imply the categories.
         let categories: Option<&[String]> = match x_spec {
             Scale::Bands(categories) if !categories.is_empty() => Some(categories.as_slice()),

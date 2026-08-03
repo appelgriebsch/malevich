@@ -1,5 +1,6 @@
 //! The subpixel surface: the grid marks draw on, and its string encoders.
 
+use super::canvas::{Canvas, PlotRect};
 use super::charset::Charset;
 use super::color::{Color, ColorMode, Resolved};
 
@@ -287,6 +288,146 @@ impl Surface {
                 Text::Glyph(glyph) => Some((glyph, cell.color)),
                 Text::None => Some((self.charset.glyph(cell.bits), cell.color)),
             })
+    }
+}
+
+impl Canvas for Surface {
+    fn set_clip(&mut self, x0: i64, y0: i64, x1: i64, y1: i64) {
+        Surface::set_clip(self, x0, y0, x1, y1);
+    }
+
+    fn clear_clip(&mut self) {
+        Surface::clear_clip(self);
+    }
+
+    fn dot(&mut self, x: f64, y: f64, color: Color) {
+        Surface::dot(self, x, y, color);
+    }
+
+    fn line(&mut self, from: (f64, f64), to: (f64, f64), color: Color) {
+        Surface::line(self, from, to, color);
+    }
+
+    fn text(&mut self, column: i64, row: i64, text: &str, color: Color) {
+        Surface::text(self, column, row, text, color);
+    }
+
+    /// One bar as cell-aligned columns from the zero baseline, with eighth-block
+    /// partial fills at the value end (upward bars) or coarse upper-block fills
+    /// (downward bars — Unicode has no lower-anchored upper ramp).
+    fn bar(
+        &mut self,
+        span: (f64, f64),
+        end: f64,
+        baseline: f64,
+        positive: bool,
+        rect: PlotRect,
+        color: Color,
+    ) {
+        let (px, py) = (self.columns, self.rows);
+        let ramp = self.charset.fill_ramp();
+        let eighths = ramp.len() == 8;
+        let mut buffer = [0u8; 4];
+        let baseline = baseline / py as f64;
+        let end = end / py as f64;
+        let left = (span.0 / px as f64).round() as i64;
+        let right = ((span.1 / px as f64).round() as i64).max(left + 1);
+        // Clamp to the plot columns before iterating: a bar whose span maps far
+        // off-screen (distant data under a narrow domain) must not spin a giant
+        // loop just to have every cell clipped away.
+        let left = left.clamp(0, rect.columns as i64);
+        let right = right.clamp(0, rect.columns as i64);
+
+        for column in left..right {
+            let cell_column = rect.gutter as i64 + column;
+            if positive {
+                // Upward: full cells from the (snapped-down) baseline, a
+                // bottom-anchored partial at the top.
+                let bottom = baseline.ceil().min(rect.rows as f64);
+                let top = end.max(0.0);
+                let mut row = top.floor();
+                while row < bottom {
+                    let coverage = ((row + 1.0 - top).min(1.0) * 8.0).round() as usize;
+                    let glyph: Option<char> = if eighths {
+                        (coverage >= 1).then(|| ramp[coverage.min(8) - 1])
+                    } else {
+                        (coverage >= 4).then(|| ramp[0])
+                    };
+                    if let Some(glyph) = glyph {
+                        Surface::text(
+                            self,
+                            cell_column,
+                            rect.top as i64 + row as i64,
+                            glyph.encode_utf8(&mut buffer),
+                            color,
+                        );
+                    }
+                    row += 1.0;
+                }
+            } else {
+                // Downward: full cells from the (snapped-up) baseline, a coarse
+                // top-anchored partial at the bottom.
+                let top = baseline.floor().max(0.0);
+                let bottom = end.min(rect.rows as f64);
+                let mut row = top;
+                while row < bottom.ceil() {
+                    let coverage = (bottom - row).min(1.0);
+                    let glyph: Option<char> = if !eighths {
+                        (coverage >= 0.5).then(|| ramp[0])
+                    } else if coverage >= 7.0 / 8.0 {
+                        Some('\u{2588}')
+                    } else if coverage >= 0.5 {
+                        Some('\u{2580}')
+                    } else if coverage >= 1.0 / 8.0 {
+                        Some('\u{2594}')
+                    } else {
+                        None
+                    };
+                    if let Some(glyph) = glyph {
+                        Surface::text(
+                            self,
+                            cell_column,
+                            rect.top as i64 + row as i64,
+                            glyph.encode_utf8(&mut buffer),
+                            color,
+                        );
+                    }
+                    row += 1.0;
+                }
+            }
+        }
+    }
+
+    /// The marker crossbar as text: a run of the chrome marker glyph, which reads
+    /// over a same-color fill because the glyph differs from the fill texture.
+    fn marker(&mut self, sx: f64, half_width: f64, sy: f64, color: Color) {
+        let (px, py) = (self.columns as f64, self.rows as f64);
+        let row = (sy / py).round() as i64;
+        let from_cell = ((sx - half_width) / px).round() as i64;
+        let to_cell = ((sx + half_width) / px).round() as i64;
+        let glyph = self.charset.chrome().marker;
+        for cell in from_cell..=to_cell {
+            Surface::text(self, cell, row, glyph, color);
+        }
+    }
+
+    fn patch_size(&self) -> (usize, usize) {
+        (self.columns, self.rows)
+    }
+
+    /// One Cells patch as a shade-ramp glyph colored by the colormap — value in
+    /// glyph and color both, readable at every color tier.
+    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, intensity: f64, color: Color) {
+        const RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
+        let mut buffer = [0u8; 4];
+        let glyph = RAMP[((intensity * 4.0) as usize).min(3)];
+        Surface::text(
+            self,
+            (rect.gutter + column) as i64,
+            (rect.top + row) as i64,
+            glyph.encode_utf8(&mut buffer),
+            color,
+        );
     }
 }
 

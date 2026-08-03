@@ -1,14 +1,19 @@
-//! Mark drawing: resolved layers rasterized onto the surface through the layout.
+//! Mark drawing: resolved layers rasterized onto a canvas through the layout.
+//!
+//! Generic over [`Canvas`] and monomorphized per target: the same mark code draws
+//! glyph cells and (under the `pixel` feature) device pixels. Anything
+//! precision-dependent — bar fills, marker crossbars, Cells patches — goes through
+//! the canvas's mid-level ops, so each target renders it at its own fidelity.
 
 use crate::mark::LineStyle;
 use crate::mark::{Orientation, Placement};
 use crate::plot::layout::{Layout, Map};
 use crate::plot::resolve::{Kind, ResolvedLayer, extent};
-use crate::render::{Charset, Color, Surface};
+use crate::render::{Canvas, Charset, Color, PlotRect};
 use crate::scale::Colormap;
 
 /// Draws every resolved layer, in order, through the shared scales.
-pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[ResolvedLayer<'_>]) {
+pub(crate) fn layers<C: Canvas>(surface: &mut C, layout: &Layout<'_>, layers: &[ResolvedLayer<'_>]) {
     let Layout {
         px,
         py,
@@ -25,7 +30,12 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
     let x_scale = &layout.x_scale;
     let y_scale = &layout.y_scale;
     let band = &layout.band;
-    let charset = layout.charset;
+    let rect = PlotRect {
+        gutter,
+        top: plot_top,
+        columns: plot_cols,
+        rows: plot_rows,
+    };
     // Confine every mark to the plot rectangle: ink that maps outside the data
     // region (out-of-domain points, overshooting bars, distant finite values) is
     // clipped here rather than escaping into the axes, gutter, or a neighbor in a
@@ -96,7 +106,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                     colormap.clone(),
                     x_scale,
                     y_scale,
-                    (gutter, plot_top, plot_cols, plot_rows),
+                    rect,
                     (px, py),
                 );
             }
@@ -124,8 +134,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                     x_scale,
                     y_scale,
                     (x_offset, y_offset),
-                    (half_width, px as f64, py as f64),
-                    charset,
+                    half_width,
                 );
             }
             ResolvedLayer::Rule {
@@ -179,9 +188,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                             y_scale,
                             values,
                             *color,
-                            (gutter, plot_top, plot_cols, plot_rows),
-                            (px, py),
-                            charset,
+                            rect,
                         );
                     }
                 }
@@ -196,9 +203,7 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
                         y_scale,
                         values,
                         *color,
-                        (gutter, plot_top, plot_cols, plot_rows),
-                        (px, py),
-                        charset,
+                        rect,
                     );
                 }
             },
@@ -208,8 +213,8 @@ pub(crate) fn layers(surface: &mut Surface, layout: &Layout<'_>, layers: &[Resol
 }
 
 #[allow(clippy::too_many_arguments)]
-fn draw_series(
-    surface: &mut Surface,
+fn draw_series<C: Canvas>(
+    surface: &mut C,
     kind: &Kind,
     x: &[f64],
     y: &[f64],
@@ -260,7 +265,10 @@ fn draw_series(
 /// Draws one line layer in the asciichart style: one box-drawing glyph per cell
 /// column — `─` when flat, `╭╮╰╯` elbows joined by `│` runs when the line moves.
 /// The polyline is sampled at each column's center; gaps skip columns.
-fn draw_corners(surface: &mut Surface, layout: &Layout<'_>, x: &[f64], y: &[f64], color: Color) {
+///
+/// Cell-glyph art by construction: pixel targets substitute [`LineStyle::Pixels`]
+/// before drawing, so this only ever runs on a glyph canvas.
+fn draw_corners<C: Canvas>(surface: &mut C, layout: &Layout<'_>, x: &[f64], y: &[f64], color: Color) {
     let Layout {
         px,
         py,
@@ -363,27 +371,18 @@ fn draw_corners(surface: &mut Surface, layout: &Layout<'_>, x: &[f64], y: &[f64]
     }
 }
 
-/// Draws one bars layer: cell-aligned columns from the zero baseline, with
-/// eighth-block partial fills at the value end (upward bars) or coarse upper-block
-/// fills (downward bars — Unicode has no lower-anchored upper ramp).
-#[allow(clippy::too_many_arguments)]
-fn draw_bars(
-    surface: &mut Surface,
+/// Draws one bars layer: per bar, the canvas fills the span from the zero baseline
+/// to the value end at its own precision (eighth-block ramps on cells, exact
+/// rectangles on pixels).
+fn draw_bars<C: Canvas>(
+    surface: &mut C,
     span: &dyn Fn(usize) -> (f64, f64),
     y_scale: &Map,
     values: &[f64],
     color: Color,
-    place: (usize, usize, usize, usize),
-    density: (usize, usize),
-    charset: Charset,
+    rect: PlotRect,
 ) {
-    let (gutter, plot_top, plot_cols, plot_rows) = place;
-    let (px, py) = density;
-    let ramp = charset.fill_ramp();
-    let eighths = ramp.len() == 8;
-    let baseline = y_scale.map(0.0) / py as f64;
-    let mut buffer = [0u8; 4];
-
+    let baseline = y_scale.map(0.0);
     for (index, &value) in values.iter().enumerate() {
         if !value.is_finite() || value == 0.0 {
             continue;
@@ -392,81 +391,24 @@ fn draw_bars(
         if !left_sub.is_finite() || !right_sub.is_finite() {
             continue;
         }
-        let left = (left_sub / px as f64).round() as i64;
-        let right = ((right_sub / px as f64).round() as i64).max(left + 1);
-        // Clamp to the plot columns before iterating: a bar whose span maps far
-        // off-screen (distant data under a narrow domain) must not spin a giant
-        // loop just to have every cell clipped away.
-        let left = left.clamp(0, plot_cols as i64);
-        let right = right.clamp(0, plot_cols as i64);
-        let end = y_scale.map(value) / py as f64;
-
-        for column in left..right {
-            let cell_column = gutter as i64 + column;
-            if value > 0.0 {
-                // Upward: full cells from the (snapped-down) baseline, a
-                // bottom-anchored partial at the top.
-                let bottom = baseline.ceil().min(plot_rows as f64);
-                let top = end.max(0.0);
-                let mut row = top.floor();
-                while row < bottom {
-                    let coverage = ((row + 1.0 - top).min(1.0) * 8.0).round() as usize;
-                    let glyph: Option<char> = if eighths {
-                        (coverage >= 1).then(|| ramp[coverage.min(8) - 1])
-                    } else {
-                        (coverage >= 4).then(|| ramp[0])
-                    };
-                    if let Some(glyph) = glyph {
-                        surface.text(
-                            cell_column,
-                            plot_top as i64 + row as i64,
-                            glyph.encode_utf8(&mut buffer),
-                            color,
-                        );
-                    }
-                    row += 1.0;
-                }
-            } else {
-                // Downward: full cells from the (snapped-up) baseline, a coarse
-                // top-anchored partial at the bottom.
-                let top = baseline.floor().max(0.0);
-                let bottom = end.min(plot_rows as f64);
-                let mut row = top;
-                while row < bottom.ceil() {
-                    let coverage = (bottom - row).min(1.0);
-                    let glyph: Option<char> = if !eighths {
-                        (coverage >= 0.5).then(|| ramp[0])
-                    } else if coverage >= 7.0 / 8.0 {
-                        Some('\u{2588}')
-                    } else if coverage >= 0.5 {
-                        Some('\u{2580}')
-                    } else if coverage >= 1.0 / 8.0 {
-                        Some('\u{2594}')
-                    } else {
-                        None
-                    };
-                    if let Some(glyph) = glyph {
-                        surface.text(
-                            cell_column,
-                            plot_top as i64 + row as i64,
-                            glyph.encode_utf8(&mut buffer),
-                            color,
-                        );
-                    }
-                    row += 1.0;
-                }
-            }
-        }
+        surface.bar(
+            (left_sub, right_sub),
+            y_scale.map(value),
+            baseline,
+            value > 0.0,
+            rect,
+            color,
+        );
     }
 }
 
 /// Draws one range layer: per interval, a thin capped whisker from `low` to
 /// `high`, an optional thick body (filled with vertical subpixel runs, like areas),
-/// and an optional marker crossbar written as text so it stays visible over the
-/// fill in every charset.
+/// and an optional marker crossbar drawn through the canvas so it stays visible
+/// over the fill on every target.
 #[allow(clippy::too_many_arguments)]
-fn draw_ranges(
-    surface: &mut Surface,
+fn draw_ranges<C: Canvas>(
+    surface: &mut C,
     x: &[f64],
     low: &[f64],
     high: &[f64],
@@ -476,10 +418,8 @@ fn draw_ranges(
     x_scale: &Map,
     y_scale: &Map,
     offset: (f64, f64),
-    geometry: (f64, f64, f64),
-    charset: Charset,
+    half_width: f64,
 ) {
-    let (half_width, px, py) = geometry;
     let cap = (half_width * 0.6).max(1.0);
     // Bound to the shortest required channel: constructors keep these equal, but a
     // deserialized range can arrive ragged, and rendering must not index past an end.
@@ -511,42 +451,34 @@ fn draw_ranges(
                 }
             }
         }
-        // The marker crossbar, as text: it must read over the fill.
+        // The marker crossbar: the canvas keeps it readable over the fill.
         if let Some(marker) = marker {
             let Some(&mv) = marker.get(index) else {
                 continue;
             };
             if mv.is_finite() {
                 let sy = offset.1 + y_scale.map(mv);
-                let row = (sy / py).round() as i64;
-                let from_cell = ((sx - half_width) / px).round() as i64;
-                let to_cell = ((sx + half_width) / px).round() as i64;
-                let glyph = charset.chrome().marker;
-                for cell in from_cell..=to_cell {
-                    surface.text(cell, row, glyph, color);
-                }
+                surface.marker(sx, half_width, sy, color);
             }
         }
     }
 }
 
-/// Draws one cells layer: for every surface cell inside the plot area, the nearest
-/// grid sample renders as a shade-ramp glyph colored by the colormap — value in
-/// glyph and color both, readable at every color tier. Gaps stay blank.
+/// Draws one cells layer: for every patch of the canvas's sampling grid inside the
+/// plot area, the nearest grid sample fills colored by the colormap — one cell per
+/// patch on glyph targets, one pixel per patch on pixel targets. Gaps stay blank.
 #[allow(clippy::too_many_arguments)]
-fn draw_cells(
-    surface: &mut Surface,
+fn draw_cells<C: Canvas>(
+    surface: &mut C,
     columns: usize,
     values: &[f64],
     extents: Option<((f64, f64), (f64, f64))>,
     colormap: Colormap,
     x_scale: &Map,
     y_scale: &Map,
-    place: (usize, usize, usize, usize),
+    rect: PlotRect,
     density: (usize, usize),
 ) {
-    const RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
-    let (gutter, plot_top, plot_cols, plot_rows) = place;
     let (px, py) = density;
     let rows = values.len() / columns.max(1);
     if rows == 0 {
@@ -557,14 +489,16 @@ fn draw_cells(
     };
     let spread = if high > low { high - low } else { 1.0 };
     let ((x0, x1), (y0, y1)) = extents.unwrap_or(((0.0, columns as f64), (0.0, rows as f64)));
-    let mut buffer = [0u8; 4];
+    let (patch_w, patch_h) = surface.patch_size();
+    let units_x = rect.columns * px / patch_w;
+    let units_y = rect.rows * py / patch_h;
 
-    for cell_row in 0..plot_rows {
-        for cell_col in 0..plot_cols {
-            // The data position at this cell's center, via the shared scales'
+    for unit_row in 0..units_y {
+        for unit_col in 0..units_x {
+            // The data position at this patch's center, via the shared scales'
             // subpixel geometry.
-            let sub_x = (cell_col * px) as f64 + px as f64 / 2.0;
-            let sub_y = (cell_row * py) as f64 + py as f64 / 2.0;
+            let sub_x = (unit_col * patch_w) as f64 + patch_w as f64 / 2.0;
+            let sub_y = (unit_row * patch_h) as f64 + patch_h as f64 / 2.0;
             let fx = position_on(x_scale, sub_x, x0, x1);
             let fy = position_on(y_scale, sub_y, y0, y1);
             let (Some(fx), Some(fy)) = (fx, fy) else {
@@ -584,13 +518,7 @@ fn draw_cells(
                 continue;
             }
             let position = (value - low) / spread;
-            let glyph = RAMP[((position * 4.0) as usize).min(3)];
-            surface.text(
-                (gutter + cell_col) as i64,
-                (plot_top + cell_row) as i64,
-                glyph.encode_utf8(&mut buffer),
-                colormap.color(position),
-            );
+            surface.patch(unit_col, unit_row, rect, position, colormap.color(position));
         }
     }
 }
@@ -616,8 +544,8 @@ fn position_on(scale: &Map, sub: f64, lo: f64, hi: f64) -> Option<f64> {
 /// run between its interpolated low and high edges — solid in every charset, with
 /// subpixel edge precision.
 #[allow(clippy::too_many_arguments)]
-fn draw_area(
-    surface: &mut Surface,
+fn draw_area<C: Canvas>(
+    surface: &mut C,
     channel: &[f64],
     low: Option<&[f64]>,
     high: &[f64],

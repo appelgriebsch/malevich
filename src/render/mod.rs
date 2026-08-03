@@ -6,6 +6,7 @@
 //! this module touches a terminal, and nothing in it panics: drawing outside the
 //! surface clips, non-finite coordinates draw nothing.
 
+mod canvas;
 mod charset;
 mod color;
 mod surface;
@@ -14,4 +15,5 @@ mod width;
 pub use charset::Charset;
 pub use color::{Color, ColorMode};
 pub use surface::Surface;
+pub(crate) use canvas::{Canvas, PlotRect};
 pub(crate) use width::{display_width, fit_width_with};

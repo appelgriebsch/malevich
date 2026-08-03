@@ -1,0 +1,69 @@
+//! `Canvas`: the drawing-target contract shared by cell and pixel rasters.
+//!
+//! Mark drawing is generic over this trait and monomorphizes per target: the same
+//! code draws glyph cells ([`super::Surface`]) and device pixels (the `pixel`
+//! feature). The low-level ops take subpixel coordinates; the mid-level ops
+//! (`bar`, `marker`, `patch`) exist because targets fill at different precision —
+//! eighth-block ramps and chrome glyphs on cells, exact rectangles on pixels — and
+//! the choice belongs to the target, not to the mark.
+
+use super::color::Color;
+
+/// The plot rectangle in cell coordinates: where marks may draw, chrome excluded.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PlotRect {
+    /// Cell columns left of the plot area (y labels and axis).
+    pub gutter: usize,
+    /// Cell rows above the plot area (title and legend).
+    pub top: usize,
+    /// Plot width in cells.
+    pub columns: usize,
+    /// Plot height in cells.
+    pub rows: usize,
+}
+
+/// A raster marks draw on. Subpixel coordinates: origin top-left, y downward.
+pub(crate) trait Canvas {
+    /// Confines subsequent drawing to the subpixel rectangle `[x0, x1) × [y0, y1)`.
+    fn set_clip(&mut self, x0: i64, y0: i64, x1: i64, y1: i64);
+
+    /// Removes any drawing clip.
+    fn clear_clip(&mut self);
+
+    /// Sets the subpixel nearest to `(x, y)`; non-finite coordinates draw nothing.
+    fn dot(&mut self, x: f64, y: f64, color: Color);
+
+    /// Draws a line between two subpixel positions, clipped to the target.
+    fn line(&mut self, from: (f64, f64), to: (f64, f64), color: Color);
+
+    /// Writes text starting at the cell `(column, row)`; cells outside clip away.
+    fn text(&mut self, column: i64, row: i64, text: &str, color: Color);
+
+    /// Fills one bar covering `span` in plot-local subpixel columns, from the
+    /// baseline to the value end (both plot-local subpixel rows), at the target's
+    /// precision. `positive` anchors the partial fill: bottom-up above the
+    /// baseline, top-down below it.
+    fn bar(
+        &mut self,
+        span: (f64, f64),
+        end: f64,
+        baseline: f64,
+        positive: bool,
+        rect: PlotRect,
+        color: Color,
+    );
+
+    /// Draws the range marker crossbar centered on `sx` with `half_width` reach at
+    /// subpixel row `sy` (frame-absolute), such that it reads over a fill of the
+    /// same color.
+    fn marker(&mut self, sx: f64, half_width: f64, sy: f64, color: Color);
+
+    /// The sampling unit of a Cells layer in subpixels: one cell on glyph targets,
+    /// one pixel on pixel targets.
+    fn patch_size(&self) -> (usize, usize);
+
+    /// Fills the Cells patch at patch-grid `(column, row)` inside `rect`.
+    /// `intensity` is the normalized value, for targets whose fill carries it
+    /// (the shade-ramp glyph); color-only targets ignore it.
+    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, intensity: f64, color: Color);
+}
