@@ -126,8 +126,9 @@ join later. Maps to `Theme` (a field of `Frame`).
 
 ## Grid
 
-Small multiples: independently rendered plots pasted side by side
-(escape-aware padding), rows filled left to right. Axis sharing is a composition —
+Small multiples: independently rendered plots pasted side by side, one blank column
+between neighbors and one blank row between stacked rows (escape-aware padding), cells
+filled left to right. Axis sharing is a composition —
 fix domains with `Plot::x_domain`/`y_domain` — never a hidden mode. Maps to
 `plot::Grid` (re-exported at the root).
 

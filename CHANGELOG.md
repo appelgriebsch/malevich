@@ -3,6 +3,12 @@
 Notable changes, written for humans. Pre-1.0, breaking changes are expected and listed
 without apology.
 
+## Unreleased
+
+- Grid (side-by-side plots) now leaves a blank row between stacked rows, matching the
+  blank column already between neighbors. A lower row's title no longer butts against
+  the row above's axis labels — multi-row small multiples read as distinct plots.
+
 ## 1.11.1 — 2026-08-02
 
 - Declared MSRV: Rust 1.88 (`rust-version` in `Cargo.toml`), verified by a pinned

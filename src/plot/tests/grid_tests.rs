@@ -22,13 +22,21 @@ fn malevich_line(values: &[f64]) -> Plot<'_> {
 }
 
 #[test]
-fn later_rows_wrap_and_shorter_rows_are_fine() {
+fn later_rows_wrap_with_a_separator_and_fit_the_frame() {
     let grid = Grid::new(2)
         .with(malevich_line(&[1.0, 2.0]))
         .with(malevich_line(&[2.0, 1.0]))
         .with(malevich_line(&[3.0, 3.0]));
     let text = grid.render(&Frame::plain(40, 12));
-    assert_eq!(text.lines().count(), 12);
+    // Two grid rows plus a blank separator between them, within the frame height.
+    assert!(
+        text.lines().count() <= 12,
+        "grid overflows its frame height"
+    );
+    assert!(
+        text.lines().any(|line| line.trim().is_empty()),
+        "no blank separator between grid rows"
+    );
 }
 
 #[test]

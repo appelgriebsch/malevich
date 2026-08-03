@@ -56,8 +56,9 @@ impl<'a> Grid<'a> {
         }
     }
 
-    /// Renders the grid into `frame`, dividing it evenly among cells with one
-    /// column of separation between neighbors. Empty grids render nothing.
+    /// Renders the grid into `frame`, dividing it evenly among cells with one blank
+    /// column between neighbors and one blank row between stacked rows. Empty grids
+    /// render nothing.
     pub fn render(&self, frame: &Frame) -> String {
         if self.plots.is_empty() || frame.width == 0 || frame.height == 0 {
             return String::new();
@@ -66,14 +67,19 @@ impl<'a> Grid<'a> {
         // treat it as a single column rather than dividing by zero.
         let columns = self.columns.max(1).min(self.plots.len());
         let rows = self.plots.len().div_ceil(columns);
+        // Reserve one separator between neighbors on each axis so a lower row's title
+        // never butts against the row above's axis labels — the columns already do.
         let cell_frame = Frame {
             width: (frame.width.saturating_sub(columns - 1) / columns).max(1),
-            height: (frame.height / rows).max(1),
+            height: (frame.height.saturating_sub(rows - 1) / rows).max(1),
             ..*frame
         };
 
         let mut lines = Vec::new();
-        for row in self.plots.chunks(columns) {
+        for (row_index, row) in self.plots.chunks(columns).enumerate() {
+            if row_index > 0 {
+                lines.push(String::new());
+            }
             let cells: Vec<Vec<String>> = row
                 .iter()
                 .map(|plot| {
