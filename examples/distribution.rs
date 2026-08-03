@@ -12,5 +12,5 @@ fn main() {
     let chart = malevich::hist(&mass[..])
         .title("penguin body mass")
         .x_label("grams");
-    println!("{}", chart.render(&Frame::plain(64, 15)));
+    println!("{}", chart.render_best(&Frame::plain(64, 15)));
 }

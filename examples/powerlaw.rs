@@ -11,5 +11,5 @@ fn main() {
         .title("power laws on log-log axes")
         .log_x()
         .log_y();
-    println!("{}", plot.render(&Frame::plain(64, 16)));
+    println!("{}", plot.render_best(&Frame::plain(64, 16)));
 }

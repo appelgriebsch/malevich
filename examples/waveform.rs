@@ -14,5 +14,5 @@ fn main() {
         })
         .collect();
     let chart = malevich::line(&y[..]).title("10,000,000 points");
-    println!("{}", chart.render(&Frame::plain(72, 16)));
+    println!("{}", chart.render_best(&Frame::plain(72, 16)));
 }

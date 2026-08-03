@@ -16,5 +16,5 @@ fn main() {
         })
         .collect();
     let chart = malevich::heatmap(n, &grid[..]).title("correlation matrix (synthetic)");
-    println!("{}", chart.render(&Frame::plain(46, 14)));
+    println!("{}", chart.render_best(&Frame::plain(46, 14)));
 }

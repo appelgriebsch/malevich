@@ -20,7 +20,7 @@ fn main() {
         .title("atmospheric CO2 at Mauna Loa (NOAA)")
         .y_label("ppm")
         .time_x();
-    println!("{}", chart.render(&Frame::plain(76, 18)));
+    println!("{}", chart.render_best(&Frame::plain(76, 18)));
 }
 
 /// The first of the month as unix seconds (Hinnant's civil-date arithmetic).

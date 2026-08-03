@@ -9,5 +9,5 @@ fn main() {
         &[68.0, 41.0, 55.0, 62.0, 12.0][..],
     )
     .title("admired languages, % (synthetic)");
-    println!("{}", chart.render(&Frame::plain(56, 14)));
+    println!("{}", chart.render_best(&Frame::plain(56, 14)));
 }

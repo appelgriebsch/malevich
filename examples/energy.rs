@@ -18,5 +18,5 @@ fn main() {
     for ((low, high), label) in bands.iter().zip(["solar", "wind", "hydro"]) {
         plot = plot.layer(Area::between(&x[..], &low[..], &high[..]).label(label));
     }
-    println!("{}", plot.render(&Frame::plain(64, 16)));
+    println!("{}", plot.render_best(&Frame::plain(64, 16)));
 }

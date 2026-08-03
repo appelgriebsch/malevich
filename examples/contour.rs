@@ -15,7 +15,7 @@ fn main() {
         }
     }
     let chart = malevich::contour(columns, &z[..]).title("the peaks function");
-    println!("{}", chart.render(&Frame::plain(72, 24)));
+    println!("{}", chart.render_best(&Frame::plain(72, 24)));
 }
 
 fn peaks(x: f64, y: f64) -> f64 {

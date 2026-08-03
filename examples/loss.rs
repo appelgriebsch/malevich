@@ -23,5 +23,5 @@ fn main() {
         .title("poorgrad: bigram training on 32k names")
         .x_label("step")
         .y_label("loss");
-    println!("{}", plot.render(&Frame::plain(76, 19)));
+    println!("{}", plot.render_best(&Frame::plain(76, 19)));
 }

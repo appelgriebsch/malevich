@@ -22,5 +22,5 @@ fn main() {
         .title("spiral flow into a sink")
         .x_label("x")
         .y_label("y");
-    println!("{}", chart.render(&Frame::plain(72, 22)));
+    println!("{}", chart.render_best(&Frame::plain(72, 22)));
 }

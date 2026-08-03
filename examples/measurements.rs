@@ -11,5 +11,5 @@ fn main() {
         .collect();
     let chart = malevich::error_bars(&x[..], &y[..], &error[..])
         .title("measurements with uncertainty (synthetic)");
-    println!("{}", chart.render(&Frame::plain(52, 13)));
+    println!("{}", chart.render_best(&Frame::plain(52, 13)));
 }

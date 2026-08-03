@@ -278,6 +278,28 @@ impl<'a> Plot<'a> {
         Ok(self.render(frame))
     }
 
+    /// Renders into `frame` at the best graphics tier the terminal offers: with
+    /// the `pixel` feature enabled and a protocol detected
+    /// ([`Graphics::detect`](crate::pixel::Graphics::detect)), the plot panel
+    /// becomes a real image; everywhere else — pipes, unknown terminals, tmux,
+    /// or without the feature — exactly [`Plot::render`]. The one-call top of
+    /// the resolution ladder for CLIs that already know their frame.
+    ///
+    /// Unlike [`Plot::render`] this consults the environment, so it is not
+    /// deterministic across terminals; keep `render` for tests and snapshots.
+    ///
+    /// ```no_run
+    /// let plot = malevich::line(&[1.0, 3.0, 2.0][..]);
+    /// println!("{}", plot.render_best(&malevich::Frame::detect()));
+    /// ```
+    pub fn render_best(&self, frame: &Frame) -> String {
+        #[cfg(feature = "pixel")]
+        if let Some(graphics) = crate::pixel::Graphics::detect() {
+            return self.render_pixels(frame, &graphics);
+        }
+        self.render(frame)
+    }
+
     /// Renders with the plot panel as a real image (feature `pixel`): chrome —
     /// title, axes, tick labels, legend — as text cells exactly like
     /// [`Plot::render`], and the plot rectangle as device-pixel graphics in the

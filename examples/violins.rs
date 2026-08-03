@@ -18,5 +18,5 @@ fn main() {
     let chart = malevich::violin(names, refs)
         .title("flipper length by species, as densities")
         .y_label("mm");
-    println!("{}", chart.render(&Frame::plain(60, 16)));
+    println!("{}", chart.render_best(&Frame::plain(60, 16)));
 }

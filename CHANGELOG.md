@@ -5,6 +5,14 @@ without apology.
 
 ## Unreleased
 
+- `Plot::render_best(&frame)`: renders at the best graphics tier the terminal
+  offers — the plot panel becomes a real image when the `pixel` feature is on
+  and a protocol is detected, and is exactly `render(&frame)` everywhere else
+  (pipes, unknown terminals, tmux, or without the feature). The gallery
+  examples now use it, so `cargo run --example sine --features pixel` (or any
+  other example) upgrades to pixels in a capable terminal while the
+  deterministic gallery output stays byte-identical. `Display` is unchanged:
+  `println!("{plot}")` stays cells-only.
 - Pixel graphics (new feature `pixel`): `Plot::render_pixels` renders the plot
   panel as a real image — sixel, kitty graphics, or iTerm2 inline PNG — while
   title, axes, tick labels, and legend stay text cells. Marks draw at

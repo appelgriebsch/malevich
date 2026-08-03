@@ -32,5 +32,5 @@ fn main() {
     for (name, xs, ys) in &species {
         plot = plot.layer(Points::xy(&xs[..], &ys[..]).label(*name));
     }
-    println!("{}", plot.render(&Frame::plain(72, 20)));
+    println!("{}", plot.render_best(&Frame::plain(72, 20)));
 }

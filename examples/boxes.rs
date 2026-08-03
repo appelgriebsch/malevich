@@ -9,7 +9,7 @@ fn main() {
     let chart = malevich::box_plot(categories, refs)
         .title("flipper length by species")
         .y_label("mm");
-    println!("{}", chart.render(&Frame::plain(60, 16)));
+    println!("{}", chart.render_best(&Frame::plain(60, 16)));
 }
 
 fn penguin_flippers() -> (Vec<&'static str>, [Vec<f64>; 3]) {

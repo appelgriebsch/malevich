@@ -30,5 +30,5 @@ fn main() {
         })
         .collect();
     let chart = malevich::hist2d(&x[..], &y[..]).title("two clusters, binned (synthetic)");
-    println!("{}", chart.render(&Frame::plain(60, 17)));
+    println!("{}", chart.render_best(&Frame::plain(60, 17)));
 }

@@ -31,7 +31,7 @@ fn main() {
             .title("loss with annotations (synthetic)")
             .x_label("step")
             .y_label("loss")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // A calendar axis: unix seconds in, "Aug 2" out.
@@ -55,7 +55,7 @@ fn main() {
             .layer(Line::xy(&stamps[..], &level[..]))
             .title("a monthly series on a calendar axis (synthetic)")
             .time_x()
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // A rolling mean over its noisy source.
@@ -69,7 +69,7 @@ fn main() {
             .layer(Line::y(&raw[..]).label("raw"))
             .layer(Line::y(&smooth[..]).label("rolling mean"))
             .title("smoothing (synthetic)")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // Ten million points, downsampled pixel-exactly on the way in.
@@ -84,7 +84,7 @@ fn main() {
         "{}\n",
         malevich::line(&wave[..])
             .title("10,000,000 points through M4")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // Bars and a histogram.
@@ -95,7 +95,7 @@ fn main() {
             &[68.0, 41.0, 55.0, 62.0, 12.0][..],
         )
         .title("admired languages, % (synthetic)")
-        .render(&frame)
+        .render_best(&frame)
     );
     let samples: Vec<f64> = (0..4000)
         .map(|i| {
@@ -107,7 +107,7 @@ fn main() {
         "{}\n",
         malevich::hist(&samples[..])
             .title("histogram, automatic bins")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // Stacked areas.
@@ -123,7 +123,7 @@ fn main() {
     for ((low, high), label) in bands.iter().zip(["solar", "wind", "hydro"]) {
         stacked = stacked.layer(Area::between(&x[..], &low[..], &high[..]).label(label));
     }
-    println!("{}\n", stacked.render(&frame));
+    println!("{}\n", stacked.render_best(&frame));
 
     // A heatmap and a 2D histogram.
     let size = 8usize;
@@ -141,7 +141,7 @@ fn main() {
         "{}\n",
         malevich::heatmap(size, &grid[..])
             .title("correlation matrix (synthetic)")
-            .render(&frame)
+            .render_best(&frame)
     );
     let bell = |i: f64, seed: f64| -> f64 {
         ((i * 0.97 + seed).sin() + (i * 1.31 + seed * 2.0).sin() + (i * 2.63 + seed * 3.0).sin())
@@ -172,7 +172,7 @@ fn main() {
         "{}\n",
         malevich::hist2d(&cx[..], &cy[..])
             .title("2d density (synthetic)")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // Contour lines: marching squares over a saddle between two humps.
@@ -192,7 +192,7 @@ fn main() {
         "{}\n",
         malevich::contour(columns, &z[..])
             .title("contour lines (synthetic)")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // A vector field: circular flow, one arrow per grid point.
@@ -214,7 +214,7 @@ fn main() {
         "{}\n",
         malevich::quiver(&fx[..], &fy[..], &fu[..], &fv[..])
             .title("vector field (synthetic)")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // The asciichart-style corners line.
@@ -226,7 +226,7 @@ fn main() {
         Plot::new()
             .layer(Line::y(&wave[..]).style(LineStyle::Corners))
             .title("the corners style")
-            .render(&frame)
+            .render_best(&frame)
     );
 
     // Small multiples.
@@ -253,13 +253,13 @@ fn main() {
             .title("power laws, log-log")
             .log_x()
             .log_y()
-            .render(&frame)
+            .render_best(&frame)
     );
     println!(
         "{}\n",
         malevich::ecdf(&samples[..])
             .title("ecdf of the histogram sample")
-            .render(&frame)
+            .render_best(&frame)
     );
     let blob = |count: usize, cx: f64, cy: f64, spread: f64| -> (Vec<f64>, Vec<f64>) {
         (0..count)
@@ -280,6 +280,6 @@ fn main() {
             .layer(Points::xy(&ax[..], &ay[..]).label("colony a"))
             .layer(Points::xy(&bx[..], &by[..]).label("colony b"))
             .title("two colonies (synthetic)")
-            .render(&frame)
+            .render_best(&frame)
     );
 }
