@@ -5,6 +5,13 @@ without apology.
 
 ## Unreleased
 
+- `Plot::render_pixels_at(frame, graphics, column)`: pixel output anchored at
+  a cell column — every text row and the image cursor walk start with an
+  absolute-column jump (CHA; rows stay relative, so scrollback is safe),
+  letting hosts paste a pixel plot beside other content. The showcase uses it:
+  with the `pixel` feature in a capable terminal, every chart in
+  `cargo run --example showcase --features pixel` renders as a side-by-side
+  comparison — cells on the left, the same plot as a real image on the right.
 - `pixel::Capabilities`: terminal capabilities as a plain queryable value —
   the protocols the terminal accepts (best first), its cell size in device
   pixels, and whether the answer was `Probed` or `Sniffed`.

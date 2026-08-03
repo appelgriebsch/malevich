@@ -1,12 +1,49 @@
 //! A colored tour of every mark and preset, rendered for *your* terminal.
 //!
 //! Uses `Frame::detect()`: charts size themselves to the terminal width, use color
-//! when the terminal has any, and degrade to plain text when piped. This example is
-//! deliberately not part of the deterministic gallery — its output depends on where
-//! you run it, which is the point. For the moving version of this tour, run
-//! `cargo run --example live`.
+//! when the terminal has any, and degrade to plain text when piped. With the
+//! `pixel` feature in a terminal that speaks a pixel protocol, every chart
+//! becomes a side-by-side comparison — cells on the left, the same plot as a
+//! real image on the right. This example is deliberately not part of the
+//! deterministic gallery — its output depends on where you run it, which is the
+//! point. For the moving version of this tour, run `cargo run --example live`.
 
 use malevich::{Area, Frame, Grid, Line, LineStyle, Plot, Points, Rule, Text};
+
+/// The tour's render: one chart per row, or a cells-versus-pixels comparison
+/// when the terminal offers a pixel protocol.
+trait Show {
+    fn show(&self, frame: &Frame) -> String;
+}
+
+impl Show for Plot<'_> {
+    #[cfg(feature = "pixel")]
+    fn show(&self, frame: &Frame) -> String {
+        use std::fmt::Write as _;
+        match malevich::pixel::Graphics::detect() {
+            Some(graphics) => {
+                // Two panes on the same rows: print the cell pane, walk back to
+                // its top row, and print the column-anchored pixel pane.
+                let pane = Frame {
+                    width: frame.width.saturating_sub(2) / 2,
+                    ..*frame
+                };
+                let mut out = self.render(&pane);
+                if pane.height > 1 {
+                    let _ = write!(out, "\x1b[{}A", pane.height - 1);
+                }
+                out.push_str(&self.render_pixels_at(&pane, &graphics, pane.width + 2));
+                out
+            }
+            None => self.render_best(frame),
+        }
+    }
+
+    #[cfg(not(feature = "pixel"))]
+    fn show(&self, frame: &Frame) -> String {
+        self.render_best(frame)
+    }
+}
 
 fn main() {
     let frame = Frame::detect();
@@ -31,7 +68,7 @@ fn main() {
             .title("loss with annotations (synthetic)")
             .x_label("step")
             .y_label("loss")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // A calendar axis: unix seconds in, "Aug 2" out.
@@ -55,7 +92,7 @@ fn main() {
             .layer(Line::xy(&stamps[..], &level[..]))
             .title("a monthly series on a calendar axis (synthetic)")
             .time_x()
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // A rolling mean over its noisy source.
@@ -69,7 +106,7 @@ fn main() {
             .layer(Line::y(&raw[..]).label("raw"))
             .layer(Line::y(&smooth[..]).label("rolling mean"))
             .title("smoothing (synthetic)")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // Ten million points, downsampled pixel-exactly on the way in.
@@ -84,7 +121,7 @@ fn main() {
         "{}\n",
         malevich::line(&wave[..])
             .title("10,000,000 points through M4")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // Bars and a histogram.
@@ -95,7 +132,7 @@ fn main() {
             &[68.0, 41.0, 55.0, 62.0, 12.0][..],
         )
         .title("admired languages, % (synthetic)")
-        .render_best(&frame)
+        .show(&frame)
     );
     let samples: Vec<f64> = (0..4000)
         .map(|i| {
@@ -107,7 +144,7 @@ fn main() {
         "{}\n",
         malevich::hist(&samples[..])
             .title("histogram, automatic bins")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // Stacked areas.
@@ -123,7 +160,7 @@ fn main() {
     for ((low, high), label) in bands.iter().zip(["solar", "wind", "hydro"]) {
         stacked = stacked.layer(Area::between(&x[..], &low[..], &high[..]).label(label));
     }
-    println!("{}\n", stacked.render_best(&frame));
+    println!("{}\n", stacked.show(&frame));
 
     // A heatmap and a 2D histogram.
     let size = 8usize;
@@ -141,7 +178,7 @@ fn main() {
         "{}\n",
         malevich::heatmap(size, &grid[..])
             .title("correlation matrix (synthetic)")
-            .render_best(&frame)
+            .show(&frame)
     );
     let bell = |i: f64, seed: f64| -> f64 {
         ((i * 0.97 + seed).sin() + (i * 1.31 + seed * 2.0).sin() + (i * 2.63 + seed * 3.0).sin())
@@ -172,7 +209,7 @@ fn main() {
         "{}\n",
         malevich::hist2d(&cx[..], &cy[..])
             .title("2d density (synthetic)")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // Contour lines: marching squares over a saddle between two humps.
@@ -192,7 +229,7 @@ fn main() {
         "{}\n",
         malevich::contour(columns, &z[..])
             .title("contour lines (synthetic)")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // A vector field: circular flow, one arrow per grid point.
@@ -214,7 +251,7 @@ fn main() {
         "{}\n",
         malevich::quiver(&fx[..], &fy[..], &fu[..], &fv[..])
             .title("vector field (synthetic)")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // The asciichart-style corners line.
@@ -226,7 +263,7 @@ fn main() {
         Plot::new()
             .layer(Line::y(&wave[..]).style(LineStyle::Corners))
             .title("the corners style")
-            .render_best(&frame)
+            .show(&frame)
     );
 
     // Small multiples.
@@ -253,13 +290,13 @@ fn main() {
             .title("power laws, log-log")
             .log_x()
             .log_y()
-            .render_best(&frame)
+            .show(&frame)
     );
     println!(
         "{}\n",
         malevich::ecdf(&samples[..])
             .title("ecdf of the histogram sample")
-            .render_best(&frame)
+            .show(&frame)
     );
     let blob = |count: usize, cx: f64, cy: f64, spread: f64| -> (Vec<f64>, Vec<f64>) {
         (0..count)
@@ -280,6 +317,6 @@ fn main() {
             .layer(Points::xy(&ax[..], &ay[..]).label("colony a"))
             .layer(Points::xy(&bx[..], &by[..]).label("colony b"))
             .title("two colonies (synthetic)")
-            .render_best(&frame)
+            .show(&frame)
     );
 }

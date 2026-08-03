@@ -88,3 +88,25 @@ fn the_corners_style_falls_back_to_a_pixel_line() {
     }
     assert!(out.contains("\x1bP0;1;0q"));
 }
+
+#[test]
+fn a_zero_column_anchor_is_exactly_render_pixels() {
+    let frame = Frame::plain(40, 12);
+    assert_eq!(
+        sample().render_pixels_at(&frame, &graphics(), 0),
+        sample().render_pixels(&frame, &graphics())
+    );
+}
+
+#[test]
+fn an_anchored_block_jumps_every_row_and_the_walk_to_its_column() {
+    let out = sample().render_pixels_at(&Frame::plain(40, 12), &graphics(), 42);
+    let text_end = out.find("\x1b7").expect("the weave follows the text");
+    for row in out[..text_end].split('\n') {
+        assert!(row.starts_with("\x1b[43G"), "unanchored row: {row:?}");
+    }
+    // The cursor walk lands on the block's column before walking the gutter.
+    assert!(out.contains("\x1b7\x1b[43G"), "walk not anchored");
+    // Rows stay relative: never a full cursor-position (CUP) escape.
+    assert!(!out.contains("\x1b[H") && !out.contains(";1H"));
+}

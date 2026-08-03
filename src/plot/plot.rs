@@ -310,7 +310,23 @@ impl<'a> Plot<'a> {
     /// same plot, frame, and graphics always produce the same string.
     #[cfg(feature = "pixel")]
     pub fn render_pixels(&self, frame: &Frame, graphics: &crate::pixel::Graphics) -> String {
-        crate::pixel::render(self, frame, graphics)
+        crate::pixel::render(self, frame, graphics, 0)
+    }
+
+    /// [`Plot::render_pixels`], anchored `column` cells from the left edge:
+    /// every text row and the image cursor walk start with an absolute-column
+    /// jump, so printing the block leaves anything to its left untouched. For
+    /// hosts pasting plots side by side — print the left content, move the
+    /// cursor back to the block's top row, print this. Rows stay relative;
+    /// only columns are absolute, so scrollback is safe.
+    #[cfg(feature = "pixel")]
+    pub fn render_pixels_at(
+        &self,
+        frame: &Frame,
+        graphics: &crate::pixel::Graphics,
+        column: usize,
+    ) -> String {
+        crate::pixel::render(self, frame, graphics, column)
     }
 
     /// Rasterizes for hybrid pixel output: chrome on a cell surface, marks on a
