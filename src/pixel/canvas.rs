@@ -14,6 +14,14 @@ pub(crate) struct PixelCanvas {
     width: usize,
     height: usize,
     cell: (usize, usize),
+    /// Line width in device pixels, derived from the cell density like the
+    /// font scale: a stroke is proportional to the cell, not to the device
+    /// pixel, so retina-dense cells do not thin the ink. 1 at the classic
+    /// 8×16 cell; heavier as cells grow.
+    stroke: i64,
+    /// Point-marker side in device pixels: one step above the stroke, so
+    /// scatter dots read over lines at every density.
+    point: i64,
     pixels: Vec<Option<Color>>,
     /// An optional drawing clip in pixel coordinates `(x0, y0, x1, y1)`, upper
     /// bounds exclusive — the same contract as the cell surface's clip.
@@ -25,12 +33,26 @@ impl PixelCanvas {
     /// `cell.0 × cell.1` device pixels.
     pub(crate) fn new(columns: usize, rows: usize, cell: (usize, usize)) -> PixelCanvas {
         let (width, height) = (columns * cell.0, rows * cell.1);
+        let stroke = ((cell.1 + 8) / 16).max(1) as i64;
         PixelCanvas {
             width,
             height,
             cell,
+            stroke,
+            point: stroke + 1,
             pixels: vec![None; width * height],
             clip: None,
+        }
+    }
+
+    /// Stamps a `side × side` square centered on `(x, y)` — the pen the stroke
+    /// ops draw with; clipping applies per pixel.
+    fn stamp(&mut self, x: i64, y: i64, side: i64, color: Color) {
+        let (x0, y0) = (x - side / 2, y - side / 2);
+        for dy in 0..side {
+            for dx in 0..side {
+                self.set(x0 + dx, y0 + dy, color);
+            }
         }
     }
 
@@ -102,7 +124,8 @@ impl Canvas for PixelCanvas {
 
     fn dot(&mut self, x: f64, y: f64, color: Color) {
         if x.is_finite() && y.is_finite() {
-            self.set(x.round() as i64, y.round() as i64, color);
+            let point = self.point;
+            self.stamp(x.round() as i64, y.round() as i64, point, color);
         }
     }
 
@@ -113,7 +136,13 @@ impl Canvas for PixelCanvas {
         if self.width == 0 || self.height == 0 {
             return;
         }
-        crate::render::trace_line(from, to, self.window(), |x, y| self.set(x, y, color));
+        let stroke = self.stroke;
+        if stroke == 1 {
+            crate::render::trace_line(from, to, self.window(), |x, y| self.set(x, y, color));
+        } else {
+            let window = self.window();
+            crate::render::trace_line(from, to, window, |x, y| self.stamp(x, y, stroke, color));
+        }
     }
 
     /// Text through the baked font: glyphs advance by whole cells — labels land

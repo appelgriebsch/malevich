@@ -11,6 +11,12 @@ terminal — text chrome and a real image, woven into one deterministic string.
 Cell output remains the product; pixels are the new top rung of the resolution
 ladder, behind the `pixel` feature, and everything below it is untouched.
 
+- Strokes scale with cell density: line width is `round(cell_height / 16)`
+  device pixels (minimum 1) and point markers are one step heavier, derived the
+  same way the in-panel font scale already is. Classic 8×16 cells keep the
+  exact 1-pixel ink they always had; on retina/high-DPI terminals — where a
+  cell spans ~20×44 device pixels and a 1-pixel line was a hairline — lines
+  weigh what they do in cell output and scatter dots are visible again.
 - `Plot::render_pixels_at(frame, graphics, column)`: pixel output anchored at
   a cell column — every text row and the image cursor walk start with an
   absolute-column jump (CHA; rows stay relative, so scrollback is safe),

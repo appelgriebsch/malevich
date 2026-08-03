@@ -25,18 +25,50 @@ fn a_new_canvas_is_fully_transparent() {
 }
 
 #[test]
-fn dot_sets_the_nearest_pixel_and_clips_outside() {
+fn dot_stamps_a_point_marker_and_clips_outside() {
     let mut canvas = PixelCanvas::new(2, 2, (8, 8));
     canvas.dot(3.4, 5.6, RED);
+    // At the classic density the point pen is 2×2 — one step above the
+    // 1-pixel stroke, so scatter dots read over lines.
     assert_eq!(canvas.get(3, 6), Some(RED));
-    canvas.dot(-1.0, 0.0, RED);
+    canvas.dot(-2.0, 0.0, RED);
     canvas.dot(1000.0, 0.0, RED);
     canvas.dot(f64::NAN, 0.0, RED);
     let drawn = (0..16)
         .flat_map(|y| (0..16).map(move |x| (x, y)))
         .filter(|&(x, y)| canvas.get(x, y).is_some())
         .count();
-    assert_eq!(drawn, 1);
+    assert_eq!(drawn, 4);
+}
+
+#[test]
+fn strokes_scale_with_cell_density() {
+    // A retina-dense cell (20×44 device pixels): stroke 3, not a hairline.
+    let mut canvas = PixelCanvas::new(4, 2, (20, 44));
+    canvas.line((10.0, 20.0), (70.0, 20.0), RED);
+    for y in 19..=21 {
+        assert_eq!(canvas.get(40, y), Some(RED), "row {y} should carry ink");
+    }
+    assert_eq!(canvas.get(40, 17), None);
+    assert_eq!(canvas.get(40, 23), None);
+    // The classic 8×16 cell keeps the exact 1-pixel stroke it always had.
+    let mut classic = PixelCanvas::new(4, 2, (8, 16));
+    classic.line((2.0, 8.0), (20.0, 8.0), RED);
+    assert_eq!(classic.get(10, 8), Some(RED));
+    assert_eq!(classic.get(10, 7), None);
+    assert_eq!(classic.get(10, 9), None);
+}
+
+#[test]
+fn points_read_above_lines_at_any_density() {
+    let mut canvas = PixelCanvas::new(2, 1, (20, 44));
+    canvas.dot(20.0, 22.0, RED);
+    let drawn = (0..44)
+        .flat_map(|y| (0..40).map(move |x| (x, y)))
+        .filter(|&(x, y)| canvas.get(x, y).is_some())
+        .count();
+    // Stroke 3 at this density, so the point pen is 4×4.
+    assert_eq!(drawn, 16);
 }
 
 #[test]
