@@ -101,6 +101,14 @@ Every chart in these docs is real program output, spliced in by
 gallery: [EXAMPLES.md](EXAMPLES.md), and `cargo run --example showcase` renders a
 colored tour sized to your terminal.
 
+In a terminal it looks like this — `cargo run --example showcase --features pixel`
+renders every chart twice, cells on the left and real pixels (sixel / kitty /
+iTerm2) on the right, from the same plot values:
+
+![Loss curves, a calendar time axis, and smoothing — cell rendering beside pixel rendering](examples/showcase-lines.png)
+
+![A 2D density, contour lines, and a vector field — cell rendering beside pixel rendering](examples/showcase-2d.png)
+
 ## Why malevich
 
 - **A small grammar, not a chart zoo.** Eight marks (line, points, bars, area, cells,
