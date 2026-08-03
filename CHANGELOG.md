@@ -6,10 +6,13 @@ without apology.
 ## Unreleased
 
 - New demo app (`demos/`, a separate unpublished workspace member): `fred`, a Federal
-  Reserve economic-data browser in ratatui — line charts on a calendar axis, log and
-  year-over-year transforms, NBER recession shading, and live refresh from FRED. Its
-  heavier deps stay out of the malevich crate and CI. Run: `cargo run -p malevich-demos
-  --bin fred`.
+  Reserve economic-data browser in ratatui with five views — small-multiples overview,
+  a series view (line/step/corners styles, calendar axis, log and year-over-year
+  transforms, NBER recession ribbon, a 2% target rule on inflation), change histograms
+  with decade box plots, a month-by-year seasonality heatmap with colorbar, and the
+  Phillips-curve scatter plus the 10y-minus-fed-funds spread. Pure data and view
+  layers (unit-tested) under a thin TUI shell; live refresh from FRED; heavier deps
+  stay out of the malevich crate and CI. Run: `cargo run -p malevich-demos --bin fred`.
 - New gallery entry `charsets`: the same curve rendered across the whole charset
   ladder — octants, sextants, quadrants, half blocks, braille, ASCII — so the
   subpixel-density trade-off is finally visible in the docs, not just described.

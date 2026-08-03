@@ -1,96 +1,51 @@
-//! FRED — a Federal Reserve economic-data browser in the terminal, built on malevich
-//! and ratatui.
+//! FRED — a Federal Reserve economic-data browser in the terminal, built on
+//! malevich and ratatui.
 //!
-//! Ships with a vendored snapshot of public-domain US-federal series (see
-//! `demos/data/README.md`); press `f` to refresh the selected series live from
-//! <https://fred.stlouisfed.org> (no API key — the CSV endpoint is open).
+//! The binary is only the shell: state, keys, and layout. All parsing and
+//! transforms live in `malevich_demos::fred::data`, and every chart is built by a
+//! pure function in `malevich_demos::fred::views` — the same plots render in the
+//! TUI, in headless `--render` mode, and under test.
 //!
-//! Run with `cargo run -p malevich-demos --bin fred`.
-//!
-//! Keys: `↑/↓` or `j/k` pick a series · `t` cycles transform (level / YoY % / log) ·
-//! `s` toggles NBER recession shading · `f` fetches live · `q` quits.
+//! Run with `cargo run -p malevich-demos --bin fred`. Headless:
+//! `cargo run -p malevich-demos --bin fred -- --render [view] [SERIES]`.
 
 use std::time::Duration;
 
-use malevich::{Area, Color, Line, Plot};
+use malevich::{Charset, LineStyle};
+use malevich_demos::fred::data::{Catalog, parse_csv};
+use malevich_demos::fred::views::{self, Transform, View};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Line as TextLine;
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
-
-/// One economic series: its identity, sampling frequency, and observations.
-struct Series {
-    id: &'static str,
-    title: &'static str,
-    source: &'static str,
-    unit: &'static str,
-    /// Observations per year — 12 monthly, 4 quarterly — used for year-over-year.
-    per_year: usize,
-    dates: Vec<f64>,
-    values: Vec<f64>,
-}
-
-/// What to draw: the level as reported, its year-over-year percent change, or the
-/// level on a logarithmic axis.
-#[derive(Clone, Copy, PartialEq)]
-enum Transform {
-    Level,
-    YearOverYear,
-    Log,
-}
-
-impl Transform {
-    fn next(self) -> Transform {
-        match self {
-            Transform::Level => Transform::YearOverYear,
-            Transform::YearOverYear => Transform::Log,
-            Transform::Log => Transform::Level,
-        }
-    }
-
-    fn label(self) -> &'static str {
-        match self {
-            Transform::Level => "level",
-            Transform::YearOverYear => "year-over-year %",
-            Transform::Log => "level (log axis)",
-        }
-    }
-}
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Tabs};
 
 struct App {
-    series: Vec<Series>,
-    recessions: Vec<(f64, f64)>,
+    catalog: Catalog,
+    view: View,
     selected: usize,
     transform: Transform,
+    line_style: LineStyle,
+    charset: Charset,
     shade_recessions: bool,
     status: String,
 }
 
 fn main() -> std::io::Result<()> {
     let mut app = App {
-        series: vendored_series(),
-        recessions: recession_periods(include_str!("../../data/recession.csv")),
+        catalog: Catalog::load(),
+        view: View::Overview,
         selected: 0,
         transform: Transform::Level,
+        line_style: LineStyle::Pixels,
+        charset: Charset::Braille,
         shade_recessions: true,
         status: String::from("vendored snapshot — press f to refresh live from FRED"),
     };
 
-    // Headless: `--render [ID]` prints one chart and exits — handy for piping into a
-    // file or a screenshot, and it exercises the whole pipeline without a terminal.
-    let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|a| a == "--render") {
-        if let Some(id) = args.iter().skip_while(|a| *a != "--render").nth(1)
-            && let Some(index) = app
-                .series
-                .iter()
-                .position(|s| s.id.eq_ignore_ascii_case(id))
-        {
-            app.selected = index;
-        }
-        println!("{}", app.plot().render(&malevich::Frame::plain(110, 30)));
-        return Ok(());
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("--render") {
+        return render_headless(&mut app, &args[1..]);
     }
 
     let mut terminal = ratatui::init();
@@ -110,14 +65,34 @@ fn main() -> std::io::Result<()> {
         }
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => break Ok(()),
+            KeyCode::Tab | KeyCode::Right => app.view = app.view.next(),
+            KeyCode::BackTab | KeyCode::Left => app.view = app.view.previous(),
+            KeyCode::Char(digit @ '1'..='5') => {
+                app.view = View::ALL[digit as usize - '1' as usize];
+            }
             KeyCode::Down | KeyCode::Char('j') => {
-                app.selected = (app.selected + 1) % app.series.len();
+                app.selected = (app.selected + 1) % app.catalog.series.len();
             }
             KeyCode::Up | KeyCode::Char('k') => {
-                app.selected = (app.selected + app.series.len() - 1) % app.series.len();
+                let count = app.catalog.series.len();
+                app.selected = (app.selected + count - 1) % count;
             }
             KeyCode::Char('t') => app.transform = app.transform.next(),
             KeyCode::Char('s') => app.shade_recessions = !app.shade_recessions,
+            KeyCode::Char('c') => {
+                app.line_style = match app.line_style {
+                    LineStyle::Pixels => LineStyle::Corners,
+                    _ => LineStyle::Pixels,
+                };
+            }
+            KeyCode::Char('g') => {
+                app.charset = match app.charset {
+                    Charset::Braille => Charset::Octants,
+                    Charset::Octants => Charset::Quadrants,
+                    Charset::Quadrants => Charset::HalfBlocks,
+                    _ => Charset::Braille,
+                };
+            }
             KeyCode::Char('f') => app.refresh_selected(),
             _ => {}
         }
@@ -128,106 +103,127 @@ fn main() -> std::io::Result<()> {
 
 impl App {
     fn draw(&self, frame: &mut ratatui::Frame, list_state: &mut ListState) {
-        let [sidebar, main] =
-            Layout::horizontal([Constraint::Length(30), Constraint::Fill(1)]).areas(frame.area());
-        let [chart, footer] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(4)]).areas(main);
+        let [tabs_area, body, footer] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(4),
+        ])
+        .areas(frame.area());
 
-        // The series list, each with its latest value.
-        let items: Vec<ListItem> = self
-            .series
-            .iter()
-            .map(|series| {
-                let latest = last_finite(&series.values)
-                    .map(|v| format!("{v:.1}"))
-                    .unwrap_or_else(|| "—".into());
-                ListItem::new(format!("{:<8} {:>10}", series.id, latest))
-            })
-            .collect();
-        let list = List::new(items)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(" FRED series "),
-            )
+        let tabs = Tabs::new(View::ALL.iter().map(|v| v.title()))
+            .select(View::ALL.iter().position(|v| *v == self.view))
             .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
-        frame.render_stateful_widget(list, sidebar, list_state);
+        frame.render_widget(tabs, tabs_area);
 
-        // The chart.
-        frame.render_widget(self.plot().widget(), chart);
+        match self.view {
+            View::Overview => self.draw_overview(frame, body),
+            View::Series => self.draw_series(frame, body, list_state),
+            View::Distribution => {
+                self.draw_split(frame, body, views::distribution_charts(self.series()))
+            }
+            View::Seasonality => {
+                let chart =
+                    views::seasonality_chart(self.series(), body.height.saturating_sub(4) as usize);
+                frame.render_widget(chart.widget().charset(self.charset), body);
+            }
+            View::Relations => self.draw_split(frame, body, views::relations_charts(&self.catalog)),
+        }
 
-        // Stats + keys.
-        let series = &self.series[self.selected];
-        let (lo, hi) = extent(&series.values);
-        let change = year_change(series);
-        let stats = TextLine::from(format!(
-            " {}  ·  {}  ·  latest {}  ·  range {:.1}–{:.1}  ·  1y {}{:.1}%",
-            series.title,
-            self.transform.label(),
-            last_finite(&series.values)
-                .map(|v| format!("{v:.2} {}", series.unit))
-                .unwrap_or_else(|| "—".into()),
-            lo,
-            hi,
-            if change >= 0.0 { "+" } else { "" },
-            change,
-        ));
-        let keys = TextLine::from(
-            " [↑↓/jk] series   [t] transform   [s] recessions   [f] fetch live   [q] quit ",
-        )
-        .style(Style::default().add_modifier(Modifier::DIM));
-        let status = TextLine::from(format!(" {} · source: {}", self.status, series.source))
-            .style(Style::default().add_modifier(Modifier::DIM));
         frame.render_widget(
-            Paragraph::new(vec![stats, keys, status]).block(Block::default().borders(Borders::ALL)),
+            Paragraph::new(self.footer()).block(Block::default().borders(Borders::ALL)),
             footer,
         );
     }
 
-    /// Builds the malevich plot for the current series and view.
-    fn plot(&self) -> Plot<'static> {
-        let series = &self.series[self.selected];
-        let (x, y) = match self.transform {
-            Transform::Level | Transform::Log => (series.dates.clone(), series.values.clone()),
-            Transform::YearOverYear => year_over_year(series),
-        };
-
-        let mut plot = Plot::new()
-            .title(format!("{} ({})", series.title, series.id))
-            .time_x()
-            .y_label(match self.transform {
-                Transform::YearOverYear => "percent",
-                _ => series.unit,
-            });
-
-        // NBER recessions as a ribbon in a reserved strip just *below* the data — a
-        // full-height band would fill every subpixel and swallow the line (terminals
-        // have no translucency). Linear axes only; a log axis must stay positive.
-        let (lo, hi) = extent(&y);
-        if self.shade_recessions && self.transform != Transform::Log && lo.is_finite() && hi > lo {
-            let strip = (hi - lo) * 0.06;
-            plot = plot.y_domain(lo - strip, hi);
-            let (first, last) = (x[0], *x.last().unwrap_or(&0.0));
-            for &(start, end) in &self.recessions {
-                if end >= first && start <= last {
-                    plot = plot.layer(
-                        Area::between([start, end], [lo - strip, lo - strip], [lo, lo])
-                            .color(Color::Red),
-                    );
-                }
+    fn draw_overview(&self, frame: &mut ratatui::Frame, area: Rect) {
+        let charts = views::overview_charts(&self.catalog);
+        let row_areas = Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
+        for (row_area, row_charts) in row_areas.iter().zip(charts.chunks(3)) {
+            let cells = Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Fill(1),
+                Constraint::Fill(1),
+            ])
+            .split(*row_area);
+            for (cell, chart) in cells.iter().zip(row_charts) {
+                frame.render_widget(chart.widget().charset(self.charset), *cell);
             }
         }
+    }
 
-        plot = plot.layer(Line::xy(x, y).color(Color::Cyan));
-        if self.transform == Transform::Log {
-            plot = plot.log_y();
-        }
-        plot
+    fn draw_series(&self, frame: &mut ratatui::Frame, area: Rect, list_state: &mut ListState) {
+        let [sidebar, chart_area] =
+            Layout::horizontal([Constraint::Length(26), Constraint::Fill(1)]).areas(area);
+        let items: Vec<ListItem> = self
+            .catalog
+            .series
+            .iter()
+            .map(|series| {
+                let latest = series
+                    .latest()
+                    .map(|v| format!("{v:.1}"))
+                    .unwrap_or_else(|| "—".into());
+                ListItem::new(format!("{:<9} {:>9}", series.id, latest))
+            })
+            .collect();
+        let list = List::new(items)
+            .block(Block::default().borders(Borders::ALL).title(" series "))
+            .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+        frame.render_stateful_widget(list, sidebar, list_state);
+
+        let chart = views::series_chart(
+            self.series(),
+            self.transform,
+            self.line_style,
+            self.shade_recessions
+                .then_some(self.catalog.recessions.as_slice()),
+        );
+        frame.render_widget(chart.widget().charset(self.charset), chart_area);
+    }
+
+    fn draw_split(
+        &self,
+        frame: &mut ratatui::Frame,
+        area: Rect,
+        (left, right): (malevich::Plot<'static>, malevich::Plot<'static>),
+    ) {
+        let [left_area, right_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).areas(area);
+        frame.render_widget(left.widget().charset(self.charset), left_area);
+        frame.render_widget(right.widget().charset(self.charset), right_area);
+    }
+
+    fn series(&self) -> &malevich_demos::fred::data::Series {
+        &self.catalog.series[self.selected]
+    }
+
+    fn footer(&self) -> Vec<TextLine<'static>> {
+        let series = self.series();
+        let stats = TextLine::from(format!(
+            " {}  ·  {}  ·  latest {}  ·  1y {}",
+            series.title,
+            self.transform.label(series.kind),
+            series
+                .latest()
+                .map(|v| format!("{v:.2} {}", series.unit))
+                .unwrap_or_else(|| "—".into()),
+            series
+                .latest_year_change()
+                .map(|c| format!("{}{c:.1}", if c >= 0.0 { "+" } else { "" }))
+                .unwrap_or_else(|| "—".into()),
+        ));
+        let keys = TextLine::from(
+            " [1-5/tab] view  [jk] series  [t] transform  [c] line  [g] glyphs  [s] recessions  [f] fetch  [q] quit ",
+        )
+        .style(Style::default().add_modifier(Modifier::DIM));
+        let status = TextLine::from(format!(" {} · source: {}", self.status, series.source))
+            .style(Style::default().add_modifier(Modifier::DIM));
+        vec![stats, keys, status]
     }
 
     /// Fetches the selected series fresh from FRED, replacing its observations.
     fn refresh_selected(&mut self) {
-        let series = &mut self.series[self.selected];
+        let series = &mut self.catalog.series[self.selected];
         let url = format!(
             "https://fred.stlouisfed.org/graph/fredgraph.csv?id={}",
             series.id
@@ -249,167 +245,49 @@ impl App {
     }
 }
 
-/// The vendored snapshot: public-domain US-federal series.
-fn vendored_series() -> Vec<Series> {
-    let spec: [(&str, &str, &str, &str, usize, &str); 6] = [
-        (
-            "UNRATE",
-            "Unemployment Rate",
-            "U.S. Bureau of Labor Statistics",
-            "%",
-            12,
-            include_str!("../../data/unrate.csv"),
-        ),
-        (
-            "CPIAUCSL",
-            "Consumer Price Index (all items)",
-            "U.S. Bureau of Labor Statistics",
-            "index",
-            12,
-            include_str!("../../data/cpi.csv"),
-        ),
-        (
-            "GDPC1",
-            "Real Gross Domestic Product",
-            "U.S. Bureau of Economic Analysis",
-            "bil. chained $",
-            4,
-            include_str!("../../data/gdp.csv"),
-        ),
-        (
-            "FEDFUNDS",
-            "Federal Funds Effective Rate",
-            "Federal Reserve Board",
-            "%",
-            12,
-            include_str!("../../data/fedfunds.csv"),
-        ),
-        (
-            "GS10",
-            "10-Year Treasury Yield",
-            "Federal Reserve Board",
-            "%",
-            12,
-            include_str!("../../data/gs10.csv"),
-        ),
-        (
-            "PAYEMS",
-            "Total Nonfarm Payrolls",
-            "U.S. Bureau of Labor Statistics",
-            "thousands",
-            12,
-            include_str!("../../data/payems.csv"),
-        ),
-    ];
-    spec.into_iter()
-        .map(|(id, title, source, unit, per_year, csv)| {
-            let (dates, values) = parse_csv(csv);
-            Series {
-                id,
-                title,
-                source,
-                unit,
-                per_year,
-                dates,
-                values,
+/// Prints one view's chart(s) to stdout and exits — the whole pipeline without a
+/// terminal. Arguments: an optional view name and an optional series id.
+fn render_headless(app: &mut App, args: &[String]) -> std::io::Result<()> {
+    for argument in args {
+        if let Some(view) = View::ALL
+            .iter()
+            .find(|v| v.title() == argument.to_lowercase())
+        {
+            app.view = *view;
+        } else if let Some(index) = app
+            .catalog
+            .series
+            .iter()
+            .position(|s| s.id.eq_ignore_ascii_case(argument))
+        {
+            app.selected = index;
+            if app.view == View::Overview {
+                app.view = View::Series;
             }
-        })
-        .collect()
-}
-
-/// Parses a FRED CSV (`observation_date,VALUE`) into unix-second dates and values,
-/// with `.` (missing) becoming a `NaN` gap.
-fn parse_csv(csv: &str) -> (Vec<f64>, Vec<f64>) {
-    let mut dates = Vec::new();
-    let mut values = Vec::new();
-    for line in csv.lines().skip(1) {
-        let Some((date, value)) = line.split_once(',') else {
-            continue;
-        };
-        let Some(seconds) = parse_date(date) else {
-            continue;
-        };
-        dates.push(seconds);
-        values.push(value.trim().parse().unwrap_or(f64::NAN));
-    }
-    (dates, values)
-}
-
-/// `YYYY-MM-DD` to unix seconds (UTC midnight).
-fn parse_date(date: &str) -> Option<f64> {
-    let mut parts = date.split('-');
-    let year: i64 = parts.next()?.parse().ok()?;
-    let month: i64 = parts.next()?.parse().ok()?;
-    let day: i64 = parts.next()?.parse().ok()?;
-    Some(days_from_civil(year, month, day) as f64 * 86_400.0)
-}
-
-/// Days since the unix epoch for a proleptic-Gregorian date (Howard Hinnant's
-/// algorithm) — the same civil-date math malevich's time axis uses internally.
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let year = if month <= 2 { year - 1 } else { year };
-    let era = if year >= 0 { year } else { year - 399 } / 400;
-    let year_of_era = year - era * 400;
-    let day_of_year = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
-}
-
-/// Contiguous recession periods `(start, end)` in unix seconds from the USREC 0/1
-/// series.
-fn recession_periods(csv: &str) -> Vec<(f64, f64)> {
-    let (dates, flags) = parse_csv(csv);
-    let mut periods = Vec::new();
-    let mut start: Option<f64> = None;
-    for (&date, &flag) in dates.iter().zip(&flags) {
-        match (flag >= 0.5, start) {
-            (true, None) => start = Some(date),
-            (false, Some(begin)) => {
-                periods.push((begin, date));
-                start = None;
-            }
-            _ => {}
         }
     }
-    if let Some(begin) = start
-        && let Some(&last) = dates.last()
-    {
-        periods.push((begin, last));
-    }
-    periods
-}
-
-/// The year-over-year percent change series, aligned to the later date.
-fn year_over_year(series: &Series) -> (Vec<f64>, Vec<f64>) {
-    let step = series.per_year;
-    let mut y = vec![f64::NAN; series.values.len()];
-    for (index, (then, now)) in series
-        .values
-        .iter()
-        .zip(&series.values[step.min(series.values.len())..])
-        .enumerate()
-    {
-        if now.is_finite() && then.is_finite() && *then != 0.0 {
-            y[index + step] = (now / then - 1.0) * 100.0;
+    let frame = malevich::Frame::plain(110, 28);
+    let charts: Vec<malevich::Plot<'static>> = match app.view {
+        View::Overview => views::overview_charts(&app.catalog),
+        View::Series => vec![views::series_chart(
+            app.series(),
+            app.transform,
+            app.line_style,
+            app.shade_recessions
+                .then_some(app.catalog.recessions.as_slice()),
+        )],
+        View::Distribution => {
+            let (histogram, boxes) = views::distribution_charts(app.series());
+            vec![histogram, boxes]
         }
+        View::Seasonality => vec![views::seasonality_chart(app.series(), 24)],
+        View::Relations => {
+            let (phillips, spread) = views::relations_charts(&app.catalog);
+            vec![phillips, spread]
+        }
+    };
+    for chart in charts {
+        println!("{}\n", chart.render(&frame));
     }
-    (series.dates.clone(), y)
-}
-
-fn year_change(series: &Series) -> f64 {
-    let (_, y) = year_over_year(series);
-    last_finite(&y).unwrap_or(0.0)
-}
-
-fn last_finite(values: &[f64]) -> Option<f64> {
-    values.iter().rev().copied().find(|v| v.is_finite())
-}
-
-fn extent(values: &[f64]) -> (f64, f64) {
-    values
-        .iter()
-        .filter(|v| v.is_finite())
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
-            (lo.min(v), hi.max(v))
-        })
+    Ok(())
 }
