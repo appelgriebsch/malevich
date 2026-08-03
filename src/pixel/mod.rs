@@ -13,6 +13,7 @@
 
 mod base64;
 mod canvas;
+mod detect;
 mod font;
 mod iterm;
 mod kitty;
@@ -62,6 +63,13 @@ impl Graphics {
             protocol,
             cell_size: (8, 16),
         }
+    }
+
+    /// Sets the protocol, keeping everything else.
+    #[must_use]
+    pub fn protocol(mut self, protocol: Protocol) -> Graphics {
+        self.protocol = protocol;
+        self
     }
 
     /// Sets the cell size in device pixels. A zero dimension falls back to

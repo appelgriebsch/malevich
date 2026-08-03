@@ -1019,6 +1019,7 @@ dependencies = [
  "ndarray",
  "ratatui",
  "ratatui-core",
+ "rustix 1.1.4",
  "serde",
  "serde_json",
  "terminal_size",

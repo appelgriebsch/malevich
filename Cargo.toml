@@ -26,9 +26,14 @@ serde = { version = "1", optional = true, features = ["derive"] }
 terminal_size = "0.4"
 unicode-width = "0.2"
 
+# Already in the tree via terminal_size; the direct dependency only reads the
+# terminal's cell size in device pixels for Graphics::detect.
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["termios"], optional = true }
+
 [features]
 ndarray = ["dep:ndarray"]
-pixel = []
+pixel = ["dep:rustix"]
 ratatui = ["dep:ratatui-core"]
 serde = ["dep:serde"]
 
@@ -44,6 +49,10 @@ crossterm = "0.28"
 [[example]]
 name = "tui"
 required-features = ["ratatui"]
+
+[[example]]
+name = "pixels"
+required-features = ["pixel"]
 
 [[bench]]
 name = "ticks"
