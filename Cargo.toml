@@ -9,6 +9,16 @@ license = "MIT OR Apache-2.0"
 keywords = ["plot", "chart", "terminal", "ascii", "visualization"]
 categories = ["visualization", "command-line-interface"]
 
+# Flagship TUI demo apps live in their own workspace member so their heavier deps
+# (ratatui, ureq) never touch the published crate or its CI. Build them explicitly:
+# `cargo run -p malevich-demos --bin fred`.
+[workspace]
+members = ["demos"]
+# Keep the default build/test/lint set to malevich alone, so CI and `cargo test`
+# never pull the demos' heavier deps. Build a demo explicitly with `-p`.
+default-members = ["."]
+resolver = "3"
+
 [dependencies]
 ratatui-core = { version = "0.1", optional = true }
 ndarray = { version = "0.16", optional = true }

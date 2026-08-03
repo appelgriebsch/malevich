@@ -137,7 +137,10 @@ colored tour sized to your terminal.
 - **A ratatui widget, if you want one.** With the `ratatui` feature (depending only
   on `ratatui-core`), `plot.widget()` drops any chart into a TUI — cells written
   straight into the buffer, colors as styles, your app keeps the terminal
-  (`cargo run --example tui --features ratatui`).
+  (`cargo run --example tui --features ratatui`). For a full app, [`demos/`](demos/)
+  has `fred` — a Federal Reserve economic-data browser (`cargo run -p malevich-demos
+  --bin fred`): calendar axes, log scales, year-over-year transforms, recession
+  shading, and live refresh from FRED.
 - **Serializable specs, no lies.** With the `serde` feature, every plot round-trips
   through serde — send one over the wire, cache it, snapshot it as JSON. Gaps encode
   as `null` and decode back to gaps; a function-backed line refuses to serialize
