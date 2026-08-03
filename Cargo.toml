@@ -28,6 +28,7 @@ unicode-width = "0.2"
 
 [features]
 ndarray = ["dep:ndarray"]
+pixel = []
 ratatui = ["dep:ratatui-core"]
 serde = ["dep:serde"]
 

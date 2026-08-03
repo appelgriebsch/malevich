@@ -135,34 +135,9 @@ impl Surface {
             wx1 = wx1.min((x1 - 1) as f64);
             wy1 = wy1.min((y1 - 1) as f64);
         }
-        if wx0 > wx1 || wy0 > wy1 {
-            return;
-        }
-        let Some((from, to)) = clip(from, to, (wx0, wy0), (wx1, wy1)) else {
-            return;
-        };
-        let (x1, y1) = (to.0.round() as i64, to.1.round() as i64);
-        let (mut x, mut y) = (from.0.round() as i64, from.1.round() as i64);
-        let dx = (x1 - x).abs();
-        let dy = -(y1 - y).abs();
-        let sx = if x < x1 { 1 } else { -1 };
-        let sy = if y < y1 { 1 } else { -1 };
-        let mut error = dx + dy;
-        loop {
+        super::canvas::trace_line(from, to, (wx0, wy0, wx1, wy1), |x, y| {
             self.set(x, y, color);
-            if x == x1 && y == y1 {
-                return;
-            }
-            let doubled = 2 * error;
-            if doubled >= dy {
-                error += dy;
-                x += sx;
-            }
-            if doubled <= dx {
-                error += dx;
-                y += sy;
-            }
-        }
+        });
     }
 
     /// Writes text starting at the cell `(column, row)`; cells outside clip away.
@@ -439,52 +414,6 @@ impl std::fmt::Debug for Surface {
             .field("charset", &self.charset)
             .finish_non_exhaustive()
     }
-}
-
-/// Liang–Barsky clipping of the segment `from → to` against the rectangle
-/// `[min.0, max.0] x [min.1, max.1]`; `None` when the segment lies entirely outside.
-fn clip(
-    from: (f64, f64),
-    to: (f64, f64),
-    min: (f64, f64),
-    max: (f64, f64),
-) -> Option<((f64, f64), (f64, f64))> {
-    let (dx, dy) = (to.0 - from.0, to.1 - from.1);
-    let mut enter = 0.0f64;
-    let mut exit = 1.0f64;
-    let tests = [
-        (-dx, from.0 - min.0),
-        (dx, max.0 - from.0),
-        (-dy, from.1 - min.1),
-        (dy, max.1 - from.1),
-    ];
-    for (p, q) in tests {
-        if p == 0.0 {
-            if q < 0.0 {
-                return None;
-            }
-        } else {
-            let r = q / p;
-            if p < 0.0 {
-                if r > exit {
-                    return None;
-                }
-                enter = enter.max(r);
-            } else {
-                if r < enter {
-                    return None;
-                }
-                exit = exit.min(r);
-            }
-        }
-    }
-    if enter > exit {
-        return None;
-    }
-    Some((
-        (from.0 + enter * dx, from.1 + enter * dy),
-        (from.0 + exit * dx, from.1 + exit * dy),
-    ))
 }
 
 #[cfg(test)]

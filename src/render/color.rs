@@ -90,6 +90,24 @@ impl Color {
         }
     }
 
+    /// The concrete RGB this color denotes in pixel output, which cannot stay
+    /// palette-relative: named colors freeze to the xterm defaults the
+    /// quantizer already assumes, `Default` to a mid-gray readable on dark and
+    /// light backgrounds alike.
+    #[cfg(feature = "pixel")]
+    pub(crate) fn to_rgb(self) -> (u8, u8, u8) {
+        match self {
+            Color::Default => (128, 128, 128),
+            Color::Ansi256(index) => ansi256_to_rgb(index),
+            Color::Rgb(r, g, b) => (r, g, b),
+            named => {
+                let sgr = named.sgr();
+                let offset = if sgr >= 90 { sgr - 90 + 8 } else { sgr - 30 };
+                PALETTE16[offset as usize]
+            }
+        }
+    }
+
     /// The SGR foreground code for a named color.
     fn sgr(self) -> u8 {
         match self {

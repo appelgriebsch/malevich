@@ -52,6 +52,8 @@ mod adapter;
 pub mod data;
 mod error;
 pub mod mark;
+#[cfg(feature = "pixel")]
+pub mod pixel;
 pub mod plot;
 mod presets;
 pub mod render;

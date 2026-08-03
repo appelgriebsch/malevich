@@ -278,6 +278,106 @@ impl<'a> Plot<'a> {
         Ok(self.render(frame))
     }
 
+    /// Renders with the plot panel as a real image (feature `pixel`): chrome —
+    /// title, axes, tick labels, legend — as text cells exactly like
+    /// [`Plot::render`], and the plot rectangle as device-pixel graphics in the
+    /// protocol `graphics` names. The returned string weaves both with relative
+    /// cursor movement; print it to a terminal that speaks the protocol.
+    ///
+    /// Deterministic like every render path: no terminal is touched, and the
+    /// same plot, frame, and graphics always produce the same string.
+    #[cfg(feature = "pixel")]
+    pub fn render_pixels(&self, frame: &Frame, graphics: &crate::pixel::Graphics) -> String {
+        crate::pixel::render(self, frame, graphics)
+    }
+
+    /// Rasterizes for hybrid pixel output: chrome on a cell surface, marks on a
+    /// device-pixel canvas at `cell` pixels per cell, one shared layout — so the
+    /// scales map into device pixels and M4 buckets per pixel column.
+    #[cfg(feature = "pixel")]
+    pub(crate) fn rasterize_hybrid(
+        &self,
+        frame: &Frame,
+        cell: (usize, usize),
+    ) -> (Surface, crate::pixel::PixelCanvas, crate::render::PlotRect) {
+        use super::resolve::Reduce;
+        use crate::mark::LineStyle;
+        use crate::plot::resolve::{Kind, ResolvedLayer};
+        use crate::render::PlotRect;
+
+        let mut surface = Surface::new(frame.width, frame.height, frame.charset);
+        let canvas = crate::pixel::PixelCanvas::new(frame.width, frame.height, cell);
+        let empty = PlotRect {
+            gutter: 0,
+            top: 0,
+            columns: 0,
+            rows: 0,
+        };
+        if frame.width == 0 || frame.height == 0 || cell.0 == 0 || cell.1 == 0 {
+            return (surface, canvas, empty);
+        }
+        let mut canvas = canvas;
+        let sample_width = frame.width * cell.0;
+        let title = self.title.is_some();
+        let scales = (&self.x, &self.y);
+        let labels = (self.x_label.as_deref(), self.y_label.as_deref());
+        let domains = (self.x_domain, self.y_domain);
+        let palette = &frame.theme.palette;
+
+        // The same probe-then-reduce dance as cell output (see rasterize_with):
+        // M4 must bucket by the rendered column, which here is one device pixel.
+        let probe = super::resolve::resolve(&self.layers, sample_width, palette, Reduce::Extent);
+        let geometry = super::layout::Layout::compute(
+            frame,
+            cell,
+            &probe,
+            title,
+            scales,
+            labels,
+            domains,
+            self.colorbar,
+        );
+        let reduce = Reduce::Mapped {
+            map: geometry.x_scale,
+            columns: geometry.plot_sub_w,
+        };
+        let mut layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
+        // Corners is cell-glyph art; at pixel resolution the honest line is the
+        // line itself.
+        for layer in &mut layers {
+            if let ResolvedLayer::Series { kind, .. } = layer
+                && matches!(kind, Kind::Line(LineStyle::Corners))
+            {
+                *kind = Kind::Line(LineStyle::Pixels);
+            }
+        }
+        let layout = super::layout::Layout::compute(
+            frame,
+            cell,
+            &layers,
+            title,
+            scales,
+            labels,
+            domains,
+            self.colorbar,
+        );
+        super::chrome::draw(
+            &mut surface,
+            &layout,
+            self.title.as_deref(),
+            labels,
+            &layers,
+        );
+        super::draw::layers(&mut canvas, &layout, &layers);
+        let rect = PlotRect {
+            gutter: layout.gutter,
+            top: layout.plot_top,
+            columns: layout.plot_cols,
+            rows: layout.plot_rows,
+        };
+        (surface, canvas, rect)
+    }
+
     pub(crate) fn rasterize(&self, frame: &Frame) -> Surface {
         self.rasterize_with(frame, true)
     }

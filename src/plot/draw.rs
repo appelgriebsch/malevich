@@ -13,7 +13,11 @@ use crate::render::{Canvas, Charset, Color, PlotRect};
 use crate::scale::Colormap;
 
 /// Draws every resolved layer, in order, through the shared scales.
-pub(crate) fn layers<C: Canvas>(surface: &mut C, layout: &Layout<'_>, layers: &[ResolvedLayer<'_>]) {
+pub(crate) fn layers<C: Canvas>(
+    surface: &mut C,
+    layout: &Layout<'_>,
+    layers: &[ResolvedLayer<'_>],
+) {
     let Layout {
         px,
         py,
@@ -268,7 +272,13 @@ fn draw_series<C: Canvas>(
 ///
 /// Cell-glyph art by construction: pixel targets substitute [`LineStyle::Pixels`]
 /// before drawing, so this only ever runs on a glyph canvas.
-fn draw_corners<C: Canvas>(surface: &mut C, layout: &Layout<'_>, x: &[f64], y: &[f64], color: Color) {
+fn draw_corners<C: Canvas>(
+    surface: &mut C,
+    layout: &Layout<'_>,
+    x: &[f64],
+    y: &[f64],
+    color: Color,
+) {
     let Layout {
         px,
         py,
