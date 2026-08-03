@@ -1,0 +1,14 @@
+[package]
+name = "fred"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "A Federal Reserve economic-data browser built on malevich — not published"
+
+[dependencies]
+malevich = { path = "../..", features = ["ratatui"] }
+ratatui = "0.30"
+crossterm = "0.28"
+ureq = "2"

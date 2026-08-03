@@ -13,7 +13,7 @@
 
 use malevich::{Area, Cells, Color, Line, LineStyle, Plot, Points, Rule};
 
-use super::data::{Catalog, Kind, Series, align, extent, step_series};
+use crate::data::{Catalog, Kind, Series, align, extent, step_series};
 
 /// The app's screens, in tab order.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -290,7 +290,7 @@ pub fn relations_charts(
 
     // Unemployment against CPI inflation on the same month, split into eras.
     let inflation = cpi.year_over_year();
-    let cutoff = super::data::parse_date("2000-01-01").expect("valid date");
+    let cutoff = crate::data::parse_date("2000-01-01").expect("valid date");
     let mut phillips = Plot::new()
         .title("Phillips curve: unemployment vs inflation, monthly")
         .x_label("unemployment %")
@@ -335,7 +335,7 @@ pub fn relations_charts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fred::data::Catalog;
+    use crate::data::Catalog;
 
     #[test]
     fn the_recession_toggle_changes_the_series_chart() {

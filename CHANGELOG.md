@@ -5,6 +5,12 @@ without apology.
 
 ## Unreleased
 
+- Second demo app: `sysmon`, a live system monitor (`cargo run -p sysmon`) — a
+  sampler thread streams CPU, memory, and network readings through
+  `stream::Ring` sliding windows (network counters via `stream::Rate`) into a
+  dashboard of pinned-axis area charts, an SI-prefixed bytes/s network chart, and
+  a per-core utilization heatmap with colorbar. Demos now live in per-app crates
+  (`demos/fred`, `demos/sysmon`).
 - New demo app (`demos/`, a separate unpublished workspace member): `fred`, a Federal
   Reserve economic-data browser in ratatui with five views — small-multiples overview,
   a series view (line/step/corners styles, calendar axis, log and year-over-year

@@ -6,15 +6,15 @@
 //! pure function in `malevich_demos::fred::views` — the same plots render in the
 //! TUI, in headless `--render` mode, and under test.
 //!
-//! Run with `cargo run -p malevich-demos --bin fred`. Headless:
-//! `cargo run -p malevich-demos --bin fred -- --render [view] [SERIES]`.
+//! Run with `cargo run -p fred`. Headless:
+//! `cargo run -p fred -- --render [view] [SERIES]`.
 
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::time::Duration;
 
+use fred::data::{Catalog, parse_csv};
+use fred::views::{self, Transform, View};
 use malevich::{Charset, LineStyle};
-use malevich_demos::fred::data::{Catalog, parse_csv};
-use malevich_demos::fred::views::{self, Transform, View};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -225,7 +225,7 @@ impl App {
         frame.render_widget(right.widget().charset(self.charset), right_area);
     }
 
-    fn series(&self) -> &malevich_demos::fred::data::Series {
+    fn series(&self) -> &fred::data::Series {
         &self.catalog.series[self.selected]
     }
 

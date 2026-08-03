@@ -157,7 +157,7 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    /// Loads the vendored snapshot (see `demos/data/README.md`).
+    /// Loads the vendored snapshot (see `demos/fred/data/README.md`).
     pub fn load() -> Catalog {
         let spec: [(&str, &str, &str, &str, usize, Kind, &str); 6] = [
             (
@@ -167,7 +167,7 @@ impl Catalog {
                 "%",
                 12,
                 Kind::Rate,
-                include_str!("../../data/unrate.csv"),
+                include_str!("../data/unrate.csv"),
             ),
             (
                 "CPIAUCSL",
@@ -176,7 +176,7 @@ impl Catalog {
                 "index",
                 12,
                 Kind::Index,
-                include_str!("../../data/cpi.csv"),
+                include_str!("../data/cpi.csv"),
             ),
             (
                 "GDPC1",
@@ -185,7 +185,7 @@ impl Catalog {
                 "bil. chained $",
                 4,
                 Kind::Index,
-                include_str!("../../data/gdp.csv"),
+                include_str!("../data/gdp.csv"),
             ),
             (
                 "FEDFUNDS",
@@ -194,7 +194,7 @@ impl Catalog {
                 "%",
                 12,
                 Kind::Rate,
-                include_str!("../../data/fedfunds.csv"),
+                include_str!("../data/fedfunds.csv"),
             ),
             (
                 "GS10",
@@ -203,7 +203,7 @@ impl Catalog {
                 "%",
                 12,
                 Kind::Rate,
-                include_str!("../../data/gs10.csv"),
+                include_str!("../data/gs10.csv"),
             ),
             (
                 "PAYEMS",
@@ -212,7 +212,7 @@ impl Catalog {
                 "thousands",
                 12,
                 Kind::Index,
-                include_str!("../../data/payems.csv"),
+                include_str!("../data/payems.csv"),
             ),
         ];
         Catalog {
@@ -232,7 +232,7 @@ impl Catalog {
                     }
                 })
                 .collect(),
-            recessions: recession_periods(include_str!("../../data/recession.csv")),
+            recessions: recession_periods(include_str!("../data/recession.csv")),
         }
     }
 

@@ -11,9 +11,9 @@ categories = ["visualization", "command-line-interface"]
 
 # Flagship TUI demo apps live in their own workspace member so their heavier deps
 # (ratatui, ureq) never touch the published crate or its CI. Build them explicitly:
-# `cargo run -p malevich-demos --bin fred`.
+# `cargo run -p fred`, `cargo run -p sysmon`.
 [workspace]
-members = ["demos"]
+members = ["demos/fred", "demos/sysmon"]
 # Keep the default build/test/lint set to malevich alone, so CI and `cargo test`
 # never pull the demos' heavier deps. Build a demo explicitly with `-p`.
 default-members = ["."]

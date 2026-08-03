@@ -1,48 +1,38 @@
 # malevich demos
 
 Flagship terminal apps built on [malevich](https://crates.io/crates/malevich) — real
-tools, not snippets, showing the library driving a live [ratatui](https://ratatui.rs)
-dashboard. This is a separate, unpublished workspace member, so its heavier
-dependencies (ratatui, ureq) never touch the malevich crate or its CI.
+tools, not snippets, showing the library driving live [ratatui](https://ratatui.rs)
+dashboards. Each app is its own unpublished workspace member, so their heavier
+dependencies (ratatui, ureq, sysinfo) never touch the malevich crate or its CI.
 
-Each demo splits three ways, mirroring malevich's own spec-then-render philosophy:
-a pure data layer (`src/fred/data.rs` — parsing, calendar math, transforms;
-unit-tested), a pure view layer (`src/fred/views.rs` — data in, `Plot` out), and a
-thin binary that owns the terminal. The same view functions power the TUI and the
-headless `--render` mode.
+Every demo splits three ways, mirroring malevich's own spec-then-render philosophy:
+a pure data layer (unit-tested), a pure view layer (data in, `Plot` out), and a thin
+binary that owns the terminal. The same view functions power the TUI and each app's
+headless `--render` mode, and the view code carries comments explaining each
+malevich concept it uses.
 
-## fred — a Federal Reserve economic-data browser
-
-```
-cargo run -p malevich-demos --bin fred
-```
-
-Five views over US economic data (unemployment, CPI, real GDP, fed funds, the
-10-year yield, nonfarm payrolls), each a different corner of malevich's catalog:
-
-| View | What it shows | Charts |
-|---|---|---|
-| **overview** | every series at a glance | six small-multiple line charts |
-| **series** | one series large, with transforms | line / step / corners styles, calendar axis, log scale, YoY, NBER recession ribbon, a 2% target rule on inflation |
-| **distribution** | how the series' changes distribute | histogram of period changes + level box plots by decade |
-| **seasonality** | period changes by month and year | heatmap with a colorbar (the 2021–22 inflation is one hot band) |
-| **relations** | cross-series classics | the Phillips-curve scatter split at 2000, and the 10y − fed-funds spread with its inversion rule |
-
-Keys:
-
-- `1–5`, `Tab`/`Shift-Tab`, `←/→` — switch view
-- `↑ ↓` / `j k` — pick a series
-- `t` — cycle the series transform: level → year-over-year → log axis
-- `c` — cycle the line style (braille pixels ↔ asciichart corners)
-- `g` — cycle the glyph charset (braille → octants → quadrants → half blocks)
-- `s` — toggle recession shading
-- `f` — refresh the selected series **live from FRED** (open CSV endpoint, no key)
-- `q` — quit
-
-It ships with a vendored snapshot (see [`data/README.md`](data/README.md)) so it runs
-offline. Headless mode prints any view and exits — handy for piping or screenshots:
+## [fred](fred/) — a Federal Reserve economic-data browser
 
 ```
-cargo run -p malevich-demos --bin fred -- --render seasonality CPIAUCSL
-cargo run -p malevich-demos --bin fred -- --render relations
+cargo run -p fred
 ```
+
+Five views over US economic data: a small-multiples overview, a series view
+(line/step/corners styles, calendar axis, log and year-over-year transforms, NBER
+recession shading, a 2% target rule on inflation), change histograms with decade box
+plots, a month-by-year seasonality heatmap with colorbar, and the Phillips-curve
+scatter plus the 10y − fed-funds spread. Vendored public-domain data; `f` refreshes
+live from FRED.
+
+## [sysmon](sysmon/) — a live system monitor
+
+```
+cargo run -p sysmon
+```
+
+The streaming story: a sampler thread pushes CPU, memory, and network readings into
+`malevich::stream::Ring` sliding windows (network counters through `stream::Rate`);
+the UI snapshots and redraws four times a second. A dashboard of filled area charts
+(CPU pinned to 0–100, memory to the machine total, network on an SI-prefixed
+bytes/s axis) and a per-core utilization heatmap with colorbar over instantaneous
+load bars.
