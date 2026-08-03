@@ -99,6 +99,10 @@ const GALLERY: &[(&str, &str)] = &[
         "steps",
         "Step charts: stairs hold values flat between indices; an ECDF climbs a distribution from zero to one.",
     ),
+    (
+        "charsets",
+        "The charset ladder: one curve at every subpixel density — solid blocks (octants, sextants, quadrants, half blocks), braille dots, and plain ASCII.",
+    ),
 ];
 
 /// Markdown files scanned for `<!-- generated:NAME -->` blocks.

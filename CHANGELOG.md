@@ -5,6 +5,9 @@ without apology.
 
 ## Unreleased
 
+- New gallery entry `charsets`: the same curve rendered across the whole charset
+  ladder — octants, sextants, quadrants, half blocks, braille, ASCII — so the
+  subpixel-density trade-off is finally visible in the docs, not just described.
 - Grid (side-by-side plots) now leaves a blank row between stacked rows, matching the
   blank column already between neighbors. A lower row's title no longer butts against
   the row above's axis labels — multi-row small multiples read as distinct plots.
