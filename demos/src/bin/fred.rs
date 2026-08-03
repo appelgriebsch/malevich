@@ -9,6 +9,7 @@
 //! Run with `cargo run -p malevich-demos --bin fred`. Headless:
 //! `cargo run -p malevich-demos --bin fred -- --render [view] [SERIES]`.
 
+use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::time::Duration;
 
 use malevich::{Charset, LineStyle};
@@ -20,6 +21,20 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::Line as TextLine;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Tabs};
 
+/// The outcome of a background fetch, delivered to the event loop by channel.
+enum Fetch {
+    Done {
+        index: usize,
+        id: &'static str,
+        dates: Vec<f64>,
+        values: Vec<f64>,
+    },
+    Failed {
+        id: &'static str,
+        error: String,
+    },
+}
+
 struct App {
     catalog: Catalog,
     view: View,
@@ -29,6 +44,9 @@ struct App {
     charset: Charset,
     shade_recessions: bool,
     status: String,
+    /// An in-flight live fetch, if any. Fetches run on their own thread — a slow
+    /// or stalled network must never freeze the event loop.
+    fetch: Option<Receiver<Fetch>>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -41,6 +59,7 @@ fn main() -> std::io::Result<()> {
         charset: Charset::Braille,
         shade_recessions: true,
         status: String::from("vendored snapshot — press f to refresh live from FRED"),
+        fetch: None,
     };
 
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -51,6 +70,7 @@ fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
     let mut list_state = ListState::default();
     let result = loop {
+        app.poll_fetch();
         list_state.select(Some(app.selected));
         terminal.draw(|frame| app.draw(frame, &mut list_state))?;
 
@@ -126,7 +146,14 @@ impl App {
                     views::seasonality_chart(self.series(), body.height.saturating_sub(4) as usize);
                 frame.render_widget(chart.widget().charset(self.charset), body);
             }
-            View::Relations => self.draw_split(frame, body, views::relations_charts(&self.catalog)),
+            View::Relations => {
+                let charts = views::relations_charts(
+                    &self.catalog,
+                    self.shade_recessions
+                        .then_some(self.catalog.recessions.as_slice()),
+                );
+                self.draw_split(frame, body, charts);
+            }
         }
 
         frame.render_widget(
@@ -181,6 +208,11 @@ impl App {
         frame.render_widget(chart.widget().charset(self.charset), chart_area);
     }
 
+    /// Renders two plots side by side. `plot.widget()` is malevich's ratatui
+    /// adapter: it rasterizes into the widget's own `Rect` at draw time — cells
+    /// written straight into the ratatui `Buffer`, colors mapped onto cell styles,
+    /// no ANSI round-trip — so the same `Plot` value works at any pane size, and
+    /// `.charset(...)` picks the glyph tier per widget.
     fn draw_split(
         &self,
         frame: &mut ratatui::Frame,
@@ -212,36 +244,83 @@ impl App {
                 .map(|c| format!("{}{c:.1}", if c >= 0.0 { "+" } else { "" }))
                 .unwrap_or_else(|| "—".into()),
         ));
-        let keys = TextLine::from(
-            " [1-5/tab] view  [jk] series  [t] transform  [c] line  [g] glyphs  [s] recessions  [f] fetch  [q] quit ",
-        )
+        let keys = TextLine::from(format!(
+            " [1-5/tab] view  [jk] series  [t] transform  [c] line  [g] glyphs  [s] recessions: {}  [f] fetch  [q] quit ",
+            if self.shade_recessions { "on" } else { "off" },
+        ))
         .style(Style::default().add_modifier(Modifier::DIM));
         let status = TextLine::from(format!(" {} · source: {}", self.status, series.source))
             .style(Style::default().add_modifier(Modifier::DIM));
         vec![stats, keys, status]
     }
 
-    /// Fetches the selected series fresh from FRED, replacing its observations.
+    /// Starts fetching the selected series from FRED on a background thread. The
+    /// event loop stays live; [`App::poll_fetch`] applies the result when it lands.
     fn refresh_selected(&mut self) {
-        let series = &mut self.catalog.series[self.selected];
-        let url = format!(
-            "https://fred.stlouisfed.org/graph/fredgraph.csv?id={}",
-            series.id
-        );
-        let fetched = ureq::get(&url)
-            .call()
-            .map_err(|error| error.to_string())
-            .and_then(|response| response.into_string().map_err(|error| error.to_string()));
-        self.status = match fetched {
-            Ok(body) => {
-                let (dates, values) = parse_csv(&body);
+        if self.fetch.is_some() {
+            self.status = String::from("a fetch is already in flight");
+            return;
+        }
+        let index = self.selected;
+        let id = self.series().id;
+        self.status = format!("fetching {id} from FRED…");
+        let (sender, receiver) = channel();
+        self.fetch = Some(receiver);
+        std::thread::spawn(move || {
+            let agent = ureq::AgentBuilder::new()
+                .timeout(Duration::from_secs(10))
+                .build();
+            let url = format!("https://fred.stlouisfed.org/graph/fredgraph.csv?id={id}");
+            let fetched = agent
+                .get(&url)
+                .call()
+                .map_err(|error| error.to_string())
+                .and_then(|response| response.into_string().map_err(|error| error.to_string()));
+            let message = match fetched {
+                Ok(body) => {
+                    let (dates, values) = parse_csv(&body);
+                    Fetch::Done {
+                        index,
+                        id,
+                        dates,
+                        values,
+                    }
+                }
+                Err(error) => Fetch::Failed { id, error },
+            };
+            // The receiver may be gone if the app quit; nothing to do then.
+            let _ = sender.send(message);
+        });
+    }
+
+    /// Applies a finished background fetch, if one has landed.
+    fn poll_fetch(&mut self) {
+        let Some(receiver) = &self.fetch else { return };
+        match receiver.try_recv() {
+            Ok(Fetch::Done {
+                index,
+                id,
+                dates,
+                values,
+            }) => {
                 let points = values.len();
-                series.dates = dates;
-                series.values = values;
-                format!("refreshed {} live ({points} observations)", series.id)
+                if let Some(series) = self.catalog.series.get_mut(index) {
+                    series.dates = dates;
+                    series.values = values;
+                }
+                self.status = format!("refreshed {id} live ({points} observations)");
+                self.fetch = None;
             }
-            Err(error) => format!("live fetch failed: {error}"),
-        };
+            Ok(Fetch::Failed { id, error }) => {
+                self.status = format!("fetch {id} failed: {error}");
+                self.fetch = None;
+            }
+            Err(TryRecvError::Empty) => {}
+            Err(TryRecvError::Disconnected) => {
+                self.status = String::from("fetch thread died");
+                self.fetch = None;
+            }
+        }
     }
 }
 
@@ -282,7 +361,11 @@ fn render_headless(app: &mut App, args: &[String]) -> std::io::Result<()> {
         }
         View::Seasonality => vec![views::seasonality_chart(app.series(), 24)],
         View::Relations => {
-            let (phillips, spread) = views::relations_charts(&app.catalog);
+            let (phillips, spread) = views::relations_charts(
+                &app.catalog,
+                app.shade_recessions
+                    .then_some(app.catalog.recessions.as_slice()),
+            );
             vec![phillips, spread]
         }
     };
