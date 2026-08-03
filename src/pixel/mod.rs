@@ -11,8 +11,12 @@
 //! of the plot, the frame, and the graphics configuration, deterministic and
 //! snapshot-testable like every other output path.
 
+mod base64;
 mod canvas;
 mod font;
+mod iterm;
+mod kitty;
+mod png;
 mod render;
 mod sixel;
 
@@ -27,6 +31,12 @@ pub enum Protocol {
     /// widely spoken pixel protocol — xterm, iTerm2, WezTerm, foot, Konsole,
     /// Windows Terminal, VS Code.
     Sixel,
+    /// The kitty graphics protocol: raw RGBA with real alpha, the most capable
+    /// of the three. kitty, Ghostty, WezTerm, Konsole.
+    Kitty,
+    /// iTerm2 inline images (OSC 1337): a PNG pinned to the panel's cell box.
+    /// iTerm2, WezTerm, Konsole, VS Code, mintty.
+    ITerm2,
 }
 
 /// How to draw the plot panel as pixels: which protocol, at what cell size.

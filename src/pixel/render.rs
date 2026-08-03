@@ -8,7 +8,7 @@
 
 use std::fmt::Write as _;
 
-use super::{Graphics, PixelCanvas, Protocol, sixel};
+use super::{Graphics, PixelCanvas, Protocol, iterm, kitty, sixel};
 use crate::plot::{Frame, Plot};
 use crate::render::PlotRect;
 
@@ -29,6 +29,8 @@ pub(crate) fn render(plot: &Plot<'_>, frame: &Frame, graphics: &Graphics) -> Str
     }
     let payload = match graphics.protocol {
         Protocol::Sixel => sixel::encode(&image),
+        Protocol::Kitty => kitty::encode(&image),
+        Protocol::ITerm2 => iterm::encode(&image, rect.columns, rect.rows),
     };
     out.push_str("\x1b7\r");
     let up = frame.height - 1 - rect.top;
