@@ -3,6 +3,13 @@
 Notable changes, written for humans. Since 1.0, breaking changes mean a major
 release; the pre-1.0 entries below recorded breakage freely, without apology.
 
+## 1.14.1 — 2026-08-05
+
+- `Plot::evcxr_display` now emits a `text/plain` cell plot alongside the HTML
+  card, so the plot shows in frontends that cannot render HTML — notably the
+  terminal `evcxr` REPL, where it previously appeared blank. Jupyter still renders
+  the card; each frontend picks the richest representation it supports.
+
 ## 1.14.0 (An Englishman in Moscow) — 2026-08-04
 
 Rich display in Rust notebooks, as the same complete cell grid malevich already
