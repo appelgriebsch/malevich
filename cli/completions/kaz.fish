@@ -1,0 +1,45 @@
+# fish completion for kaz. Hand-written; the packaging test guards it against
+# drift with the subcommand table.
+#
+# Install: copy to ~/.config/fish/completions/kaz.fish
+
+# Chart subcommands (only as the first argument).
+complete -c kaz -n __fish_use_subcommand -a line    -d 'line chart, one line per series'
+complete -c kaz -n __fish_use_subcommand -a scatter -d 'scatter plot'
+complete -c kaz -n __fish_use_subcommand -a bar     -d 'one bar per label'
+complete -c kaz -n __fish_use_subcommand -a hist    -d 'histogram'
+complete -c kaz -n __fish_use_subcommand -a count   -d 'value frequencies'
+complete -c kaz -n __fish_use_subcommand -a density -d 'kernel density estimate'
+complete -c kaz -n __fish_use_subcommand -a ecdf    -d 'empirical cumulative distribution'
+complete -c kaz -n __fish_use_subcommand -a box     -d 'box plot per column'
+complete -c kaz -n __fish_use_subcommand -a violin  -d 'violin plot per column'
+complete -c kaz -n __fish_use_subcommand -a hist2d  -d '2D histogram'
+complete -c kaz -n __fish_use_subcommand -a heatmap -d 'shade a row-major matrix'
+
+# Global flags.
+complete -c kaz -s o -r -d 'plot destination (- for stdout, or FILE)'
+complete -c kaz -s O    -d 'pass input through to stdout'
+complete -c kaz -s d -x -d 'field separator'
+complete -c kaz -s H    -d 'first row is a header'
+complete -c kaz -l fmt -x -a 'y xy xyy xyxy yx' -d 'column mapping'
+complete -c kaz -s w -x -d 'width in cells'
+complete -c kaz -s h -x -d 'height in cells'
+complete -c kaz -s t -x -d 'title'
+complete -c kaz -l xlabel -x -d 'x-axis title'
+complete -c kaz -l ylabel -x -d 'y-axis title'
+complete -c kaz -l xlim -x -d 'fix x range A,B'
+complete -c kaz -l ylim -x -d 'fix y range A,B'
+complete -c kaz -l log-x -d 'log-scale x'
+complete -c kaz -l log-y -d 'log-scale y'
+complete -c kaz -l time-x -d 'read x as time'
+complete -c kaz -l bins -x -d 'histogram bin count'
+complete -c kaz -l color   -x -a 'auto always never' -d 'when to color'
+complete -c kaz -l charset -x -a 'auto ascii half quad sextant braille octant' -d 'glyph tier'
+complete -c kaz -l pixels  -x -a 'auto always never' -d 'pixel image panel'
+complete -c kaz -s q -d 'suppress the unparsed tally'
+complete -c kaz -l live   -d 'stream stdin, repaint in place'
+complete -c kaz -l window -x -d 'live window length'
+complete -c kaz -l fps    -x -d 'live repaint rate'
+complete -c kaz -l rate   -d 'plot counter deltas'
+complete -c kaz -l version -d 'print version'
+complete -c kaz -l help    -d 'show help'

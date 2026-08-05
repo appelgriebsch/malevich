@@ -1,0 +1,34 @@
+[package]
+name = "malevich-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "kaz: pipe data to an honest terminal plot — a stdin-first CLI over malevich"
+repository = "https://github.com/shergin/malevich"
+license = "MIT OR Apache-2.0"
+keywords = ["plot", "chart", "terminal", "cli", "visualization"]
+categories = ["command-line-utilities", "visualization"]
+readme = "README.md"
+
+# The crate name carries discoverability (search "malevich", browse the repo);
+# the binary name carries ergonomics — `kaz`, for Kazimir Malevich. Renaming a
+# binary pre-1.0 is one line; renaming a published crate is a tombstone. This is
+# the YouPlot precedent (gem `youplot`, binary `uplot`).
+[[bin]]
+name = "kaz"
+path = "src/main.rs"
+
+[dependencies]
+# The CLI contains zero rendering logic: it parses arguments, frames stdin, and
+# calls the public malevich API. `pixel` rides along so a plot from a pipe can
+# upgrade to a real image where the terminal speaks the protocol (D-C10).
+malevich = { path = "..", version = "1.13", features = ["pixel"] }
+# lexopt over clap: ~0 extra deps, no proc-macro tree, and enough for two-level
+# subcommands. The cost — writing --help by hand — is the point: curated,
+# runnable pipeline examples, reviewed like the gallery (D-C8).
+lexopt = "0.3"
+
+# Only for the live-mode SIGINT handler that restores the cursor on Ctrl-C.
+# Already in the tree transitively, so this adds no new crate.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

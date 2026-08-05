@@ -27,6 +27,23 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  # The published CLI crate (`kaz`) is a workspace member kept out of the default
+  # set, so every job above builds the library alone. This job is its own gate —
+  # additive, so core CI stays exactly as it was.
+  cli:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt -p malevich-cli --check
+      - run: cargo clippy -p malevich-cli --all-targets -- -D warnings
+      - run: cargo test -p malevich-cli
+
   # The declared MSRV actually builds. Library + optional features only — dev-deps
   # (criterion, ratatui) are free to require newer toolchains.
   msrv:

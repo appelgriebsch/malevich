@@ -194,6 +194,24 @@ mean a 2.0), guarded in CI by `cargo-semver-checks` against the last published
 release. The concept vocabulary is documented in [TERMINOLOGY.md](TERMINOLOGY.md)
 and changes are in the [CHANGELOG](CHANGELOG.md).
 
+## Command line
+
+The same renderer, from any shell. [`kaz`](cli/) (crate
+[`malevich-cli`](cli/README.md)) is a stdin-first plotter — one subcommand per
+chart, plot on stderr, data passthrough on stdout so it can sit mid-pipeline:
+
+```sh
+cargo install malevich-cli               # installs the `kaz` binary
+cat loss.tsv | kaz line -t training
+awk '{print $5}' access.log | kaz hist
+cut -f2 species.tsv | kaz count
+cat data.tsv | kaz line -O | next-tool   # plot on stderr, data flows on
+```
+
+It contains zero rendering logic — argument parsing, stdin framing, and calls
+into this crate's public API — which makes it the proof that a pure
+string-renderer is enough. Details in [cli/README.md](cli/README.md).
+
 ## What it will not be
 
 Not a TUI framework (it never owns the terminal or handles input). No animations. No

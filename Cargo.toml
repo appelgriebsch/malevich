@@ -14,11 +14,13 @@ exclude = ["examples/*.png"]
 
 # Flagship TUI demo apps live in their own workspace member so their heavier deps
 # (ratatui, ureq) never touch the published crate or its CI. Build them explicitly:
-# `cargo run -p fred`, `cargo run -p sysmon`.
+# `cargo run -p fred`, `cargo run -p sysmon`. The `kaz` CLI (crate `malevich-cli`)
+# is a member too — published, but versioned on its own and kept out of the
+# default set so core CI and `cargo test` stay the library alone.
 [workspace]
-members = ["demos/fred", "demos/sysmon"]
+members = ["cli", "demos/fred", "demos/sysmon"]
 # Keep the default build/test/lint set to malevich alone, so CI and `cargo test`
-# never pull the demos' heavier deps. Build a demo explicitly with `-p`.
+# never pull the demos' or the CLI's deps. Build a member explicitly with `-p`.
 default-members = ["."]
 resolver = "3"
 

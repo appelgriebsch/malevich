@@ -1,0 +1,95 @@
+//! Stream wiring: build the frame for the destination, render at the chosen tier,
+//! and write — plot to its target, data through to stdout (D-C4, D-C10).
+
+use std::fs::File;
+use std::io::{self, IsTerminal, Write};
+
+use malevich::{Frame, Plot};
+
+use crate::args::{Args, CharsetChoice, ColorChoice, Output, PixelsChoice};
+use crate::chart::Built;
+
+/// Translates the `--color` escape hatch onto the environment variables whose
+/// precedence malevich already documents (`NO_COLOR` > `CLICOLOR_FORCE` > tty),
+/// so [`Frame::detect_for`] stays the single source of truth for color tiers —
+/// no detection logic is duplicated here.
+///
+/// Must run before any thread is spawned.
+pub fn apply_color(choice: ColorChoice) {
+    // SAFETY: called once at startup on the main thread, before the program
+    // spawns any thread or otherwise reads the environment concurrently.
+    match choice {
+        ColorChoice::Never => unsafe { std::env::set_var("NO_COLOR", "1") },
+        ColorChoice::Always => unsafe {
+            // An explicit flag beats ambient configuration: an inherited
+            // NO_COLOR must not silence `--color always`.
+            std::env::remove_var("NO_COLOR");
+            std::env::set_var("CLICOLOR_FORCE", "1");
+        },
+        ColorChoice::Auto => {}
+    }
+}
+
+/// Renders and writes the plot to its destination and reports the unparsed-field
+/// tally. Returns the process exit code. (`-O` passthrough already happened at
+/// read time, line by line — see `main::read_input`.)
+pub fn emit(args: &Args, built: &Built) -> io::Result<i32> {
+    match &args.output {
+        Output::Stderr => plot_to(io::stderr(), &built.plot, args)?,
+        Output::Stdout => plot_to(io::stdout(), &built.plot, args)?,
+        Output::File(path) => {
+            let file = File::create(path)?;
+            plot_to(file, &built.plot, args)?;
+        }
+    }
+
+    // The tally rides stderr after the plot: data loss must be visible, but a
+    // handful of bad log lines is not fatal (D-C6).
+    if built.unparsed > 0 && !args.quiet {
+        let noun = if built.unparsed == 1 {
+            "value"
+        } else {
+            "values"
+        };
+        eprintln!("{} {noun} could not be parsed", built.unparsed);
+    }
+    Ok(0)
+}
+
+/// Builds the frame for `dest`, renders the plot at the chosen tier, and writes it.
+fn plot_to<W: Write + IsTerminal>(mut dest: W, plot: &Plot<'_>, args: &Args) -> io::Result<()> {
+    let frame = frame_for(&dest, args);
+    let text = render(plot, &frame, args.pixels, dest.is_terminal());
+    dest.write_all(text.as_bytes())?;
+    dest.write_all(b"\n")?;
+    dest.flush()
+}
+
+/// The frame for a destination: detection keyed to `dest`, then the `--charset`
+/// and `-w`/`-h` overrides. Color comes through [`Frame::detect_for`] because
+/// [`apply_color`] has already primed the environment.
+pub(crate) fn frame_for<T: IsTerminal>(dest: &T, args: &Args) -> Frame {
+    let mut frame = Frame::detect_for(dest);
+    if let CharsetChoice::Fixed(charset) = args.charset {
+        frame.charset = charset;
+    }
+    if let Some(width) = args.width {
+        frame.width = width;
+    }
+    if let Some(height) = args.height {
+        frame.height = height;
+    }
+    frame
+}
+
+/// Chooses the render tier. `render_best` upgrades the panel to a real image when
+/// a pixel protocol is detected and falls back to cells otherwise, so `auto` only
+/// attempts it for a terminal destination and `always` attempts it regardless.
+fn render(plot: &Plot<'_>, frame: &Frame, pixels: PixelsChoice, dest_is_terminal: bool) -> String {
+    match pixels {
+        PixelsChoice::Never => plot.render(frame),
+        PixelsChoice::Auto if dest_is_terminal => plot.render_best(frame),
+        PixelsChoice::Auto => plot.render(frame),
+        PixelsChoice::Always => plot.render_best(frame),
+    }
+}
