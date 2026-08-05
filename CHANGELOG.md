@@ -3,6 +3,26 @@
 Notable changes, written for humans. Since 1.0, breaking changes mean a major
 release; the pre-1.0 entries below recorded breakage freely, without apology.
 
+## 1.14.0 (An Englishman in Moscow) — 2026-08-04
+
+Rich display in Rust notebooks, as the same complete cell grid malevich already
+renders everywhere else. Additive, dependency-free, and behind an opt-in feature;
+terminal and default-feature output are unchanged.
+
+- New `evcxr` feature: a `Plot` ending an Evcxr Jupyter cell now renders as a
+  self-contained `text/html` terminal card through the conventional
+  `evcxr_display` method. The default is a notebook-sized 100×26 braille frame;
+  `Plot::to_html(&frame)` is the pure deterministic path for explicit size,
+  charset, and light/dark theme control.
+- The cell surface has an HTML encoder parallel to its ANSI encoder: concrete RGB
+  colors collapse into `<span>` runs, default-colored chrome inherits the card
+  foreground, row whitespace trims identically, and every glyph escapes HTML
+  content. Inline card styling contains wide plots with horizontal scrolling and
+  keeps braille rows tightly connected. No new dependency and no duplicated plot
+  rendering logic.
+- New inspectable example:
+  `cargo run --example evcxr --features evcxr > plot.html`.
+
 ## 1.13.0 (The Knife Grinder) — 2026-08-04
 
 Enablers for the `kaz` CLI (crate `malevich-cli`, released alongside — a
