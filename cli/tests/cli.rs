@@ -17,12 +17,21 @@ fn run(args: &[&str], input: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn kaz");
-    child
+    // A child that rejects its arguments exits without reading stdin, so this
+    // write can race a closed pipe — that is the scenario under test, not a
+    // harness failure.
+    let write = child
         .stdin
         .take()
         .expect("stdin")
-        .write_all(input.as_bytes())
-        .expect("write stdin");
+        .write_all(input.as_bytes());
+    if let Err(error) = write {
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::BrokenPipe,
+            "write stdin: {error}"
+        );
+    }
     child.wait_with_output().expect("wait for kaz")
 }
 
