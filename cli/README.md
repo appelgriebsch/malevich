@@ -51,11 +51,14 @@ awk '{print $9}' access.log | kaz count -t 'status codes'
 ## Install
 
 ```sh
-cargo install malevich-cli      # installs the `kaz` binary
+brew install shergin/tap/kaz     # Homebrew (builds from source)
+cargo install malevich-cli       # or via cargo
 ```
 
-Shell completions (bash, zsh, fish) live in [`completions/`](completions/) and a
-man page in [`man/kaz.1`](man/kaz.1) — for example:
+The Homebrew formula ([`homebrew/kaz.rb`](homebrew/kaz.rb)) also installs the
+completions and man page. Shell completions (bash, zsh, fish) live in
+[`completions/`](completions/) and a man page in [`man/kaz.1`](man/kaz.1) — to
+wire them up by hand:
 
 ```sh
 cp completions/kaz.fish ~/.config/fish/completions/   # fish

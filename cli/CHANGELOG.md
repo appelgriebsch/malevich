@@ -37,4 +37,7 @@ M-C3 in one cut.
   producer-buffering footgun (`stdbuf -oL`, `grep --line-buffered`, `fflush`).
 - Packaging: hand-written shell completions (bash, zsh, fish) under
   `completions/` and a man page at `man/kaz.1`, both guarded against subcommand
-  drift by a test.
+  drift by a test. A Homebrew tap (`shergin/homebrew-tap`) whose formula —
+  canonically `homebrew/kaz.rb` — builds from source and installs the binary,
+  completions, and man page (`brew install shergin/tap/kaz`). Prebuilt bottles
+  (release CI) are the remaining reach.
