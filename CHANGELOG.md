@@ -3,6 +3,21 @@
 Notable changes, written for humans. Since 1.0, breaking changes mean a major
 release; the pre-1.0 entries below recorded breakage freely, without apology.
 
+## 1.13.0 (The Knife Grinder) — 2026-08-04
+
+Enablers for the `kaz` CLI (crate `malevich-cli`, released alongside — a
+stdin-pipe plotter built entirely on the public API). Additive and
+cell-output-neutral.
+
+- `Frame::detect_for(&impl IsTerminal)`: the full `detect()` ladder, but with
+  the color gate keyed to the destination the caller actually writes to rather
+  than always stdout. A tool that plots to stderr while data flows on stdout
+  detects against stderr — otherwise a piped stdout would strip color from a
+  plot going to a live terminal. `detect()` is now
+  `detect_for(&std::io::stdout())`; `NO_COLOR` / `CLICOLOR_FORCE` / `TERM=dumb`
+  keep their precedence, and size still comes from whichever standard stream is
+  a terminal.
+
 ## 1.12.0 (Cow and Violin) — 2026-08-03
 
 The pixel release. Malevich painted a cow onto a cubist composition to collide
