@@ -3,6 +3,8 @@
 **Terminal plotting for Rust: a small grammar of marks, honest axes, millions of
 points.**
 
+![Malevich terminal rendering in octants and pixels](examples/suprematist-composition.png)
+
 Eight marks. A real statistics layer. Ten million points in 28 milliseconds. Axes
 placed by the same algorithm the visualization literature settled on — with labels
 that are exact decimals, never `0.30000000000000004`. All of it in plain values that

@@ -10,7 +10,7 @@ keywords = ["plot", "chart", "terminal", "ascii", "visualization"]
 categories = ["visualization", "command-line-interface"]
 # README screenshots live in the repo (crates.io rewrites the relative links to
 # GitHub), but must not bloat the published crate.
-exclude = ["examples/*.png"]
+exclude = ["examples/*.png", "examples/*.jpg"]
 
 # Flagship TUI demo apps live in their own workspace member so their heavier deps
 # (ratatui, ureq) never touch the published crate or its CI. Build them explicitly:

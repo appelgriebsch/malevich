@@ -120,6 +120,7 @@ const EXEMPT: &[&str] = &[
     "readme_bars",
     "pixels",
     "evcxr",
+    "suprematist",
 ];
 
 fn main() {
