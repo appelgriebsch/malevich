@@ -166,7 +166,10 @@ fn install_interrupt_handler() {
         // SAFETY: registering a signal handler that only stores into an atomic —
         // async-signal-safe — once, at startup, before the reader thread spawns.
         unsafe {
-            libc::signal(libc::SIGINT, on_interrupt as usize as libc::sighandler_t);
+            libc::signal(
+                libc::SIGINT,
+                on_interrupt as *const () as usize as libc::sighandler_t,
+            );
         }
     }
 }
