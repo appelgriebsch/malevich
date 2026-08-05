@@ -191,6 +191,39 @@ impl<'a> Plot<'a> {
         self.rasterize(frame).encode(frame.color)
     }
 
+    /// Renders the complete plot as a self-contained HTML terminal card.
+    ///
+    /// The cell grid is placed in a styled `<pre>` element: default-colored
+    /// chrome inherits the card foreground, while mark colors become concrete RGB
+    /// spans. The frame's color mode is ignored because HTML always carries RGB;
+    /// its size, charset, and theme still apply. Rendering is pure and deterministic
+    /// for a given plot and frame.
+    #[cfg(feature = "evcxr")]
+    pub fn to_html(&self, frame: &Frame) -> String {
+        use std::fmt::Write as _;
+
+        let content = self.rasterize(frame).encode_html();
+        let (background, foreground) = crate::render::card(frame.theme);
+        let mut html = String::with_capacity(content.len() + 320);
+        let _ = write!(
+            html,
+            "<pre style=\"margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;background-color:{background};color:{foreground}\">{content}</pre>"
+        );
+        html
+    }
+
+    /// Displays this plot as rich HTML when it is the last expression in an Evcxr
+    /// Jupyter cell.
+    ///
+    /// The default notebook frame is a 100×26 braille grid with the dark theme.
+    /// Use [`Plot::to_html`] with a custom [`Frame`] when explicit size, charset,
+    /// or theme control is needed.
+    #[cfg(feature = "evcxr")]
+    pub fn evcxr_display(&self) {
+        let html = self.to_html(&Frame::plain(100, 26));
+        println!("{}", crate::render::mime_bundle(&html));
+    }
+
     /// Checks the spec against the invariants the constructors enforce — paired
     /// channel lengths, rectangular grids, valid colormaps — plus finite manual
     /// domains and scale/domain compatibility, without rendering. Returns the first

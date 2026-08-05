@@ -345,6 +345,61 @@ fn a_sampled_function_matches_its_snapshot() {
     assert_eq!(plot.render(&Frame::plain(26, 7)), SINE);
 }
 
+#[cfg(feature = "evcxr")]
+const HTML_GRID: &str = r#"    a &lt; b &amp; c
+3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
+  │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
+1 ┤<span style="color:#00cdcd">⡠⠔⠁</span>
+  └┬─────────────┬
+   0             2"#;
+
+#[cfg(feature = "evcxr")]
+const DARK_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;background-color:#0d1117;color:#e6edf3">    a &lt; b &amp; c
+3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
+  │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
+1 ┤<span style="color:#00cdcd">⡠⠔⠁</span>
+  └┬─────────────┬
+   0             2</pre>"##;
+
+#[cfg(feature = "evcxr")]
+const LIGHT_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;background-color:#ffffff;color:#1f2328">    a &lt; b &amp; c
+3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
+  │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
+1 ┤<span style="color:#00cdcd">⡠⠔⠁</span>
+  └┬─────────────┬
+   0             2</pre>"##;
+
+#[cfg(feature = "evcxr")]
+fn html_snapshot_plot() -> Plot<'static> {
+    Plot::new()
+        .layer(Line::y(vec![1.0, 3.0, 2.0]).color(crate::Color::Cyan))
+        .title("a < b & c")
+}
+
+#[cfg(feature = "evcxr")]
+#[test]
+fn the_html_cell_grid_matches_its_snapshot() {
+    let plot = html_snapshot_plot();
+    assert_eq!(
+        plot.rasterize(&Frame::plain(18, 6)).encode_html(),
+        HTML_GRID
+    );
+}
+
+#[cfg(feature = "evcxr")]
+#[test]
+fn html_cards_match_their_dark_and_light_snapshots() {
+    let plot = html_snapshot_plot();
+    let dark = Frame::plain(18, 6);
+    assert_eq!(plot.to_html(&dark), DARK_HTML);
+
+    let light = Frame {
+        theme: crate::Theme::LIGHT,
+        ..dark
+    };
+    assert_eq!(plot.to_html(&light), LIGHT_HTML);
+}
+
 #[test]
 fn a_well_formed_plot_validates_and_try_renders() {
     let plot = crate::scatter(&[1.0, 2.0, 3.0][..], &[3.0, 1.0, 2.0][..]).title("ok");

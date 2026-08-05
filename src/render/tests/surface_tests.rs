@@ -171,3 +171,52 @@ fn colored_rows_end_with_a_reset_even_after_trimming() {
     let encoded = surface.encode(ColorMode::Ansi16);
     assert_eq!(encoded, "\x1b[32m*\x1b[0m");
 }
+
+#[cfg(feature = "evcxr")]
+#[test]
+fn html_escapes_every_glyph_that_can_open_markup() {
+    let mut surface = Surface::new(3, 1, Charset::Ascii);
+    surface.text(0, 0, "<&>", Color::Default);
+    assert_eq!(surface.encode_html(), "&lt;&amp;&gt;");
+}
+
+#[cfg(feature = "evcxr")]
+#[test]
+fn html_collapses_concrete_rgb_runs() {
+    let mut surface = Surface::new(4, 1, Charset::Ascii);
+    surface.set(0, 0, Color::Red);
+    surface.set(1, 0, Color::Rgb(205, 0, 0));
+    surface.set(2, 0, Color::Blue);
+    assert_eq!(
+        surface.encode_html(),
+        "<span style=\"color:#cd0000\">**</span><span style=\"color:#0000ee\">*</span>"
+    );
+}
+
+#[cfg(feature = "evcxr")]
+#[test]
+fn default_html_color_inherits_without_a_span() {
+    let mut surface = Surface::new(3, 1, Charset::Ascii);
+    surface.set(0, 0, Color::Red);
+    surface.set(1, 0, Color::Default);
+    surface.set(2, 0, Color::Red);
+    let html = surface.encode_html();
+    assert_eq!(
+        html,
+        "<span style=\"color:#cd0000\">*</span>*<span style=\"color:#cd0000\">*</span>"
+    );
+    assert!(!html.contains("#808080"));
+}
+
+#[cfg(feature = "evcxr")]
+#[test]
+fn html_spaces_extend_runs_and_trailing_spaces_are_trimmed() {
+    let mut surface = Surface::new(6, 2, Charset::Ascii);
+    surface.text(0, 0, "x", Color::Green);
+    surface.text(2, 0, "x", Color::Green);
+    surface.text(1, 1, "y", Color::Blue);
+    assert_eq!(
+        surface.encode_html(),
+        "<span style=\"color:#00cd00\">x x</span>\n <span style=\"color:#0000ee\">y</span>"
+    );
+}

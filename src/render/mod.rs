@@ -9,6 +9,8 @@
 mod canvas;
 mod charset;
 mod color;
+#[cfg(feature = "evcxr")]
+mod html;
 mod surface;
 mod width;
 
@@ -19,5 +21,7 @@ pub use charset::Charset;
 pub use color::{Color, ColorMode};
 #[cfg(feature = "pixel")]
 pub(crate) use color::{ansi256_to_rgb, rgb_to_256};
+#[cfg(feature = "evcxr")]
+pub(crate) use html::{card, mime_bundle};
 pub use surface::Surface;
 pub(crate) use width::{display_width, fit_width_with};

@@ -238,6 +238,52 @@ impl Surface {
         out
     }
 
+    /// Encodes the cell grid as HTML element content with concrete-RGB span runs.
+    ///
+    /// Default-colored glyphs inherit from their enclosing element. Rows are
+    /// newline-joined with trailing spaces trimmed, just like [`Surface::encode`].
+    #[cfg(feature = "evcxr")]
+    pub(crate) fn encode_html(&self) -> String {
+        use std::fmt::Write as _;
+
+        let mut out = String::with_capacity((self.width + 32) * self.height);
+        for row in 0..self.height {
+            if row > 0 {
+                out.push('\n');
+            }
+            let mut current = None;
+            let mut kept = out.len();
+            for (glyph, color) in self.row(row) {
+                // Spaces carry no visible color; letting them inherit the current
+                // one lengthens runs and keeps trailing whitespace trimmable.
+                if glyph != ' ' {
+                    let next = match color {
+                        Color::Default => None,
+                        color => Some(color.to_rgb()),
+                    };
+                    if next != current {
+                        if current.is_some() {
+                            out.push_str("</span>");
+                        }
+                        if let Some((r, g, b)) = next {
+                            let _ = write!(out, "<span style=\"color:#{r:02x}{g:02x}{b:02x}\">");
+                        }
+                        current = next;
+                    }
+                }
+                super::html::escape(glyph, &mut out);
+                if glyph != ' ' {
+                    kept = out.len();
+                }
+            }
+            out.truncate(kept);
+            if current.is_some() {
+                out.push_str("</span>");
+            }
+        }
+        out
+    }
+
     /// Every printable cell as `(column, row, glyph, color)`, skipping wide-glyph
     /// continuations (the glyph to their left covers them). For adapters that write
     /// into cell buffers instead of strings.

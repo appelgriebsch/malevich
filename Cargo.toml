@@ -37,6 +37,7 @@ unicode-width = "0.2"
 rustix = { version = "1", features = ["termios"], optional = true }
 
 [features]
+evcxr = []
 ndarray = ["dep:ndarray"]
 pixel = ["dep:rustix"]
 ratatui = ["dep:ratatui-core"]
@@ -58,6 +59,10 @@ required-features = ["ratatui"]
 [[example]]
 name = "pixels"
 required-features = ["pixel"]
+
+[[example]]
+name = "evcxr"
+required-features = ["evcxr"]
 
 [[bench]]
 name = "ticks"

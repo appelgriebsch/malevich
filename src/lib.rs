@@ -36,6 +36,9 @@
 //!
 //! # Features
 //!
+//! - `evcxr` — rich HTML display for Evcxr Jupyter notebooks through
+//!   [`Plot::evcxr_display`], plus deterministic [`Plot::to_html`] rendering for
+//!   custom notebook frames.
 //! - `ndarray` — one-dimensional arrays and views plot directly; contiguous
 //!   storage is zero-copy.
 //! - `pixel` — the plot panel as a real image (sixel, kitty graphics, or iTerm2

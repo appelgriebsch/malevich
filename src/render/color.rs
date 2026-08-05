@@ -90,11 +90,11 @@ impl Color {
         }
     }
 
-    /// The concrete RGB this color denotes in pixel output, which cannot stay
-    /// palette-relative: named colors freeze to the xterm defaults the
-    /// quantizer already assumes, `Default` to a mid-gray readable on dark and
-    /// light backgrounds alike.
-    #[cfg(feature = "pixel")]
+    /// The concrete RGB this color denotes in output that cannot stay
+    /// palette-relative: named colors freeze to the xterm defaults the quantizer
+    /// already assumes, `Default` to a mid-gray readable on dark and light
+    /// backgrounds alike.
+    #[cfg(any(feature = "pixel", feature = "evcxr"))]
     pub(crate) fn to_rgb(self) -> (u8, u8, u8) {
         match self {
             Color::Default => (128, 128, 128),

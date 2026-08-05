@@ -152,6 +152,23 @@ iTerm2) on the right, from the same plot values:
   capable, cells everywhere else. Every gallery example upgrades with
   `--features pixel`, and `cargo run --example showcase --features pixel` renders
   each chart side by side, cells against pixels.
+- **Rich Evcxr notebooks, still just cells (feature `evcxr`).** End a Jupyter cell
+  with a `Plot` and Evcxr calls `evcxr_display`, rendering the complete chart as a
+  self-contained HTML terminal card. Braille and box-drawing stay crisp, mark colors
+  become RGB spans, chrome follows the card foreground, and plot text is HTML-escaped.
+  The adapter adds no dependency; `plot.to_html(&frame)` is the pure, deterministic
+  path for custom sizes and themes. In an Evcxr notebook:
+
+  ```rust
+  :dep malevich = { version = "1.14", features = ["evcxr"] }
+  use malevich::{Line, Plot};
+
+  let values = [1.0, 5.0, 2.0, 8.0];
+  Plot::new().layer(Line::y(&values[..])).title("training")
+  ```
+
+  Redirect `cargo run --example evcxr --features evcxr > plot.html` for a standalone
+  fragment you can inspect in a browser.
 - **Small multiples and fixed axes.** `Grid` pastes plots side by side
   (escape-aware alignment); `x_domain`/`y_domain` fix axes matplotlib-style — so
   shared scales across a dashboard are an explicit composition, not a mode.
