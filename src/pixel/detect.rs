@@ -58,15 +58,26 @@ pub(crate) fn sniff(variable: &impl Fn(&str) -> Option<String>) -> Vec<Protocol>
 
 /// The cell size in device pixels from the kernel's window size, when the
 /// terminal fills in the pixel fields (kitty, iTerm2, WezTerm, foot do).
+///
+/// Tries stdout first, then the controlling terminal directly. The winsize ioctl
+/// is a plain syscall — no terminal I/O, so it is safe even when stdout is piped
+/// (as under evcxr or a mid-pipeline CLI); without the `/dev/tty` fallback such a
+/// pipe would default to an 8×16 cell and a hairline stroke.
 #[cfg(unix)]
 pub(crate) fn cell_size() -> Option<(u16, u16)> {
-    let size = rustix::termios::tcgetwinsize(std::io::stdout()).ok()?;
-    if size.ws_col == 0 || size.ws_row == 0 {
-        return None;
+    use std::os::fd::AsFd;
+
+    fn from(fd: impl AsFd) -> Option<(u16, u16)> {
+        let size = rustix::termios::tcgetwinsize(fd).ok()?;
+        if size.ws_col == 0 || size.ws_row == 0 {
+            return None;
+        }
+        let cell = (size.ws_xpixel / size.ws_col, size.ws_ypixel / size.ws_row);
+        // Anything narrower than a hairline is a terminal reporting zeros.
+        (cell.0 >= 2 && cell.1 >= 4).then_some(cell)
     }
-    let cell = (size.ws_xpixel / size.ws_col, size.ws_ypixel / size.ws_row);
-    // Anything narrower than a hairline is a terminal reporting zeros.
-    (cell.0 >= 2 && cell.1 >= 4).then_some(cell)
+
+    from(std::io::stdout()).or_else(|| from(std::fs::File::open("/dev/tty").ok()?))
 }
 
 #[cfg(not(unix))]
