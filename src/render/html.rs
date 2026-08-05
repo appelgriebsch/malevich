@@ -21,9 +21,24 @@ pub(crate) fn card(theme: Theme) -> (&'static str, &'static str) {
     }
 }
 
-/// Wraps one HTML fragment in Evcxr's stdout MIME-block protocol.
-pub(crate) fn mime_bundle(html: &str) -> String {
-    format!("EVCXR_BEGIN_CONTENT text/html\n{html}\nEVCXR_END_CONTENT")
+/// Wraps mime-typed fragments in Evcxr's stdout protocol as alternative
+/// representations. A frontend renders the richest it supports — so a `text/plain`
+/// block beside `text/html` yields the card in Jupyter and a plain plot in the
+/// terminal REPL, which cannot draw HTML.
+pub(crate) fn mime_bundle(blocks: &[(&str, &str)]) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = String::new();
+    for (mime, content) in blocks {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        let _ = write!(
+            out,
+            "EVCXR_BEGIN_CONTENT {mime}\n{content}\nEVCXR_END_CONTENT"
+        );
+    }
+    out
 }
 
 #[cfg(test)]

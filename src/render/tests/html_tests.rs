@@ -22,9 +22,12 @@ fn card_colors_follow_light_and_dark_themes() {
 }
 
 #[test]
-fn the_mime_bundle_matches_evcxrs_stdout_contract() {
+fn the_mime_bundle_wraps_alternative_representations() {
+    // Two blocks joined by a single newline; the frontend picks the richest it can
+    // render (Jupyter → html, terminal REPL → plain).
     assert_eq!(
-        mime_bundle("<pre>plot</pre>"),
-        "EVCXR_BEGIN_CONTENT text/html\n<pre>plot</pre>\nEVCXR_END_CONTENT"
+        mime_bundle(&[("text/html", "<pre>plot</pre>"), ("text/plain", "plot")]),
+        "EVCXR_BEGIN_CONTENT text/html\n<pre>plot</pre>\nEVCXR_END_CONTENT\n\
+         EVCXR_BEGIN_CONTENT text/plain\nplot\nEVCXR_END_CONTENT"
     );
 }

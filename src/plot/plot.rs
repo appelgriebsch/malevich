@@ -212,16 +212,21 @@ impl<'a> Plot<'a> {
         html
     }
 
-    /// Displays this plot as rich HTML when it is the last expression in an Evcxr
-    /// Jupyter cell.
+    /// Displays this plot when it is the last expression in an Evcxr cell.
     ///
-    /// The default notebook frame is a 100×26 braille grid with the dark theme.
-    /// Use [`Plot::to_html`] with a custom [`Frame`] when explicit size, charset,
-    /// or theme control is needed.
+    /// Emits two representations and lets the frontend pick the richest it can
+    /// draw: an HTML card (100×26 braille, dark theme) for Jupyter, and a plain
+    /// cell plot (80×24) for the terminal REPL, which cannot render HTML and would
+    /// otherwise show nothing. Use [`Plot::to_html`] with a custom [`Frame`] for
+    /// explicit size, charset, or theme control.
     #[cfg(feature = "evcxr")]
     pub fn evcxr_display(&self) {
         let html = self.to_html(&Frame::plain(100, 26));
-        println!("{}", crate::render::mime_bundle(&html));
+        let plain = self.render(&Frame::plain(80, 24));
+        println!(
+            "{}",
+            crate::render::mime_bundle(&[("text/html", &html), ("text/plain", &plain)])
+        );
     }
 
     /// Checks the spec against the invariants the constructors enforce — paired
