@@ -109,8 +109,8 @@ const GALLERY: &[(&str, &str)] = &[
 const SPLICED: &[&str] = &["README.md"];
 
 /// Examples that are deliberately not in the gallery: infrastructure, the colored
-/// tour (environment-dependent), interactive demos, README splice sources, and
-/// the pixel-protocol demo (image escapes have no place in a markdown gallery).
+/// tour (environment-dependent), interactive demos, README splice sources, and the
+/// pixel/HTML demos (image escapes and HTML have no place in a markdown gallery).
 const EXEMPT: &[&str] = &[
     "regen_docs",
     "showcase",
@@ -119,6 +119,7 @@ const EXEMPT: &[&str] = &[
     "readme_sample",
     "readme_bars",
     "pixels",
+    "evcxr",
 ];
 
 fn main() {
