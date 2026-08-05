@@ -3,6 +3,12 @@
 Notable changes, written for humans. Since 1.0, breaking changes mean a major
 release; the pre-1.0 entries below recorded breakage freely, without apology.
 
+## 1.14.3 — 2026-08-05
+
+- A compact Suprematist composition joins the examples and README, rendering the
+  same layered `Area`, `Bars`, `Range`, `Line`, and `Points` marks side by side
+  in octants and pixels.
+
 ## 1.14.2 — 2026-08-05
 
 - With the `pixel` feature also enabled, `Plot::evcxr_display`'s terminal
