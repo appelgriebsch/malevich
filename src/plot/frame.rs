@@ -40,7 +40,8 @@ impl Frame {
         }
     }
 
-    /// Detects a frame from the environment.
+    /// Detects a frame for stdout — [`Frame::detect_for`] against
+    /// [`std::io::stdout`].
     ///
     /// Size: the terminal's width and about a third of its height (80×16 without a
     /// terminal). Charset: ASCII for `TERM=dumb` or an explicitly non-UTF-8 locale,
@@ -49,6 +50,20 @@ impl Frame {
     /// otherwise color only when stdout is a terminal — at the tier named by
     /// `COLORTERM=truecolor`, a `256color` `TERM`, or 16-color ANSI as the floor.
     pub fn detect() -> Frame {
+        Frame::detect_for(&std::io::stdout())
+    }
+
+    /// Detects a frame for a specific destination — the same ladder as
+    /// [`Frame::detect`], but with the color gate keyed to `destination`'s
+    /// tty-ness instead of stdout's.
+    ///
+    /// A tool that writes its plot to stderr (leaving stdout for data) must detect
+    /// against stderr: `Frame::detect_for(&std::io::stderr())`. Detecting against
+    /// stdout there would read the wrong stream — a piped stdout would strip color
+    /// from a plot going to a live terminal. `NO_COLOR` / `CLICOLOR_FORCE` /
+    /// `TERM=dumb` keep their precedence regardless of destination. Size still comes
+    /// from whichever of stdout/stderr/stdin is a terminal.
+    pub fn detect_for(destination: &impl IsTerminal) -> Frame {
         let (width, height) = match terminal_size::terminal_size() {
             Some((terminal_size::Width(w), terminal_size::Height(h))) => {
                 (w as usize, (h as usize / 3).clamp(8, 24))
@@ -59,7 +74,7 @@ impl Frame {
             width,
             height,
             charset: detect_charset(),
-            color: detect_color(),
+            color: detect_color(destination.is_terminal()),
             theme: Theme::detect(),
         }
     }
@@ -112,12 +127,12 @@ fn renders_octants() -> bool {
     term.contains("kitty") || term.contains("foot") || term.contains("ghostty")
 }
 
-fn detect_color() -> ColorMode {
+fn detect_color(is_terminal: bool) -> ColorMode {
     if variable("NO_COLOR").is_some() {
         return ColorMode::Plain;
     }
     let forced = variable("CLICOLOR_FORCE").is_some_and(|value| value != "0");
-    if !forced && !std::io::stdout().is_terminal() {
+    if !forced && !is_terminal {
         return ColorMode::Plain;
     }
     let term = variable("TERM").unwrap_or_default();
