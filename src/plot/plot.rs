@@ -215,14 +215,24 @@ impl<'a> Plot<'a> {
     /// Displays this plot when it is the last expression in an Evcxr cell.
     ///
     /// Emits two representations and lets the frontend pick the richest it can
-    /// draw: an HTML card (100×26 braille, dark theme) for Jupyter, and a plain
-    /// cell plot (80×24) for the terminal REPL, which cannot render HTML and would
-    /// otherwise show nothing. Use [`Plot::to_html`] with a custom [`Frame`] for
-    /// explicit size, charset, or theme control.
+    /// draw: an HTML card (100×26 braille, dark theme) for Jupyter, and a terminal
+    /// plot (80×24) for the terminal REPL, which cannot render HTML and would
+    /// otherwise show nothing. With the `pixel` feature also enabled, the terminal
+    /// block becomes a real sixel/kitty/iTerm2 image in a graphics-capable terminal
+    /// (detected by sniffing the environment; evcxr pipes stdout, so no tty probe
+    /// runs) and stays cells everywhere else. Use [`Plot::to_html`] with a custom
+    /// [`Frame`] for explicit size, charset, or theme control.
     #[cfg(feature = "evcxr")]
     pub fn evcxr_display(&self) {
         let html = self.to_html(&Frame::plain(100, 26));
-        let plain = self.render(&Frame::plain(80, 24));
+        let terminal = Frame::plain(80, 24);
+        // `render_best` upgrades the terminal block to a real image when a graphics
+        // protocol is sniffed, and is exactly `render` otherwise — so a pipe, an
+        // unknown terminal, or a missing `pixel` feature all yield honest cells.
+        #[cfg(feature = "pixel")]
+        let plain = self.render_best(&terminal);
+        #[cfg(not(feature = "pixel"))]
+        let plain = self.render(&terminal);
         println!(
             "{}",
             crate::render::mime_bundle(&[("text/html", &html), ("text/plain", &plain)])

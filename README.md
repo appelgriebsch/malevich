@@ -168,7 +168,9 @@ iTerm2) on the right, from the same plot values:
   ```
 
   Redirect `cargo run --example evcxr --features evcxr > plot.html` for a standalone
-  fragment you can inspect in a browser.
+  fragment you can inspect in a browser. The same cell also renders in the terminal
+  `evcxr` REPL (a plain plot via a `text/plain` fallback), and with the `pixel`
+  feature also enabled it becomes a real sixel/kitty/iTerm2 image there.
 - **Small multiples and fixed axes.** `Grid` pastes plots side by side
   (escape-aware alignment); `x_domain`/`y_domain` fix axes matplotlib-style — so
   shared scales across a dashboard are an explicit composition, not a mode.
