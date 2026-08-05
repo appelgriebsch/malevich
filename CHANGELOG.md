@@ -3,6 +3,16 @@
 Notable changes, written for humans. Since 1.0, breaking changes mean a major
 release; the pre-1.0 entries below recorded breakage freely, without apology.
 
+## 1.14.2 — 2026-08-05
+
+- With the `pixel` feature also enabled, `Plot::evcxr_display`'s terminal
+  representation becomes a real sixel/kitty/iTerm2 image in a graphics-capable
+  terminal (the `evcxr` REPL), and stays cells everywhere else — so a plot in a
+  pixel-capable terminal renders as an image, not braille.
+- Cell-size detection falls back to `/dev/tty` when stdout is piped (as under
+  evcxr, or a mid-pipeline `kaz`), so pixel strokes are weighted for the
+  terminal's real cell size instead of defaulting to a hairline.
+
 ## 1.14.1 — 2026-08-05
 
 - `Plot::evcxr_display` now emits a `text/plain` cell plot alongside the HTML
