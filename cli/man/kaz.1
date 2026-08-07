@@ -19,8 +19,9 @@ by default, so
 stays free for data; with
 .B \-O
 the input is echoed through, letting the plot sit in the middle of a pipeline.
-Color and glyph tier auto\-detect from the destination stream, and where the
-terminal speaks a pixel protocol the plot panel upgrades to a real image.
+Color auto\-detects from the destination stream. The automatic glyph tier uses
+quadrants in UTF\-8 and ASCII otherwise; dense tiers are explicit. Where the terminal
+speaks a pixel protocol the plot panel upgrades to a real image.
 .PP
 Input is parsed as whitespace\-separated fields, not CSV. For real CSV,
 pre\-shape upstream with
@@ -79,7 +80,7 @@ First row is a header; its names label the series.
 Column mapping: \fBy\fR, \fBxy\fR, \fBxyy\fR, \fBxyxy\fR, or \fByx\fR.
 .TP
 .BI \-w " N\fR, \fB\-h " N
-Frame width and height in cells (default: detected). Note:
+Frame width and height in cells (0..4096, at most 4194304 cells; default: detected). Note:
 .B \-h
 is height; help is
 .B \-\-help
@@ -101,7 +102,7 @@ Log\-scale an axis.
 Read the x column as time: unix epoch, or an ISO\-8601 subset.
 .TP
 .BI \-\-bins " N"
-Histogram bin count (default: automatic).
+Histogram bin count (1..1000000; default: automatic).
 .TP
 .BI \-\-color " WHEN"
 \fBauto\fR (default), \fBalways\fR, or \fBnever\fR.
@@ -121,10 +122,10 @@ Suppress the unparsed\-values tally.
 Stream stdin, repainting a line in place (line only). See LIVE.
 .TP
 .BI \-\-window " N"
-Live sliding\-window length (default: the frame's data width).
+Live sliding\-window length (1..1000000; default: the frame's data width).
 .TP
 .BI \-\-fps " N"
-Live repaint throttle (default: 10).
+Live repaint throttle (1..1000; default: 10).
 .TP
 .B \-\-rate
 Live: plot the per\-sample delta of a monotonic counter.
@@ -147,6 +148,18 @@ with
 .BR "grep \-\-line\-buffered" ,
 or
 .BR "awk '{print; fflush()}'" .
+.SH ENVIRONMENT
+.TP
+.B MALEVICH_CHARSET
+Overrides automatic glyph selection. Accepts \fBascii\fR, \fBhalf\fR, \fBquad\fR,
+\fBsextant\fR, \fBoctant\fR, or \fBbraille\fR. Use a dense tier only when the
+configured font supports it.
+.TP
+.B NO_COLOR
+A non\-empty value disables color.
+.TP
+.B CLICOLOR_FORCE
+A non\-empty value other than 0 forces color even when the destination is not a tty.
 .SH EXAMPLES
 Plot a training curve:
 .PP

@@ -97,8 +97,10 @@ one fraction width per axis, and never show float artifacts. Maps to `scale::Tic
 Where and how to render: width and height in cells, charset, color mode (theme joins
 later). Frame is render state, not plot state — the same `Plot` renders into many
 frames. `Frame::detect()` is the only place the crate inspects the environment
-(terminal size, `NO_COLOR`, whether stdout is a terminal); `Frame::plain()` is the
-deterministic form. Maps to `plot::Frame` and `plot::ColorMode`.
+(terminal size, color variables, locale, and whether stdout is a terminal);
+`Frame::plain()` is the legacy braille snapshot form and `Frame::portable()` is the
+conservative deterministic Unicode form. Maps to `plot::Frame` and
+`plot::ColorMode`.
 
 ## Surface
 
@@ -110,13 +112,13 @@ draws nothing, the last write owns a shared cell's color. Maps to `render::Surfa
 
 ## Charset
 
-A glyph tier used to encode the surface: `Ascii`, `Blocks`, `Braille`, `Sextants`,
-`Octants`, or `Auto` (environment-sniffed, never probed). Glyph tables are data, not
-code. Maps to `render::Charset`: `Ascii`, `HalfBlocks`, `Quadrants`, `Sextants`
-(Unicode 13), `Octants` (Unicode 16 — braille density with solid ink), and
-`Braille`. `Frame::detect` sniffs the environment (never probes): octants on
-terminals known to render them (kitty, ghostty, WezTerm, foot, recent VTE, Windows
-Terminal), braille otherwise, ASCII for `TERM=dumb` and non-UTF-8 locales.
+A glyph tier used to encode the surface. Glyph tables are data, not code. Maps to
+`render::Charset`: `Ascii`, `HalfBlocks`, `Quadrants`, `Sextants` (Unicode 13),
+`Octants` (Unicode 16 — braille density with solid ink), and `Braille`.
+`Frame::detect` sniffs the environment (never probes): quadrants in UTF-8, ASCII for
+`TERM=dumb` and non-UTF-8 locales. Dense tiers are explicit because a terminal name
+cannot establish the configured font's coverage; `MALEVICH_CHARSET` overrides the
+automatic choice.
 
 ## Canvas
 

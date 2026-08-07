@@ -57,7 +57,7 @@ Options:
   -d CHAR        field separator (default: any run of whitespace)
   -H             first row is a header; its names label the series
   --fmt FMT      column mapping: y | xy | xyy | xyxy | yx
-  -w N, -h N     frame width and height in cells (default: detected)
+  -w N, -h N     frame width and height in cells (0..4096; default: detected)
   -t TITLE       plot title
   --xlabel TEXT  x-axis title
   --ylabel TEXT  y-axis title
@@ -66,19 +66,21 @@ Options:
   --log-x        log-scale the x axis
   --log-y        log-scale the y axis
   --time-x       read the x column as time (unix seconds or ISO 8601)
-  --bins N       histogram bin count (hist; default: automatic)
+  --bins N       histogram bin count (hist; 1..1000000; default: automatic)
   --color WHEN   auto (default) | always | never
   --charset SET  auto (default) | ascii | half | quad | sextant | braille | octant
   --pixels WHEN  auto (default) | always | never   — sixel/kitty/iTerm2 image panel
   -q             suppress the unparsed-values tally
   --live         stream stdin, repainting a line in place (see below)
-  --window N     live sliding-window length (default: the frame width)
-  --fps N        live repaint throttle (default: 10)
+  --window N     live sliding-window length (1..1000000; default: frame width)
+  --fps N        live repaint throttle (1..1000; default: 10)
   --rate         live: plot the per-sample delta of a monotonic counter
   --version      print version
   --help         this help; per chart: kaz <chart> --help
 
 Note: -h is height, not help. Help is --help only.
+Auto charset uses quadrants in UTF-8 and ASCII otherwise; set MALEVICH_CHARSET
+or --charset to opt into a dense tier supported by your font.
 
 Live mode (line only):
   --live reads stdin forever, one value per line, and repaints a sliding window

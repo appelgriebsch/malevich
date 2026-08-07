@@ -207,7 +207,7 @@ impl<'a> Plot<'a> {
         let mut html = String::with_capacity(content.len() + 320);
         let _ = write!(
             html,
-            "<pre style=\"margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;background-color:{background};color:{foreground}\">{content}</pre>"
+            "<pre style=\"margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;font-variant-ligatures:none;font-feature-settings:\"liga\" 0,\"calt\" 0;background-color:{background};color:{foreground}\">{content}</pre>"
         );
         html
     }
@@ -215,7 +215,7 @@ impl<'a> Plot<'a> {
     /// Displays this plot when it is the last expression in an Evcxr cell.
     ///
     /// Emits two representations and lets the frontend pick the richest it can
-    /// draw: an HTML card (100×26 braille, dark theme) for Jupyter, and a terminal
+    /// draw: an HTML card (100×26 quadrants, dark theme) for Jupyter, and a terminal
     /// plot (80×24) for the terminal REPL, which cannot render HTML and would
     /// otherwise show nothing. With the `pixel` feature also enabled, the terminal
     /// block becomes a real sixel/kitty/iTerm2 image in a graphics-capable terminal
@@ -224,8 +224,8 @@ impl<'a> Plot<'a> {
     /// [`Frame`] for explicit size, charset, or theme control.
     #[cfg(feature = "evcxr")]
     pub fn evcxr_display(&self) {
-        let html = self.to_html(&Frame::plain(100, 26));
-        let terminal = Frame::plain(80, 24);
+        let html = self.to_html(&Frame::portable(100, 26));
+        let terminal = Frame::portable(80, 24);
         // `render_best` upgrades the terminal block to a real image when a graphics
         // protocol is sniffed, and is exactly `render` otherwise — so a pipe, an
         // unknown terminal, or a missing `pixel` feature all yield honest cells.

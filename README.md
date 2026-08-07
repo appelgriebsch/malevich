@@ -3,7 +3,7 @@
 **Terminal plotting for Rust: a small grammar of marks, honest axes, millions of
 points.**
 
-![Malevich terminal rendering in octants and pixels](examples/suprematist-composition.png)
+![Malevich terminal rendering with cell glyphs and real pixels](examples/suprematist-composition.png)
 
 Eight marks. A real statistics layer. Ten million points in 28 milliseconds. Axes
 placed by the same algorithm the visualization literature settled on — with labels
@@ -135,12 +135,12 @@ iTerm2) on the right, from the same plot values:
   axes with multi-scale labels (`14:05`, `Aug 2`, `2027`), typed axis specs
   (`Scale::{Auto, Linear, Log, Time, Bands}`), axis titles, band scales with fitted
   category labels, collision-aware layout that sheds furniture instead of failing.
-- **Renders everywhere, honestly.** Six charsets — Unicode 16 octants (braille
-  density, solid ink — auto-selected on terminals known to render them), braille,
-  sextants, quadrants, half-blocks, ASCII — and four color tiers (truecolor → 256 →
-  16 → plain) with honest downhill quantization; piped output is automatically clean
-  plain text; CJK labels stay aligned; `NaN` is always a visible gap, never
-  interpolated away.
+- **Renders everywhere, honestly.** ASCII is the guaranteed fallback; UTF-8 auto
+  detection conservatively uses old block-element quadrants. Braille, sextants, and
+  Unicode 16 octants remain explicit high-density choices for fonts that cover them
+  (`--charset` or `MALEVICH_CHARSET`). Four color tiers (truecolor → 256 → 16 →
+  plain) quantize honestly downhill; piped output is clean plain text; CJK labels
+  stay aligned; `NaN` is always a visible gap, never interpolated away.
 - **Real pixels where the terminal speaks them (feature `pixel`).** The ladder's
   top rung: `plot.render_pixels(&frame, &graphics)` keeps title, axes, and legend
   as crisp text cells and draws the plot rectangle as an actual image — sixel,
@@ -156,7 +156,7 @@ iTerm2) on the right, from the same plot values:
   each chart side by side, cells against pixels.
 - **Rich Evcxr notebooks, still just cells (feature `evcxr`).** End a Jupyter cell
   with a `Plot` and Evcxr calls `evcxr_display`, rendering the complete chart as a
-  self-contained HTML terminal card. Braille and box-drawing stay crisp, mark colors
+  self-contained HTML terminal card. Quadrants and box-drawing stay crisp, mark colors
   become RGB spans, chrome follows the card foreground, and plot text is HTML-escaped.
   The adapter adds no dependency; `plot.to_html(&frame)` is the pure, deterministic
   path for custom sizes and themes. In an Evcxr notebook:

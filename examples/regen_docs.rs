@@ -9,7 +9,8 @@
 //!   `cargo run --example NAME` in a `text` fence.
 //!
 //! CI runs this with `--check` and fails on any stale file. Examples used here must
-//! render fixed `Frame::plain` frames so their output is deterministic.
+//! render fixed `Frame::plain` or `Frame::portable` frames so their output is
+//! deterministic.
 
 use std::process::Command;
 
@@ -194,8 +195,8 @@ fn gallery_content() -> String {
          The showcase and the system test in one artifact. This whole file is\n\
          generated from the examples (unlike README.md, which splices marked\n\
          blocks); regenerate with `cargo run --example regen_docs` — CI fails when\n\
-         it is stale. Every example renders a fixed `Frame::plain`, so output is\n\
-         deterministic.\n",
+         it is stale. Every example renders a fixed deterministic frame, so output\n\
+         is deterministic.\n",
     );
     for (name, story) in GALLERY {
         content.push_str(&format!(

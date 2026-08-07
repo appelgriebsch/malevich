@@ -1,12 +1,9 @@
 //! The README bars sample; spliced into README.md by `regen_docs`.
 
-use malevich::{Charset, Frame};
+use malevich::Frame;
 
 fn main() {
-    let frame = Frame {
-        charset: Charset::Quadrants,
-        ..Frame::plain(40, 9)
-    };
+    let frame = Frame::portable(40, 9);
     println!(
         "{}",
         malevich::bar(

@@ -1,7 +1,7 @@
 //! Palmer penguins again (CC0): flipper length summarized per species — type-7
 //! quartiles, Tukey whiskers, outliers as dots. Real measurements, real spread.
 
-use malevich::{Charset, Frame};
+use malevich::Frame;
 
 fn main() {
     let (categories, groups) = penguin_flippers();
@@ -9,10 +9,7 @@ fn main() {
     let chart = malevich::box_plot(categories, refs)
         .title("flipper length by species")
         .y_label("mm");
-    let frame = Frame {
-        charset: Charset::Quadrants,
-        ..Frame::plain(60, 16)
-    };
+    let frame = Frame::portable(60, 16);
     println!("{}", chart.render_best(&frame));
 }
 

@@ -1,8 +1,8 @@
 //! The charset ladder: one curve at every subpixel density, from solid blocks to
-//! braille dots down to plain ASCII. `Frame::detect` picks the densest your terminal
-//! and font are known to render; here they are side by side so the trade-off is
-//! visible. Sextants (Unicode 13) and octants (Unicode 16) need a recent font — on an
-//! older one their glyphs show as tofu, which is exactly why detection is careful.
+//! braille dots down to plain ASCII. `Frame::detect` conservatively picks quadrants
+//! in UTF-8 environments; here every tier is explicit so the trade-off is visible.
+//! Sextants (Unicode 13), octants (Unicode 16), and braille need suitable font
+//! coverage and may otherwise show as tofu.
 
 use malevich::{Charset, Frame, Line, Plot};
 
@@ -20,11 +20,11 @@ fn main() {
         ),
         (
             Charset::Quadrants,
-            "Quadrants — 2x2 solid blocks (renders anywhere)",
+            "Quadrants — 2x2 solid blocks (the conservative UTF-8 default)",
         ),
         (Charset::HalfBlocks, "Half blocks — 1x2"),
-        (Charset::Braille, "Braille — 2x4 dots (the default)"),
-        (Charset::Ascii, "ASCII — 1x1, the universal fallback"),
+        (Charset::Braille, "Braille — 2x4 dots (dense opt-in)"),
+        (Charset::Ascii, "ASCII — 1x1, the guaranteed fallback"),
     ] {
         let frame = Frame {
             charset,

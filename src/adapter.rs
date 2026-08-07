@@ -26,7 +26,7 @@ impl Plot<'_> {
     pub fn widget(&self) -> PlotWidget<'_> {
         PlotWidget {
             plot: self,
-            charset: Charset::Braille,
+            charset: Charset::Quadrants,
             theme: Theme::DARK,
         }
     }
@@ -44,8 +44,8 @@ pub struct PlotWidget<'a> {
 }
 
 impl PlotWidget<'_> {
-    /// Sets the charset; braille by default. Octants look best where the terminal
-    /// renders them — the host application knows its terminal better than we do.
+    /// Sets the charset; quadrants by default. Dense tiers are explicit because the
+    /// host application knows its terminal and configured font better than we do.
     #[must_use]
     pub fn charset(mut self, charset: Charset) -> Self {
         self.charset = charset;

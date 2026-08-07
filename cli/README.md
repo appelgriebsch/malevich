@@ -112,13 +112,13 @@ the data upstream (`xsv select …`, `mlr --c2t …`) and pipe the result in.
 -d CHAR        field separator (default: any run of whitespace)
 -H             first row is a header; its names label the series
 --fmt FMT      column mapping: y | xy | xyy | xyxy | yx
--w N, -h N     frame width and height in cells (default: detected)
+-w N, -h N     frame width and height in cells (0..4096; max 4194304 cells)
 -t TITLE       plot title
 --xlabel TEXT  --ylabel TEXT
 --xlim A,B     --ylim A,B         fix an axis range
 --log-x  --log-y
 --time-x       read the x column as time (unix seconds or ISO 8601)
---bins N       histogram bin count (hist; default: automatic)
+--bins N       histogram bin count (hist; 1..1000000; default: automatic)
 --color WHEN   auto | always | never
 --charset SET  auto | ascii | half | quad | sextant | braille | octant
 --pixels WHEN  auto | always | never   — sixel/kitty/iTerm2 image panel from a pipe
@@ -126,8 +126,10 @@ the data upstream (`xsv select …`, `mlr --c2t …`) and pipe the result in.
 --version      --help
 ```
 
-Color and glyph tier auto-detect from the destination stream, and where the
-terminal speaks a pixel protocol the plot panel upgrades to a real image — even
+Color auto-detects from the destination stream. The glyph tier defaults to
+quadrants in UTF-8 (ASCII for a non-UTF-8 locale); use `--charset` or
+`MALEVICH_CHARSET` to opt into a denser tier your font supports. Where the terminal
+speaks a pixel protocol the plot panel upgrades to a real image — even
 mid-pipeline. `-h` is height; help is `--help` only.
 
 ## Live
@@ -141,8 +143,9 @@ ping -i.2 host | grep -oE 'time=[0-9.]+' | tr -d 'time=' | kaz line --live -t pi
 vmstat 1 | awk 'NR>2{print $1}' | kaz line --live -t runnable
 ```
 
-`--window N` sets the window length, `--fps N` the repaint rate (default 10),
-and `--rate` plots the per-interval delta of a monotonic counter.
+`--window N` sets the window length (1..1000000), `--fps N` the repaint rate
+(1..1000; default 10), and `--rate` plots the per-interval delta of a monotonic
+counter.
 
 If a live plot looks frozen, the *producer* is buffering — pipes hold output
 until a block fills. Unbuffer at the source: `stdbuf -oL producer`,

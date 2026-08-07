@@ -7,8 +7,8 @@ run `cargo run --example regen_docs`. -->
 The showcase and the system test in one artifact. This whole file is
 generated from the examples (unlike README.md, which splices marked
 blocks); regenerate with `cargo run --example regen_docs` — CI fails when
-it is stale. Every example renders a fixed `Frame::plain`, so output is
-deterministic.
+it is stale. Every example renders a fixed deterministic frame, so output
+is deterministic.
 
 ## sine
 
@@ -532,7 +532,7 @@ Sextants — 2x3 solid blocks (Unicode 13)
    └┬─────┬─────┬─────┬─────┬──────┬─────┬─────┬─────┬─────┬
     0     1     2     3     4      5     6     7     8     9
 
-Quadrants — 2x2 solid blocks (renders anywhere)
+Quadrants — 2x2 solid blocks (the conservative UTF-8 default)
  1 ┤      ▄▄▄▄                   ▗▄▄▄
    │  ▗▄▀▀    ▀▀▄▄           ▄▄▀▀▘   ▀▀▄▄
    │▗▀▘           ▀▀▄▄▄▄▄▄▄▞▀            ▚▖
@@ -552,7 +552,7 @@ Half blocks — 1x2
    └┬─────┬─────┬─────┬─────┬──────┬─────┬─────┬─────┬─────┬
     0     1     2     3     4      5     6     7     8     9
 
-Braille — 2x4 dots (the default)
+Braille — 2x4 dots (dense opt-in)
  1 ┤     ⢀⣀⣀⣀⣀⡀                  ⣀⣀⣀⣀⣀
    │  ⢀⠔⠒⠁    ⠈⠒⠤⣀           ⣀⠤⠊⠉     ⠑⠢⢄
    │⢠⠊⠁           ⠑⠒⠤⣀⣀⣀⣀⣀⠤⠔⠊            ⠑⡄
@@ -562,7 +562,7 @@ Braille — 2x4 dots (the default)
    └┬─────┬─────┬─────┬─────┬──────┬─────┬─────┬─────┬─────┬
     0     1     2     3     4      5     6     7     8     9
 
-ASCII — 1x1, the universal fallback
+ASCII — 1x1, the guaranteed fallback
  1 +
    |   ***********            **********
    | **          *************          ***

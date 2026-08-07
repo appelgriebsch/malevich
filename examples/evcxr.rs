@@ -22,5 +22,5 @@ fn main() {
         .title("Evcxr notebook")
         .x_label("time");
 
-    println!("{}", plot.to_html(&Frame::plain(80, 18)));
+    println!("{}", plot.to_html(&Frame::portable(80, 18)));
 }

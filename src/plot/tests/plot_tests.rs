@@ -389,7 +389,7 @@ const HTML_GRID: &str = r#"    a &lt; b &amp; c
    0             2"#;
 
 #[cfg(feature = "evcxr")]
-const DARK_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;background-color:#0d1117;color:#e6edf3">    a &lt; b &amp; c
+const DARK_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0;background-color:#0d1117;color:#e6edf3">    a &lt; b &amp; c
 3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
   │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
 1 ┤<span style="color:#00cdcd">⡠⠔⠁</span>
@@ -397,7 +397,7 @@ const DARK_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;bord
    0             2</pre>"##;
 
 #[cfg(feature = "evcxr")]
-const LIGHT_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;background-color:#ffffff;color:#1f2328">    a &lt; b &amp; c
+const LIGHT_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0;background-color:#ffffff;color:#1f2328">    a &lt; b &amp; c
 3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
   │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
 1 ┤<span style="color:#00cdcd">⡠⠔⠁</span>

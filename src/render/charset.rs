@@ -20,11 +20,10 @@ pub enum Charset {
     /// Sextants (Unicode 13, U+1FB00 block): 2×3 solid pixels per cell.
     Sextants,
     /// Octants (Unicode 16, U+1CD00 block): 2×4 solid pixels per cell — braille
-    /// density with contiguous ink. Needs a recent terminal and font;
-    /// [`crate::Frame::detect`] enables it only where it is known to render.
+    /// density with contiguous ink. An explicit opt-in for recent fonts.
     Octants,
-    /// Braille patterns (U+2800–U+28FF): 2×4 pixels per cell. Universally available
-    /// in monospace fonts; the default for lines and scatter.
+    /// Braille patterns (U+2800–U+28FF): 2×4 dotted pixels per cell. A dense
+    /// explicit option; [`crate::Frame::plain`] retains it for 1.x snapshots.
     Braille,
 }
 
