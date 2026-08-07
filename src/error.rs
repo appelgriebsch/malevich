@@ -2,15 +2,15 @@
 
 use std::fmt;
 
-/// Why a plot spec is invalid.
+/// Why a plot/grid spec or render request is invalid.
 ///
-/// Returned by the fallible entry points — [`Plot::validate`](crate::Plot::validate)
-/// and [`Plot::try_render`](crate::Plot::try_render) — so a spec that arrives from
-/// deserialization, configuration, or untrusted input can be checked before it is
-/// drawn. The panicking constructors stay for specs built inline, where a length
-/// mismatch is a programmer bug; the infallible [`Plot::render`](crate::Plot::render)
-/// also stays, and never fails — it sheds whatever it cannot draw. `validate` is the
-/// strict counterpart: it reports the first problem instead of quietly shedding it.
+/// Returned by the fallible [`Plot`](crate::Plot) and [`Grid`](crate::Grid) validation
+/// and rendering entry points, so a spec that arrives from deserialization,
+/// configuration, or untrusted input can be checked before it is drawn. The
+/// panicking constructors stay for specs built inline, where a length mismatch is a
+/// programmer bug; the infallible render methods also stay, and never fail — they
+/// shed whatever they cannot draw. `validate` is the strict counterpart: it reports
+/// the first problem instead of quietly shedding it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Error {

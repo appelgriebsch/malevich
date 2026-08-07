@@ -5,10 +5,9 @@
 //! axis across cells, fix it explicitly with [`crate::Plot::y_domain`] /
 //! [`crate::Plot::x_domain`] — sharing is a composition, not a mode.
 
-use unicode_width::UnicodeWidthChar;
-
 use super::frame::Frame;
 use super::plot::Plot;
+use crate::render::display_width_ansi;
 
 /// A row-major grid of plots rendered as one block of text.
 ///
@@ -25,6 +24,15 @@ use super::plot::Plot;
 pub struct Grid<'a> {
     columns: usize,
     plots: Vec<Plot<'a>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Layout {
+    columns: usize,
+    rows: usize,
+    visible_plots: usize,
+    cell_width: usize,
+    cell_height: usize,
 }
 
 impl<'a> Grid<'a> {
@@ -56,76 +64,178 @@ impl<'a> Grid<'a> {
         }
     }
 
-    /// Renders the grid into `frame`, dividing it evenly among cells with one blank
-    /// column between neighbors and one blank row between stacked rows. Empty grids
-    /// render nothing.
-    pub fn render(&self, frame: &Frame) -> String {
-        if self.plots.is_empty() || frame.width == 0 || frame.height == 0 {
-            return String::new();
+    /// Checks the grid and every contained plot without rendering.
+    ///
+    /// This rejects the zero-column state that deserialization can represent and
+    /// applies [`Plot::validate`] to every pane.
+    pub fn validate(&self) -> crate::Result<()> {
+        if self.columns == 0 {
+            return Err(crate::Error::EmptyDimension {
+                what: "Grid columns",
+            });
         }
-        // Grid::new forbids zero columns, but a deserialized grid can carry one;
-        // treat it as a single column rather than dividing by zero.
-        let columns = self.columns.max(1).min(self.plots.len());
-        let rows = self.plots.len().div_ceil(columns);
-        // Reserve one separator between neighbors on each axis so a lower row's title
-        // never butts against the row above's axis labels — the columns already do.
+        for plot in &self.plots {
+            plot.validate()?;
+        }
+        Ok(())
+    }
+
+    /// Renders the grid into `frame`, dividing it evenly among cells with one blank
+    /// column between neighbors and one blank row between stacked rows.
+    ///
+    /// Separators consume the frame budget. At tiny sizes, the grid reduces its
+    /// visible rows or columns and omits later plots rather than creating over-wide
+    /// zero-size panes. Invalid or oversized input degrades to an empty string; use
+    /// [`Grid::try_render`] for a typed error.
+    pub fn render(&self, frame: &Frame) -> String {
+        self.try_render_unvalidated(frame).unwrap_or_default()
+    }
+
+    /// Validates and renders the grid, returning spec, geometry, or allocation
+    /// failures as typed errors.
+    pub fn try_render(&self, frame: &Frame) -> crate::Result<String> {
+        self.validate()?;
+        self.try_render_unvalidated(frame)
+    }
+
+    fn try_render_unvalidated(&self, frame: &Frame) -> crate::Result<String> {
+        crate::render::frame_cells(frame.width, frame.height)?;
+        if self.columns == 0 || self.plots.is_empty() || frame.width == 0 || frame.height == 0 {
+            return Ok(String::new());
+        }
+        let Some(layout) = self.layout(frame) else {
+            return Ok(String::new());
+        };
+
         let cell_frame = Frame {
-            width: (frame.width.saturating_sub(columns - 1) / columns).max(1),
-            height: (frame.height.saturating_sub(rows - 1) / rows).max(1),
+            width: layout.cell_width,
+            height: layout.cell_height,
             ..*frame
         };
 
-        let mut lines = Vec::new();
-        for (row_index, row) in self.plots.chunks(columns).enumerate() {
-            if row_index > 0 {
-                lines.push(String::new());
-            }
-            let cells: Vec<Vec<String>> = row
-                .iter()
-                .map(|plot| {
-                    plot.render(&cell_frame)
-                        .lines()
-                        .map(str::to_string)
-                        .collect()
-                })
-                .collect();
-            let height = cells.iter().map(Vec::len).max().unwrap_or(0);
-            for index in 0..height {
-                let mut line = String::new();
-                for (cell_index, cell) in cells.iter().enumerate() {
-                    let content = cell.get(index).map(String::as_str).unwrap_or_default();
-                    line.push_str(content);
-                    if cell_index + 1 < cells.len() {
-                        // Pad to the cell width in display columns, escape-aware.
-                        for _ in visible_width(content)..cell_frame.width + 1 {
-                            line.push(' ');
-                        }
-                    }
-                }
-                lines.push(line);
-            }
+        let mut cells = Vec::new();
+        crate::render::reserve_vec(&mut cells, layout.visible_plots, "grid pane strings")?;
+        for plot in &self.plots[..layout.visible_plots] {
+            cells.push(plot.try_render_unvalidated(&cell_frame)?);
         }
-        lines.join("\n")
+
+        // Measure the exact composed payload before writing it. Pane encoders are
+        // independently bounded, but their ANSI resets and the grid's padding make
+        // a frame-cell estimate needlessly loose. One exact fallible reservation
+        // lets the append-only composition below remain non-panicking.
+        let output_bytes = composed_bytes(&cells, layout)?;
+        let mut output = String::new();
+        crate::render::reserve_string(&mut output, output_bytes, "grid output bytes")?;
+        compose(&mut output, &cells, layout)?;
+        debug_assert_eq!(output.len(), output_bytes);
+        debug_assert_eq!(layout.rows, cells.chunks(layout.columns).len());
+        Ok(output)
+    }
+
+    fn layout(&self, frame: &Frame) -> Option<Layout> {
+        // Every visible pane gets at least one cell; one-cell separators therefore
+        // limit how many panes fit along either axis. Later panes are omitted.
+        let column_capacity = frame.width.div_ceil(2);
+        let row_capacity = frame.height.div_ceil(2);
+        let columns = self.columns.min(self.plots.len()).min(column_capacity);
+        if columns == 0 || row_capacity == 0 {
+            return None;
+        }
+        let visible_plots = self.plots.len().min(columns.saturating_mul(row_capacity));
+        let rows = visible_plots.div_ceil(columns);
+        let cell_width = frame.width.saturating_sub(columns - 1) / columns;
+        let cell_height = frame.height.saturating_sub(rows - 1) / rows;
+        Some(Layout {
+            columns,
+            rows,
+            visible_plots,
+            cell_width,
+            cell_height,
+        })
     }
 }
 
-/// The display width of a rendered line: escape sequences are invisible.
-fn visible_width(line: &str) -> usize {
-    let mut width = 0;
-    let mut chars = line.chars();
-    while let Some(c) = chars.next() {
-        if c == '\u{1b}' {
-            // Skip a CSI sequence through its final byte.
-            for follow in chars.by_ref() {
-                if follow.is_ascii_alphabetic() {
-                    break;
+fn composed_bytes(cells: &[String], layout: Layout) -> crate::Result<usize> {
+    let mut bytes = 0usize;
+    let mut first_line = true;
+    for (grid_row, row) in cells.chunks(layout.columns).enumerate() {
+        if grid_row > 0 {
+            add_line_bytes(&mut bytes, &mut first_line, 0)?;
+        }
+        let mut lines = Vec::new();
+        crate::render::reserve_vec(&mut lines, row.len(), "grid line iterators")?;
+        lines.extend(row.iter().map(|cell| cell.lines()));
+        for _ in 0..layout.cell_height {
+            let mut line_bytes = 0usize;
+            for (cell_index, pane_lines) in lines.iter_mut().enumerate() {
+                let content = pane_lines.next().unwrap_or_default();
+                let visible = display_width_ansi(content);
+                if visible > layout.cell_width {
+                    return Err(crate::Error::DimensionTooLarge {
+                        what: "grid pane width",
+                        requested: visible,
+                        limit: layout.cell_width,
+                    });
+                }
+                line_bytes = checked_add(line_bytes, content.len())?;
+                if cell_index + 1 < row.len() {
+                    line_bytes = checked_add(line_bytes, layout.cell_width - visible + 1)?;
                 }
             }
-            continue;
+            add_line_bytes(&mut bytes, &mut first_line, line_bytes)?;
         }
-        width += c.width().unwrap_or(0);
     }
-    width
+    Ok(bytes)
+}
+
+fn compose(output: &mut String, cells: &[String], layout: Layout) -> crate::Result<()> {
+    let mut first_line = true;
+    for (grid_row, row) in cells.chunks(layout.columns).enumerate() {
+        if grid_row > 0 {
+            start_line(output, &mut first_line);
+        }
+        let mut lines = Vec::new();
+        crate::render::reserve_vec(&mut lines, row.len(), "grid line iterators")?;
+        lines.extend(row.iter().map(|cell| cell.lines()));
+        for _ in 0..layout.cell_height {
+            start_line(output, &mut first_line);
+            for (cell_index, pane_lines) in lines.iter_mut().enumerate() {
+                let content = pane_lines.next().unwrap_or_default();
+                output.push_str(content);
+                if cell_index + 1 < row.len() {
+                    let padding = layout.cell_width - display_width_ansi(content) + 1;
+                    output.extend(std::iter::repeat_n(' ', padding));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn add_line_bytes(bytes: &mut usize, first: &mut bool, content: usize) -> crate::Result<()> {
+    if !*first {
+        *bytes = checked_add(*bytes, 1)?;
+    }
+    *first = false;
+    *bytes = checked_add(*bytes, content)?;
+    Ok(())
+}
+
+fn checked_add(left: usize, right: usize) -> crate::Result<usize> {
+    left.checked_add(right)
+        .filter(|bytes| *bytes <= crate::render::MAX_OUTPUT_BYTES)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "grid output bytes",
+            requested: left.saturating_add(right),
+            limit: crate::render::MAX_OUTPUT_BYTES,
+        })
+}
+
+fn start_line(output: &mut String, first: &mut bool) {
+    if !*first {
+        output.push('\n');
+    }
+    *first = false;
 }
 
 #[cfg(test)]

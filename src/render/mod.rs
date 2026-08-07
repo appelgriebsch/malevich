@@ -30,4 +30,4 @@ pub(crate) use limits::{
 #[cfg(feature = "pixel")]
 pub(crate) use limits::{area as checked_area, dimension as checked_dimension};
 pub use surface::Surface;
-pub(crate) use width::{display_width, fit_width_with};
+pub(crate) use width::{display_width, display_width_ansi, fit_width_with};

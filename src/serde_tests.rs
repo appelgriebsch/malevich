@@ -85,7 +85,12 @@ fn malformed_payloads_render_without_panicking() {
         r#"{"columns":0,"plots":[{"layers":[],"title":null,"x":"Linear","y":"Linear","x_label":null,"y_label":null,"x_domain":null,"y_domain":null}]}"#,
     )
     .expect("zero-column grid deserializes");
-    let _ = grid.render(&frame());
+    assert!(matches!(
+        grid.validate(),
+        Err(crate::Error::EmptyDimension { .. })
+    ));
+    assert!(grid.try_render(&frame()).is_err());
+    assert_eq!(grid.render(&frame()), "");
 
     // A Range with ragged x/low/high/marker channels inside a plot.
     let ragged = r#"{"layers":[{"Range":{"placement":{"Numeric":[0.0,1.0,2.0]},"low":[0.0],"high":[5.0,6.0],"body":null,"marker":[1.0,2.0,3.0,4.0],"color":null,"label":null}}],"title":null,"x":"Linear","y":"Linear","x_label":null,"y_label":null,"x_domain":null,"y_domain":null}"#;

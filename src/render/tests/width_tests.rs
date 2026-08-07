@@ -1,10 +1,21 @@
-use super::{display_width, fit_width_with};
+use super::{display_width, display_width_ansi, fit_width_with};
 
 #[test]
 fn wide_glyphs_measure_two_columns() {
     assert_eq!(display_width("abc"), 3);
     assert_eq!(display_width("\u{65E5}\u{672C}"), 4);
     assert_eq!(display_width("a\u{65E5}b"), 4);
+}
+
+#[test]
+fn ansi_control_strings_are_zero_width() {
+    assert_eq!(display_width_ansi("\x1b[31mred\x1b[0m"), 3);
+    assert_eq!(
+        display_width_ansi("\x1b]8;;https://example.com\x1b\\日本\x1b]8;;\x1b\\"),
+        4
+    );
+    assert_eq!(display_width_ansi("a\x1b_Gpayload\x1b\\b"), 2);
+    assert_eq!(display_width_ansi("\x1b[31"), 0);
 }
 
 #[test]
