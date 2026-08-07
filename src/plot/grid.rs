@@ -23,6 +23,7 @@ use crate::render::display_width_ansi;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Grid<'a> {
     columns: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     plots: Vec<Plot<'a>>,
 }
 

@@ -25,13 +25,21 @@ use crate::scale::Scale;
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plot<'a> {
+    #[cfg_attr(feature = "serde", serde(default))]
     layers: Vec<Mark<'a>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     title: Option<String>,
+    #[cfg_attr(feature = "serde", serde(default))]
     x: Scale,
+    #[cfg_attr(feature = "serde", serde(default))]
     y: Scale,
+    #[cfg_attr(feature = "serde", serde(default))]
     x_label: Option<String>,
+    #[cfg_attr(feature = "serde", serde(default))]
     y_label: Option<String>,
+    #[cfg_attr(feature = "serde", serde(default))]
     x_domain: Option<(f64, f64)>,
+    #[cfg_attr(feature = "serde", serde(default))]
     y_domain: Option<(f64, f64)>,
     #[cfg_attr(feature = "serde", serde(default))]
     colorbar: bool,

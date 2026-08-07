@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kind": "grid",
+  "spec": {
+    "columns": 2,
+    "plots": [
+      {
+        "layers": [],
+        "title": "pane",
+        "x": "Auto",
+        "y": "Auto",
+        "x_label": null,
+        "y_label": null,
+        "x_domain": null,
+        "y_domain": null,
+        "colorbar": false
+      }
+    ]
+  }
+}

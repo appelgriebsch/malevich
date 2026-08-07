@@ -48,8 +48,9 @@
 //! - `ratatui` — [`PlotWidget`], a `ratatui` widget rendering any plot into a
 //!   `Buffer`.
 //! - `serde` — every spec type (plots, marks, scales, themes, frames)
-//!   round-trips through serde; gaps survive JSON as `null`, and function-backed
-//!   lines refuse to serialize rather than lie.
+//!   round-trips through serde; `Document` is the versioned persistent envelope,
+//!   gaps survive JSON as `null`, and function-backed lines refuse to serialize
+//!   rather than lie.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -57,6 +58,8 @@
 #[cfg(feature = "ratatui")]
 mod adapter;
 pub mod data;
+#[cfg(feature = "serde")]
+mod document;
 mod error;
 pub mod mark;
 #[cfg(feature = "pixel")]
@@ -73,6 +76,8 @@ mod theme;
 
 #[cfg(feature = "ratatui")]
 pub use adapter::PlotWidget;
+#[cfg(feature = "serde")]
+pub use document::{Document, DocumentKind};
 pub use error::{Error, Result};
 pub use mark::{Area, Bars, Cells, Line, LineStyle, Mark, Points, Range, Rule, Text};
 pub use plot::{Frame, Grid, Plot};

@@ -183,10 +183,11 @@ iTerm2) on the right, from the same plot values:
   has `fred` — a five-view Federal Reserve data browser (`cargo run -p fred`) — and
   `sysmon` — a live system monitor streaming CPU/memory/network through
   `stream::Ring` into a per-core heatmap (`cargo run -p sysmon`).
-- **Serializable specs, no lies.** With the `serde` feature, every plot round-trips
-  through serde — send one over the wire, cache it, snapshot it as JSON. Gaps encode
-  as `null` and decode back to gaps; a function-backed line refuses to serialize
-  rather than silently drop its curve.
+- **Serializable specs, no lies.** With the `serde` feature, [`Document`](SERDE.md)
+  is the validated, versioned format for files, caches, and network messages; golden
+  v1 fixtures keep compatibility testable. Raw spec types still round-trip for
+  short-lived interchange. Gaps encode as `null` and decode back to gaps; a
+  function-backed line refuses to serialize rather than silently drop its curve.
 - **Plots from ndarray.** With the `ndarray` feature, one-dimensional arrays and
   views plot directly — contiguous storage zero-copy, a strided matrix column
   converted once, like any other input.

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "kind": "plot",
+  "spec": {
+    "layers": [
+      {
+        "Line": {
+          "x": null,
+          "y": [
+            1.0,
+            null,
+            3.0
+          ],
+          "color": "Cyan",
+          "label": "series",
+          "style": "Pixels"
+        }
+      }
+    ],
+    "title": "v1 plot",
+    "x": "Auto",
+    "y": "Auto",
+    "x_label": "step",
+    "y_label": "value",
+    "x_domain": null,
+    "y_domain": [
+      0.0,
+      4.0
+    ],
+    "colorbar": false
+  }
+}

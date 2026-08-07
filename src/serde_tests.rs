@@ -1,12 +1,114 @@
 use crate::render::{Charset, Color};
 use crate::scale::Scale;
-use crate::{Bars, Cells, Frame, Grid, Line, LineStyle, Plot, Points, Rule, Text};
+use crate::{
+    Bars, Cells, Document, DocumentKind, Frame, Grid, Line, LineStyle, Plot, Points, Rule, Text,
+};
+
+const V1_PLOT: &str = include_str!("../tests/fixtures/serde/v1/plot.json");
+const V1_GRID: &str = include_str!("../tests/fixtures/serde/v1/grid.json");
+const LEGACY_PLOT_1_14: &str = include_str!("../tests/fixtures/serde/legacy/plot-1.14.json");
 
 fn frame() -> Frame {
     Frame {
         charset: Charset::Braille,
         ..Frame::plain(64, 18)
     }
+}
+
+fn fixture_plot() -> Plot<'static> {
+    Plot::new()
+        .layer(
+            Line::y(vec![1.0, f64::NAN, 3.0])
+                .color(Color::Cyan)
+                .label("series"),
+        )
+        .title("v1 plot")
+        .x_label("step")
+        .y_label("value")
+        .y_domain(0.0, 4.0)
+}
+
+fn fixture_grid() -> Grid<'static> {
+    Grid::new(2).with(Plot::new().title("pane"))
+}
+
+#[test]
+fn v1_documents_match_their_golden_wire_fixtures() {
+    let plot = Document::plot(fixture_plot()).unwrap();
+    assert_eq!(plot.version(), 1);
+    assert_eq!(plot.kind(), DocumentKind::Plot);
+    assert!(plot.as_plot().is_some());
+    assert!(plot.as_grid().is_none());
+    assert_eq!(
+        serde_json::to_value(&plot).unwrap(),
+        serde_json::from_str::<serde_json::Value>(V1_PLOT).unwrap()
+    );
+
+    let grid = Document::grid(fixture_grid()).unwrap();
+    assert_eq!(grid.kind(), DocumentKind::Grid);
+    assert!(grid.as_grid().is_some());
+    assert_eq!(
+        serde_json::to_value(&grid).unwrap(),
+        serde_json::from_str::<serde_json::Value>(V1_GRID).unwrap()
+    );
+}
+
+#[test]
+fn every_supported_document_fixture_decodes_validates_and_renders() {
+    let plot: Document = serde_json::from_str(V1_PLOT).unwrap();
+    assert!(plot.validate().is_ok());
+    assert_eq!(
+        plot.try_render(&frame()).unwrap(),
+        fixture_plot().try_render(&frame()).unwrap()
+    );
+
+    let grid: Document = serde_json::from_str(V1_GRID).unwrap();
+    assert!(grid.validate().is_ok());
+    assert!(!grid.render(&frame()).is_empty());
+}
+
+#[test]
+fn legacy_raw_plot_payloads_remain_decodable() {
+    let decoded: Plot = serde_json::from_str(LEGACY_PLOT_1_14).unwrap();
+    assert!(decoded.validate().is_ok());
+    assert_eq!(decoded.render(&frame()), fixture_plot().render(&frame()));
+}
+
+#[test]
+fn documents_reject_unknown_versions_and_invalid_specs() {
+    let mut future: serde_json::Value = serde_json::from_str(V1_PLOT).unwrap();
+    future["version"] = 2.into();
+    let error = serde_json::from_value::<Document>(future).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported malevich document version")
+    );
+
+    let mut invalid: serde_json::Value = serde_json::from_str(V1_GRID).unwrap();
+    invalid["spec"]["columns"] = 0.into();
+    let error = serde_json::from_value::<Document>(invalid).unwrap_err();
+    assert!(error.to_string().contains("Grid columns is empty"));
+}
+
+#[test]
+fn documents_accept_additive_fields_and_default_omitted_plot_fields() {
+    let mut value: serde_json::Value = serde_json::from_str(V1_PLOT).unwrap();
+    value["future_envelope_field"] = true.into();
+    value["spec"]["future_plot_field"] = "ignored".into();
+    value["spec"].as_object_mut().unwrap().remove("colorbar");
+    let document: Document = serde_json::from_value(value).unwrap();
+    assert!(document.validate().is_ok());
+    assert!(!document.render(&frame()).is_empty());
+}
+
+#[test]
+fn documents_take_ownership_of_borrowed_series() {
+    let document = {
+        let values = [1.0, 2.0, 3.0];
+        Document::try_from(crate::line(&values[..])).unwrap()
+    };
+    assert!(!document.render(&frame()).is_empty());
 }
 
 #[test]
@@ -140,4 +242,8 @@ fn a_function_line_refuses_to_serialize() {
         error.to_string().contains("sample it into points"),
         "{error}"
     );
+
+    let document = Document::plot(Plot::new().layer(Line::function(0.0..10.0, f64::sin))).unwrap();
+    let error = serde_json::to_string(&document).expect_err("the envelope cannot encode a closure");
+    assert!(error.to_string().contains("sample it into points"));
 }
