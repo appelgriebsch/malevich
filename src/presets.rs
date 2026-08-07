@@ -6,6 +6,220 @@
 use crate::data::IntoSeries;
 use crate::mark::{Area, Bars, Cells, Line, Points, Range};
 use crate::plot::Plot;
+use crate::scale::Colormap;
+
+/// Configuration for [`hist_with`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct HistogramOptions {
+    /// Maximum number of automatically selected bins.
+    pub max_bins: usize,
+}
+
+impl HistogramOptions {
+    /// Uses at most `max_bins` automatically selected bins.
+    pub const fn new(max_bins: usize) -> HistogramOptions {
+        HistogramOptions { max_bins }
+    }
+}
+
+impl Default for HistogramOptions {
+    fn default() -> HistogramOptions {
+        HistogramOptions { max_bins: 60 }
+    }
+}
+
+/// Configuration for [`hist2d_with`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Histogram2dOptions {
+    /// Number of cells along the x axis.
+    pub columns: usize,
+    /// Number of cells along the y axis.
+    pub rows: usize,
+    /// Colors used for finite, non-empty cells.
+    pub colormap: Colormap,
+    /// Whether to reserve and draw the value colorbar.
+    pub colorbar: bool,
+}
+
+impl Histogram2dOptions {
+    /// Uses a `columns` by `rows` grid with the default colormap and colorbar.
+    pub const fn new(columns: usize, rows: usize) -> Histogram2dOptions {
+        Histogram2dOptions {
+            columns,
+            rows,
+            colormap: Colormap::DEFAULT,
+            colorbar: true,
+        }
+    }
+
+    /// Replaces the default colormap.
+    #[must_use]
+    pub fn colormap(mut self, colormap: Colormap) -> Histogram2dOptions {
+        self.colormap = colormap;
+        self
+    }
+
+    /// Shows or suppresses the value colorbar.
+    #[must_use]
+    pub const fn colorbar(mut self, visible: bool) -> Histogram2dOptions {
+        self.colorbar = visible;
+        self
+    }
+}
+
+impl Default for Histogram2dOptions {
+    fn default() -> Histogram2dOptions {
+        Histogram2dOptions::new(48, 32)
+    }
+}
+
+/// Configuration for [`density_with`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DensityOptions {
+    /// Number of positions at which to evaluate the KDE.
+    pub samples: usize,
+}
+
+impl DensityOptions {
+    /// Evaluates the density at `samples` positions.
+    pub const fn new(samples: usize) -> DensityOptions {
+        DensityOptions { samples }
+    }
+}
+
+impl Default for DensityOptions {
+    fn default() -> DensityOptions {
+        DensityOptions { samples: 256 }
+    }
+}
+
+/// Configuration for [`violin_with`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ViolinOptions {
+    /// Number of KDE positions along each violin.
+    pub samples: usize,
+}
+
+impl ViolinOptions {
+    /// Evaluates each violin at `samples` positions.
+    pub const fn new(samples: usize) -> ViolinOptions {
+        ViolinOptions { samples }
+    }
+}
+
+impl Default for ViolinOptions {
+    fn default() -> ViolinOptions {
+        ViolinOptions { samples: 128 }
+    }
+}
+
+/// How [`contour_with`] chooses iso-line values.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum ContourLevels {
+    /// Choose nice interior levels using the tick algorithm and this target count.
+    Automatic(usize),
+    /// Trace these exact values, sorted and deduplicated before use.
+    Explicit(Vec<f64>),
+}
+
+/// Configuration for [`contour_with`].
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct ContourOptions {
+    /// Automatic or explicit iso-line values.
+    pub levels: ContourLevels,
+    /// Colors interpolated over the grid's finite value extent.
+    pub colormap: Colormap,
+}
+
+impl ContourOptions {
+    /// Chooses nice levels near `target` using the tick algorithm.
+    pub const fn automatic(target: usize) -> ContourOptions {
+        ContourOptions {
+            levels: ContourLevels::Automatic(target),
+            colormap: Colormap::DEFAULT,
+        }
+    }
+
+    /// Traces the supplied levels after sorting and deduplicating them.
+    pub fn explicit(levels: impl IntoIterator<Item = f64>) -> ContourOptions {
+        ContourOptions {
+            levels: ContourLevels::Explicit(levels.into_iter().collect()),
+            colormap: Colormap::DEFAULT,
+        }
+    }
+
+    /// Replaces the default colormap.
+    #[must_use]
+    pub fn colormap(mut self, colormap: Colormap) -> ContourOptions {
+        self.colormap = colormap;
+        self
+    }
+}
+
+impl Default for ContourOptions {
+    fn default() -> ContourOptions {
+        ContourOptions::automatic(7)
+    }
+}
+
+fn check_count(
+    count: usize,
+    minimum: usize,
+    what: &'static str,
+    minimum_detail: &'static str,
+) -> crate::Result<()> {
+    if count < minimum {
+        return Err(crate::Error::InvalidParameter {
+            detail: minimum_detail,
+        });
+    }
+    if count > crate::stat::MAX_STAT_ELEMENTS {
+        return Err(crate::Error::DimensionTooLarge {
+            what,
+            requested: count,
+            limit: crate::stat::MAX_STAT_ELEMENTS,
+        });
+    }
+    Ok(())
+}
+
+fn check_colormap(colormap: &Colormap) -> crate::Result<()> {
+    if colormap.stops().len() < 2 {
+        return Err(crate::Error::EmptyDimension {
+            what: "Colormap stops",
+        });
+    }
+    Ok(())
+}
+
+fn check_contour_coordinates(
+    value_count: usize,
+    columns: usize,
+    level_count: usize,
+) -> crate::Result<()> {
+    let rows = value_count / columns;
+    let estimated = columns
+        .saturating_sub(1)
+        .checked_mul(rows.saturating_sub(1))
+        .and_then(|blocks| blocks.checked_mul(level_count))
+        // Marching squares emits at most two three-entry segments per block.
+        .and_then(|crossings| crossings.checked_mul(6))
+        .unwrap_or(usize::MAX);
+    if estimated > crate::stat::MAX_STAT_ELEMENTS {
+        return Err(crate::Error::DimensionTooLarge {
+            what: "contour coordinate count",
+            requested: estimated,
+            limit: crate::stat::MAX_STAT_ELEMENTS,
+        });
+    }
+    Ok(())
+}
 
 /// A line chart of `values` plotted against their indices.
 ///
@@ -48,14 +262,35 @@ pub fn bar<'a>(
 /// println!("{}", malevich::hist(&samples[..]).render(&malevich::Frame::plain(40, 10)));
 /// ```
 pub fn hist<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    hist_with(values, HistogramOptions::default()).expect("default histogram options are valid")
+}
+
+/// A histogram with a caller-selected automatic bin cap.
+///
+/// # Errors
+///
+/// Returns an error when `options.max_bins` is zero or exceeds the defensive
+/// statistics limit.
+pub fn hist_with<'a>(
+    values: impl IntoSeries<'a>,
+    options: HistogramOptions,
+) -> crate::Result<Plot<'a>> {
+    check_count(
+        options.max_bins,
+        1,
+        "histogram bin cap",
+        "histogram max_bins must be at least one",
+    )?;
     let series = values.into_series();
-    match crate::stat::Bins::auto(series.as_slice(), 60) {
-        Some(bins) => {
-            let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
-            Plot::new().layer(Bars::spans(bins.start(), bins.width(), counts))
-        }
-        None => Plot::new(),
-    }
+    Ok(
+        match crate::stat::Bins::auto(series.as_slice(), options.max_bins) {
+            Some(bins) => {
+                let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
+                Plot::new().layer(Bars::spans(bins.start(), bins.width(), counts))
+            }
+            None => Plot::new(),
+        },
+    )
 }
 
 /// A step chart: `values` held flat between indices — counters, rates, states.
@@ -122,23 +357,48 @@ pub fn heatmap<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
 /// println!("{}", malevich::hist2d(&x[..], &y[..]).render(&malevich::Frame::plain(40, 12)));
 /// ```
 pub fn hist2d<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
+    hist2d_with(x, y, Histogram2dOptions::default())
+        .expect("default 2D histogram options and equal channels are required")
+}
+
+/// A 2D histogram with caller-selected grid geometry and color presentation.
+///
+/// # Errors
+///
+/// Returns an error for unequal channels, an empty or oversized grid, or an
+/// invalid colormap.
+pub fn hist2d_with<'a>(
+    x: impl IntoSeries<'a>,
+    y: impl IntoSeries<'a>,
+    options: Histogram2dOptions,
+) -> crate::Result<Plot<'a>> {
+    check_colormap(&options.colormap)?;
     let xs = x.into_series();
     let ys = y.into_series();
-    match crate::stat::bins2(xs.as_slice(), ys.as_slice(), 48, 32) {
-        Some(grid) => {
-            // Empty bins are gaps, not the faintest shade — blank space must mean
-            // "no data", never "a little data".
-            let counts: Vec<f64> = grid
-                .counts
-                .into_iter()
-                .map(|count| if count == 0.0 { f64::NAN } else { count })
-                .collect();
-            Plot::new()
-                .layer(Cells::matrix(grid.columns, counts).extents(grid.x, grid.y))
-                .colorbar()
-        }
-        None => Plot::new(),
-    }
+    Ok(
+        match crate::stat::try_bins2(xs.as_slice(), ys.as_slice(), options.columns, options.rows)? {
+            Some(grid) => {
+                // Empty bins are gaps, not the faintest shade — blank space must mean
+                // "no data", never "a little data".
+                let counts: Vec<f64> = grid
+                    .counts
+                    .into_iter()
+                    .map(|count| if count == 0.0 { f64::NAN } else { count })
+                    .collect();
+                let plot = Plot::new().layer(
+                    Cells::matrix(grid.columns, counts)
+                        .extents(grid.x, grid.y)
+                        .colormap(options.colormap),
+                );
+                if options.colorbar {
+                    plot.colorbar()
+                } else {
+                    plot
+                }
+            }
+            None => Plot::new(),
+        },
+    )
 }
 
 /// Contour lines of a row-major grid (row 0 at the bottom), like
@@ -155,15 +415,74 @@ pub fn hist2d<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
 ///
 /// # Panics
 ///
-/// Panics if `columns` is zero or does not divide the number of values.
+/// Panics if `columns` is zero, does not divide the number of values, or the
+/// default level set could exceed the defensive contour output budget. Use
+/// [`contour_with`] for a checked boundary.
 pub fn contour<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
-    use crate::scale::{Colormap, Ticks};
+    contour_with(columns, values, ContourOptions::default())
+        .expect("contour requires a rectangular grid and valid default options")
+}
+
+/// Contour lines with caller-selected levels and colormap.
+///
+/// Explicit levels outside the grid's finite range are omitted because they
+/// cannot cross a cell. Automatic levels use the same nice-decimal tick engine as
+/// the axes.
+///
+/// # Errors
+///
+/// Returns an error for a non-rectangular grid, fewer than two requested
+/// automatic ticks, empty/non-finite explicit levels, an oversized level set, or
+/// an invalid colormap.
+pub fn contour_with<'a>(
+    columns: usize,
+    values: impl IntoSeries<'a>,
+    options: ContourOptions,
+) -> crate::Result<Plot<'a>> {
+    use crate::scale::Ticks;
 
     let series = values.into_series();
-    assert!(
-        columns > 0 && series.len().is_multiple_of(columns),
-        "contour requires a rectangular grid"
-    );
+    if columns == 0 {
+        return Err(crate::Error::EmptyDimension {
+            what: "contour columns",
+        });
+    }
+    if !series.len().is_multiple_of(columns) {
+        return Err(crate::Error::NonRectangular {
+            mark: "contour",
+            shape: (series.len(), columns),
+        });
+    }
+    check_colormap(&options.colormap)?;
+    let level_selection = match options.levels {
+        ContourLevels::Automatic(target) => {
+            check_count(
+                target,
+                2,
+                "contour automatic level target",
+                "contour automatic target must be at least two",
+            )?;
+            check_contour_coordinates(series.len(), columns, target)?;
+            ContourLevels::Automatic(target)
+        }
+        ContourLevels::Explicit(mut levels) => {
+            check_count(
+                levels.len(),
+                1,
+                "contour explicit level count",
+                "contour explicit levels must not be empty",
+            )?;
+            check_contour_coordinates(series.len(), columns, levels.len())?;
+            if levels.iter().any(|level| !level.is_finite()) {
+                return Err(crate::Error::InvalidParameter {
+                    detail: "contour explicit levels must be finite",
+                });
+            }
+            levels.sort_by(f64::total_cmp);
+            levels.dedup();
+            ContourLevels::Explicit(levels)
+        }
+    };
     let mut extent: Option<(f64, f64)> = None;
     for &value in series.as_slice() {
         if value.is_finite() {
@@ -173,27 +492,35 @@ pub fn contour<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
         }
     }
     let Some((min, max)) = extent.filter(|(low, high)| low < high) else {
-        return Plot::new();
+        return Ok(Plot::new());
     };
-    let ticks = Ticks::linear(min, max, 7);
-    let levels: Vec<&crate::scale::Tick> = ticks
-        .iter()
-        .filter(|tick| tick.value > min && tick.value < max)
-        .collect();
-    let values: Vec<f64> = levels.iter().map(|tick| tick.value).collect();
-    let mut plot = Plot::new();
-    for (tick, line) in
-        levels
+    let levels: Vec<(f64, String)> = match level_selection {
+        ContourLevels::Automatic(target) => Ticks::linear(min, max, target)
             .iter()
+            .filter(|tick| tick.value > min && tick.value < max)
+            .map(|tick| (tick.value, tick.label.clone()))
+            .collect(),
+        ContourLevels::Explicit(levels) => levels
+            .into_iter()
+            .filter(|level| *level > min && *level < max)
+            .map(|level| (level, level.to_string()))
+            .collect(),
+    };
+    let values: Vec<f64> = levels.iter().map(|(level, _)| *level).collect();
+    check_contour_coordinates(series.len(), columns, values.len())?;
+    let mut plot = Plot::new();
+    for ((level, label), line) in
+        levels
+            .into_iter()
             .zip(crate::stat::contours(series.as_slice(), columns, &values))
     {
         plot = plot.layer(
             Line::xy(line.x, line.y)
-                .label(&tick.label)
-                .color(Colormap::DEFAULT.color((tick.value - min) / (max - min))),
+                .label(label)
+                .color(options.colormap.color((level - min) / (max - min))),
         );
     }
-    plot
+    Ok(plot)
 }
 
 /// A vector field: one arrow per point, from `(x[i], y[i])` along `(u[i], v[i])`.
@@ -350,11 +677,30 @@ pub fn error_bars<'a>(
 /// println!("{}", malevich::density(&samples[..]).render(&malevich::Frame::plain(40, 10)));
 /// ```
 pub fn density<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    density_with(values, DensityOptions::default()).expect("default density options are valid")
+}
+
+/// A Gaussian KDE evaluated at a caller-selected number of positions.
+///
+/// # Errors
+///
+/// Returns an error when `options.samples` is below two or exceeds the
+/// defensive statistics limit.
+pub fn density_with<'a>(
+    values: impl IntoSeries<'a>,
+    options: DensityOptions,
+) -> crate::Result<Plot<'a>> {
+    check_count(
+        options.samples,
+        2,
+        "density sample count",
+        "density samples must be at least two",
+    )?;
     let series = values.into_series();
-    match crate::stat::kde(series.as_slice(), 256) {
+    Ok(match crate::stat::kde(series.as_slice(), options.samples) {
         Some((positions, densities)) => Plot::new().layer(Line::xy(positions, densities)),
         None => Plot::new(),
-    }
+    })
 }
 
 /// Violin plots: one mirrored density per category, each scaled to the same width.
@@ -368,21 +714,57 @@ pub fn density<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
 ///
 /// # Panics
 ///
-/// Panics if the number of categories differs from the number of groups.
+/// Panics if the number of categories differs from the number of groups or the
+/// total default KDE output exceeds the defensive statistics limit. Use
+/// [`violin_with`] for a checked boundary.
 pub fn violin<'a>(
     categories: impl IntoIterator<Item = impl Into<String>>,
     groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
 ) -> Plot<'a> {
+    violin_with(categories, groups, ViolinOptions::default())
+        .expect("violin requires one category per group and valid default options")
+}
+
+/// Violin plots with a caller-selected KDE sample count.
+///
+/// # Errors
+///
+/// Returns an error for fewer than two samples, excessive total KDE output, or a
+/// category/group length mismatch.
+pub fn violin_with<'a>(
+    categories: impl IntoIterator<Item = impl Into<String>>,
+    groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
+    options: ViolinOptions,
+) -> crate::Result<Plot<'a>> {
+    check_count(
+        options.samples,
+        2,
+        "violin sample count",
+        "violin samples must be at least two",
+    )?;
     let categories: Vec<String> = categories.into_iter().map(Into::into).collect();
-    let densities: Vec<Option<(Vec<f64>, Vec<f64>)>> = groups
+    let groups: Vec<_> = groups
         .into_iter()
-        .map(|group| crate::stat::kde(group.into_series().as_slice(), 128))
+        .map(|group| group.into_series())
         .collect();
-    assert_eq!(
-        categories.len(),
-        densities.len(),
-        "violin requires one category per group"
-    );
+    if categories.len() != groups.len() {
+        return Err(crate::Error::UnequalChannels {
+            mark: "violin: categories and groups",
+            lengths: (categories.len(), groups.len()),
+        });
+    }
+    let requested = groups.len().saturating_mul(options.samples);
+    if requested > crate::stat::MAX_STAT_ELEMENTS {
+        return Err(crate::Error::DimensionTooLarge {
+            what: "violin KDE sample count",
+            requested,
+            limit: crate::stat::MAX_STAT_ELEMENTS,
+        });
+    }
+    let densities: Vec<Option<(Vec<f64>, Vec<f64>)>> = groups
+        .iter()
+        .map(|group| crate::stat::kde(group.as_slice(), options.samples))
+        .collect();
     // The Bands spec declares the categorical axis; the violins themselves are
     // horizontal areas over the band centers.
     let mut plot = Plot::new().x_scale(crate::scale::Scale::bands(categories));
@@ -397,5 +779,104 @@ pub fn violin<'a>(
         let right: Vec<f64> = half.iter().map(|w| center + w).collect();
         plot = plot.layer(Area::horizontal(positions, left, right));
     }
-    plot
+    Ok(plot)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Color, Frame};
+
+    #[test]
+    fn a_custom_histogram_cap_matches_the_grammar() {
+        let values: Vec<f64> = (0..200).map(|index| (index % 37) as f64).collect();
+        let frame = Frame::plain(44, 10);
+        let actual = hist_with(&values[..], HistogramOptions::new(4))
+            .unwrap()
+            .render(&frame);
+
+        let bins = crate::stat::Bins::auto(&values, 4).unwrap();
+        let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
+        let expected = Plot::new()
+            .layer(Bars::spans(bins.start(), bins.width(), counts))
+            .render(&frame);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn configured_grids_and_kdes_reach_the_generated_marks() {
+        let x = [0.0, 1.0, 2.0, 3.0];
+        let y = [0.0, 1.0, 0.5, 1.5];
+        let histogram = hist2d_with(
+            &x[..],
+            &y[..],
+            Histogram2dOptions::new(3, 2).colorbar(false),
+        )
+        .unwrap();
+        let debug = format!("{histogram:?}");
+        assert!(debug.contains("columns: 3"), "{debug}");
+        assert!(debug.contains("rows: 2"), "{debug}");
+
+        let density = density_with(&y[..], DensityOptions::new(24)).unwrap();
+        assert!(format!("{density:?}").contains("points: 24"));
+
+        let violin = violin_with(["one"], [&y[..]], ViolinOptions::new(20)).unwrap();
+        assert!(format!("{violin:?}").contains("points: 20"));
+    }
+
+    #[test]
+    fn explicit_contours_are_sorted_deduplicated_and_colored() {
+        let grid: Vec<f64> = (0..9).map(f64::from).collect();
+        let grayscale = Colormap::try_from_stops(vec![(0, 0, 0), (255, 255, 255)]).unwrap();
+        let plot = contour_with(
+            3,
+            &grid[..],
+            ContourOptions::explicit([6.0, 2.0, 6.0]).colormap(grayscale),
+        )
+        .unwrap();
+        let debug = format!("{plot:?}");
+        assert_eq!(debug.matches("Line {").count(), 2, "{debug}");
+        assert!(debug.contains(&format!("{:?}", Color::Rgb(63, 63, 63))));
+        assert!(debug.contains(&format!("{:?}", Color::Rgb(191, 191, 191))));
+    }
+
+    #[test]
+    fn invalid_preset_options_return_typed_errors() {
+        assert!(matches!(
+            hist_with([1.0], HistogramOptions::new(0)),
+            Err(crate::Error::InvalidParameter { .. })
+        ));
+        assert!(matches!(
+            hist2d_with([1.0], [1.0], Histogram2dOptions::new(0, 2)),
+            Err(crate::Error::EmptyDimension { .. })
+        ));
+        assert!(matches!(
+            density_with([1.0], DensityOptions::new(1)),
+            Err(crate::Error::InvalidParameter { .. })
+        ));
+        assert!(matches!(
+            violin_with(["a", "b"], [[1.0, 2.0]], ViolinOptions::default()),
+            Err(crate::Error::UnequalChannels { .. })
+        ));
+        assert!(matches!(
+            contour_with(
+                2,
+                [0.0, 1.0, 2.0, 3.0],
+                ContourOptions::explicit([f64::NAN])
+            ),
+            Err(crate::Error::InvalidParameter { .. })
+        ));
+        assert!(matches!(
+            contour_with(2, [1.0; 4], ContourOptions::explicit([])),
+            Err(crate::Error::InvalidParameter { .. })
+        ));
+        assert!(matches!(
+            contour_with(
+                2,
+                [0.0, 1.0, 2.0, 3.0],
+                ContourOptions::automatic(crate::stat::MAX_STAT_ELEMENTS)
+            ),
+            Err(crate::Error::DimensionTooLarge { .. })
+        ));
+    }
 }

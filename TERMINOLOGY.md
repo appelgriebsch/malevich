@@ -183,7 +183,10 @@ fix domains with `Plot::x_domain`/`y_domain` — never a hidden mode. Maps to
 A plain function composing the grammar into a named chart type: `line()`, `hist()`,
 `scatter()`, …. Every preset is provably equal to its grammar expansion (asserted
 bit-identical in tests). Presets are the front door; the grammar is discovered, not
-required. Maps to root functions — currently `malevich::line`.
+required. Statistical presets keep simple defaults while their `_with` variants accept
+small checked option values for histogram caps/grids, KDE resolution, violin
+resolution, and contour levels. Maps to functions and option types re-exported at the
+crate root.
 
 ## Stream
 
