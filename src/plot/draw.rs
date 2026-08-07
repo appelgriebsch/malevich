@@ -536,18 +536,15 @@ fn draw_cells<C: Canvas>(
 /// Inverts a scale at a subpixel position, returning the data value if it lands
 /// inside `[lo, hi]`.
 fn position_on(scale: &Map, sub: f64, lo: f64, hi: f64) -> Option<f64> {
-    // Sample the scale forward at both ends to invert linearly in subpixel space —
-    // exact for linear scales, and cells are not drawn on log axes.
-    let s0 = scale.map(lo);
-    let s1 = scale.map(hi);
-    if !s0.is_finite() || !s1.is_finite() || s0 == s1 {
+    if lo == hi {
         return None;
     }
-    let t = (sub - s0) / (s1 - s0);
+    let value = scale.unmap(sub);
+    let t = (value - lo) / (hi - lo);
     if !(0.0..1.0).contains(&t) {
         return None;
     }
-    Some(lo + t * (hi - lo))
+    Some(value)
 }
 
 /// Draws one area layer: for every subpixel column a segment covers, a vertical
@@ -637,5 +634,26 @@ fn draw_area<C: Canvas>(
             None => surface.line(place(main, cross_low), place(main, cross_high), color),
         }
         previous = Some((main, cross_low, cross_high));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Map, position_on};
+
+    #[test]
+    fn cells_invert_log_scales_in_logarithmic_data_space() {
+        let log = Map::build((1.0, 1000.0), (0.0, 3.0), true);
+        let sampled = position_on(&log, 1.0, 1.0, 1000.0).expect("inside extent");
+        assert!((sampled - 10.0).abs() < 1e-12, "sampled {sampled}");
+
+        // Linear interpolation in data space would sample 334 here. The true
+        // inverse keeps the first linearly-spaced heatmap cell wide on a log axis.
+        let column = ((sampled - 1.0) / 999.0 * 3.0).floor() as usize;
+        assert_eq!(column, 0);
+
+        let reversed = Map::build((1.0, 1000.0), (3.0, 0.0), true);
+        let sampled = position_on(&reversed, 2.0, 1.0, 1000.0).expect("inside extent");
+        assert!((sampled - 10.0).abs() < 1e-12, "sampled {sampled}");
     }
 }

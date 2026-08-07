@@ -117,6 +117,18 @@ impl<'a> Mark<'a> {
                         what: "Colormap stops",
                     });
                 }
+                if let Some((x, y)) = cells.extents {
+                    if !(x.0.is_finite() && x.1.is_finite() && y.0.is_finite() && y.1.is_finite()) {
+                        return Err(crate::Error::InvalidParameter {
+                            detail: "Cells extents must be finite",
+                        });
+                    }
+                    if x.0 == x.1 || y.0 == y.1 {
+                        return Err(crate::Error::InvalidParameter {
+                            detail: "Cells extents must be non-empty",
+                        });
+                    }
+                }
             }
             Mark::Range(range) => {
                 let n = range.low.len();

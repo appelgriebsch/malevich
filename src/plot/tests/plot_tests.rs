@@ -500,6 +500,73 @@ fn an_explicit_scale_without_categorical_layers_validates() {
 }
 
 #[test]
+fn zero_baseline_marks_are_rejected_on_log_axes() {
+    let bars = crate::bar(["a", "b"], &[1.0, 10.0][..]).log_y();
+    assert!(matches!(
+        bars.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+
+    let baseline = Plot::new()
+        .layer(crate::Area::xy([1.0, 10.0], [2.0, 20.0]))
+        .log_y();
+    assert!(matches!(
+        baseline.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+
+    let band = Plot::new()
+        .layer(crate::Area::between([1.0, 10.0], [2.0, 3.0], [4.0, 30.0]))
+        .log_y();
+    assert!(band.validate().is_ok());
+}
+
+#[test]
+fn cells_require_continuous_axes_and_positive_log_extents() {
+    let values = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+    let bands = Plot::new()
+        .layer(crate::Cells::matrix(3, values))
+        .x_scale(crate::Scale::bands(["a", "b", "c"]));
+    assert!(matches!(
+        bands.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+
+    let implicit_zero = Plot::new().layer(crate::Cells::matrix(3, values)).log_x();
+    assert!(matches!(
+        implicit_zero.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+
+    let log = Plot::new()
+        .layer(crate::Cells::matrix(3, values).extents((1.0, 1000.0), (1.0, 100.0)))
+        .log_x()
+        .log_y();
+    assert!(log.validate().is_ok());
+    assert!(!log.try_render(&Frame::plain(40, 10)).unwrap().is_empty());
+}
+
+#[test]
+fn numeric_span_bars_do_not_silently_use_a_band_scale() {
+    let plot = Plot::new()
+        .layer(crate::Bars::spans(0.0, 1.0, [1.0, 2.0]))
+        .x_scale(crate::Scale::bands(["a", "b"]));
+    assert!(matches!(
+        plot.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+}
+
+#[test]
+fn an_empty_explicit_band_scale_is_invalid() {
+    let plot = crate::line(&[1.0, 2.0][..]).x_scale(crate::Scale::Bands(Vec::new()));
+    assert!(matches!(
+        plot.validate(),
+        Err(crate::Error::EmptyDimension { .. })
+    ));
+}
+
+#[test]
 fn a_colorbar_legends_the_cells_value_range() {
     let grid: Vec<f64> = (0..24).map(|i| i as f64).collect();
     let with = crate::heatmap(6, &grid[..]).render(&Frame::plain(34, 8));

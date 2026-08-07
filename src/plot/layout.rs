@@ -62,6 +62,13 @@ impl Map {
             Map::Log(linear) => linear.map(value.log10()),
         }
     }
+
+    pub(crate) fn unmap(&self, value: f64) -> f64 {
+        match self {
+            Map::Linear(linear) => linear.unmap(value),
+            Map::Log(linear) => 10.0f64.powf(linear.unmap(value)),
+        }
+    }
 }
 
 /// The resolved geometry of one render: where everything goes and how data maps

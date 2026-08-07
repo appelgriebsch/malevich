@@ -44,15 +44,23 @@ fn gaps_survive_json_as_nulls() {
 }
 
 #[test]
-fn bands_cells_and_log_scales_round_trip() {
-    let plot = Plot::new()
-        .layer(Bars::new(["a", "b", "c"], &[3.0, 7.0, 5.0][..]))
-        .layer(Cells::matrix(2, &[1.0, 2.0, 3.0, 4.0][..]))
-        .x_scale(Scale::bands(["a", "b", "c"]))
-        .y_scale(Scale::Log);
-    let encoded = serde_json::to_string(&plot).expect("serializes");
-    let decoded: Plot = serde_json::from_str(&encoded).expect("deserializes");
-    assert_eq!(plot.render(&frame()), decoded.render(&frame()));
+fn bands_cells_and_log_scales_round_trip_as_valid_specs() {
+    let plots = [
+        Plot::new()
+            .layer(Bars::new(["a", "b", "c"], &[3.0, 7.0, 5.0][..]))
+            .x_scale(Scale::bands(["a", "b", "c"])),
+        Plot::new()
+            .layer(Cells::matrix(2, &[1.0, 2.0, 3.0, 4.0][..]).extents((1.0, 100.0), (1.0, 1000.0)))
+            .x_scale(Scale::Log)
+            .y_scale(Scale::Log),
+    ];
+    for plot in plots {
+        assert!(plot.validate().is_ok());
+        let encoded = serde_json::to_string(&plot).expect("serializes");
+        let decoded: Plot = serde_json::from_str(&encoded).expect("deserializes");
+        assert!(decoded.validate().is_ok());
+        assert_eq!(plot.render(&frame()), decoded.render(&frame()));
+    }
 }
 
 #[test]
@@ -99,6 +107,24 @@ fn validate_rejects_the_malformed_payloads_render_tolerates() {
     assert!(ragged.try_render(&frame()).is_err());
     // Rendering the same spec still does not panic.
     let _ = ragged.render(&frame());
+
+    let degenerate: Plot = serde_json::from_str(
+        r#"{"layers":[{"Cells":{"columns":1,"values":[1.0],"extents":[[2.0,2.0],[0.0,1.0]],"colormap":{"stops":[[0,0,0],[255,255,255]]}}}],"title":null,"x":"Linear","y":"Linear","x_label":null,"y_label":null,"x_domain":null,"y_domain":null}"#,
+    )
+    .expect("degenerate Cells extents deserialize");
+    assert!(matches!(
+        degenerate.validate(),
+        Err(crate::Error::InvalidParameter { .. })
+    ));
+
+    let categorical_y: Plot = serde_json::from_str(
+        r#"{"layers":[],"title":null,"x":"Linear","y":{"Bands":["a"]},"x_label":null,"y_label":null,"x_domain":null,"y_domain":null}"#,
+    )
+    .expect("categorical y scale deserializes");
+    assert!(matches!(
+        categorical_y.validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
 }
 
 #[test]

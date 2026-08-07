@@ -44,12 +44,18 @@ impl<'a> Cells<'a> {
     ///
     /// # Panics
     ///
-    /// Panics if the extents are not finite.
+    /// Panics if the extents are not finite or either span is empty. Reversed
+    /// endpoints are accepted and flip that grid axis.
     #[must_use]
     pub fn extents(mut self, x: (f64, f64), y: (f64, f64)) -> Cells<'a> {
         assert!(
-            x.0.is_finite() && x.1.is_finite() && y.0.is_finite() && y.1.is_finite(),
-            "Cells::extents requires finite bounds"
+            x.0.is_finite()
+                && x.1.is_finite()
+                && y.0.is_finite()
+                && y.1.is_finite()
+                && x.0 != x.1
+                && y.0 != y.1,
+            "Cells::extents requires finite, non-empty bounds"
         );
         self.extents = Some((x, y));
         self

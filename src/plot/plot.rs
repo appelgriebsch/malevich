@@ -257,6 +257,18 @@ impl<'a> Plot<'a> {
         for layer in &self.layers {
             layer.validate()?;
         }
+        if matches!(self.y, Scale::Bands(_)) {
+            return Err(crate::Error::IncompatibleScale {
+                detail: "Bands is supported only on the x axis",
+            });
+        }
+        if let Scale::Bands(categories) = &self.x
+            && categories.is_empty()
+        {
+            return Err(crate::Error::EmptyDimension {
+                what: "Bands categories",
+            });
+        }
         // Categorical layers must agree on one ordered set of bands, and a numeric x
         // scale cannot host them — `Auto` adapts, but an explicit numeric choice is a
         // conflict, not an override.
@@ -293,6 +305,65 @@ impl<'a> Plot<'a> {
                 _ => bands = Some(layer_bands),
             }
         }
+        let categorical_x = match &self.x {
+            Scale::Bands(_) => true,
+            Scale::Auto => bands.is_some_and(|categories| !categories.is_empty()),
+            _ => false,
+        };
+        for layer in &self.layers {
+            match layer {
+                Mark::Bars(bars) => {
+                    if matches!(self.y, Scale::Log) {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "Bars has a zero baseline and cannot use a log y axis",
+                        });
+                    }
+                    if categorical_x
+                        && matches!(bars.placement, crate::mark::Placement::Spans { .. })
+                    {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "numeric-span Bars needs a continuous x scale",
+                        });
+                    }
+                }
+                Mark::Area(area) if area.low.is_none() && !area.horizontal => {
+                    if matches!(self.y, Scale::Log) {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "a zero-baseline Area cannot use a log y axis",
+                        });
+                    }
+                }
+                Mark::Area(area) if area.low.is_none() && area.horizontal => {
+                    if matches!(self.x, Scale::Log) {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "a horizontal zero-baseline Area cannot use a log x axis",
+                        });
+                    }
+                }
+                Mark::Cells(cells) => {
+                    if categorical_x {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "Cells needs a continuous x scale",
+                        });
+                    }
+                    let rows = cells.values.len() / cells.columns;
+                    let (x, y) = cells
+                        .extents
+                        .unwrap_or(((0.0, cells.columns as f64), (0.0, rows as f64)));
+                    if matches!(self.x, Scale::Log) && (x.0 <= 0.0 || x.1 <= 0.0) {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "Cells on a log x axis needs positive x extents",
+                        });
+                    }
+                    if matches!(self.y, Scale::Log) && (y.0 <= 0.0 || y.1 <= 0.0) {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "Cells on a log y axis needs positive y extents",
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
         for (axis, domain) in [("x", self.x_domain), ("y", self.y_domain)] {
             if let Some((lo, hi)) = domain
                 && !(lo.is_finite() && hi.is_finite())
@@ -301,16 +372,16 @@ impl<'a> Plot<'a> {
             }
         }
         if matches!(self.x, Scale::Log)
-            && let Some((lo, _)) = self.x_domain
-            && lo <= 0.0
+            && let Some((lo, hi)) = self.x_domain
+            && (lo <= 0.0 || hi <= 0.0)
         {
             return Err(crate::Error::IncompatibleScale {
                 detail: "a log x axis needs a positive domain",
             });
         }
         if matches!(self.y, Scale::Log)
-            && let Some((lo, _)) = self.y_domain
-            && lo <= 0.0
+            && let Some((lo, hi)) = self.y_domain
+            && (lo <= 0.0 || hi <= 0.0)
         {
             return Err(crate::Error::IncompatibleScale {
                 detail: "a log y axis needs a positive domain",

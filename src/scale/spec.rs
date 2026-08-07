@@ -5,6 +5,23 @@
 /// Set with [`crate::Plot::x_scale`] / [`crate::Plot::y_scale`]; the sugar methods
 /// (`log_y()`, `time_x()`) are shorthands for the common cases. [`Auto`](Scale::Auto)
 /// is the default and adapts to the layers; an explicit scale is always honored.
+///
+/// # Mark compatibility
+///
+/// `Auto` resolves the x axis to bands for [`Bars::new`](crate::Bars::new) and
+/// [`Range::over`](crate::Range::over), and to linear otherwise. The explicit x-axis
+/// contract is:
+///
+/// | Mark | Linear / Time | Log | Bands |
+/// | --- | --- | --- | --- |
+/// | Line, Points, Area, numeric Range, Rule, Text | yes | yes; non-positive values are gaps | yes; positions are band indices |
+/// | `Bars::new`, `Range::over` | no | no | yes |
+/// | `Bars::spans` | yes | yes | no |
+/// | Cells | yes | yes, with positive extents | no |
+///
+/// On y, Bands is unsupported. Linear and Time accept every mark. Log accepts Line,
+/// Points, Range, Rule, Text, banded Area, and Cells with positive extents; it rejects
+/// Bars and zero-baseline Area because zero has no logarithmic position.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

@@ -16,3 +16,15 @@ fn debug_stays_curated() {
     assert!(debug.contains("columns: 2") && debug.contains("rows: 2"));
     assert!(!debug.contains("1.0"), "debug dumps data: {debug}");
 }
+
+#[test]
+#[should_panic(expected = "non-empty bounds")]
+fn degenerate_extents_panic() {
+    let _ = Cells::matrix(2, &[1.0, 2.0][..]).extents((1.0, 1.0), (0.0, 1.0));
+}
+
+#[test]
+fn reversed_extents_remain_an_explicit_axis_flip() {
+    let cells = Cells::matrix(2, &[1.0, 2.0][..]).extents((2.0, 0.0), (1.0, 0.0));
+    assert_eq!(cells.extents, Some(((2.0, 0.0), (1.0, 0.0))));
+}

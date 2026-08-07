@@ -31,4 +31,25 @@ impl Linear {
         }
         r0 + (value - d0) / (d1 - d0) * (r1 - r0)
     }
+
+    /// Maps a range value back into the data domain.
+    ///
+    /// A degenerate range maps every finite value to the domain midpoint, mirroring
+    /// [`Linear::map`]'s treatment of a degenerate domain. `NaN` stays `NaN`.
+    pub fn unmap(&self, value: f64) -> f64 {
+        let (d0, d1) = self.domain;
+        let (r0, r1) = self.range;
+        if r0 == r1 {
+            return if value.is_nan() {
+                value
+            } else {
+                (d0 + d1) / 2.0
+            };
+        }
+        d0 + (value - r0) / (r1 - r0) * (d1 - d0)
+    }
 }
+
+#[cfg(test)]
+#[path = "tests/linear_tests.rs"]
+mod tests;
