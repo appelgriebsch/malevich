@@ -15,6 +15,24 @@ fn the_line_preset_equals_its_grammar_expansion() {
 }
 
 #[test]
+fn fallible_render_rejects_hostile_frame_geometry() {
+    let plot = crate::line(&[1.0, 2.0, 3.0][..]);
+    let enormous_width = Frame::plain(usize::MAX, 0);
+    assert!(matches!(
+        plot.try_render(&enormous_width),
+        Err(crate::Error::DimensionTooLarge { .. })
+    ));
+    assert_eq!(plot.render(&enormous_width), "");
+
+    let enormous_height = Frame::plain(0, usize::MAX);
+    assert!(matches!(
+        plot.try_render(&enormous_height),
+        Err(crate::Error::DimensionTooLarge { .. })
+    ));
+    assert_eq!(plot.render(&enormous_height), "");
+}
+
+#[test]
 fn the_scatter_preset_equals_its_grammar_expansion() {
     let x = [1.0, 2.0, 3.0];
     let y = [2.0, 1.0, 3.0];

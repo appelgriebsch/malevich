@@ -39,28 +39,41 @@ impl M4 {
     ///
     /// # Panics
     ///
-    /// Panics if the domain is not finite or `columns` is zero.
+    /// Panics if the domain is not finite, `columns` is zero, or the requested
+    /// allocation exceeds the defensive statistics budget. Use [`M4::try_new`]
+    /// for caller-controlled geometry.
     pub fn new(domain: (f64, f64), columns: usize) -> M4 {
-        assert!(
-            domain.0.is_finite() && domain.1.is_finite() && columns > 0,
-            "M4::new requires a finite domain and at least one column"
-        );
-        M4 {
-            domain,
-            buckets: vec![None; columns],
-            leading_gap: false,
-        }
+        M4::try_new(domain, columns)
+            .expect("M4::new requires a finite domain and a bounded non-empty grid")
     }
 
-    /// An aggregator addressed by explicit bucket index instead of by domain — the
-    /// bucket count is `columns` and [`M4::record`] places points directly. Used by
-    /// [`m4_mapped`], which buckets by the rendered raster column.
-    pub(crate) fn columns(columns: usize) -> M4 {
-        M4 {
-            domain: (0.0, 1.0),
-            buckets: vec![None; columns.max(1)],
-            leading_gap: false,
+    /// Fallible counterpart to [`M4::new`] for caller-controlled column counts.
+    pub fn try_new(domain: (f64, f64), columns: usize) -> crate::Result<M4> {
+        if !(domain.0.is_finite() && domain.1.is_finite()) {
+            return Err(crate::Error::InvalidParameter {
+                detail: "M4 needs a finite domain",
+            });
         }
+        if columns == 0 {
+            return Err(crate::Error::EmptyDimension { what: "M4 columns" });
+        }
+        if columns > super::MAX_STAT_ELEMENTS {
+            return Err(crate::Error::DimensionTooLarge {
+                what: "M4 column count",
+                requested: columns,
+                limit: super::MAX_STAT_ELEMENTS,
+            });
+        }
+        let mut buckets = Vec::new();
+        buckets
+            .try_reserve_exact(columns)
+            .map_err(|_| crate::Error::AllocationFailed { what: "M4 buckets" })?;
+        buckets.resize(columns, None);
+        Ok(M4 {
+            domain,
+            buckets,
+            leading_gap: false,
+        })
     }
 
     /// Accumulates one point. A non-finite `y` records a gap; points with a
@@ -196,8 +209,9 @@ impl M4 {
 /// `columns` wide, the reduction is pixel-exact. Convenience over [`M4`].
 ///
 /// Returns `None` when `x` is not sorted ascending (M4 reorders points within
-/// columns, which only preserves the drawn line for monotonic x) or when the series
-/// has no finite x extent.
+/// columns, which only preserves the drawn line for monotonic x), when the series
+/// has no finite x extent, or when `columns` exceeds the defensive statistics
+/// budget.
 ///
 /// # Panics
 ///
@@ -205,6 +219,9 @@ impl M4 {
 pub fn m4(x: &[f64], y: &[f64], columns: usize) -> Option<(Vec<f64>, Vec<f64>)> {
     assert_eq!(x.len(), y.len(), "m4 requires series of equal length");
     let columns = columns.max(1);
+    if columns > super::MAX_STAT_ELEMENTS {
+        return None;
+    }
     let mut lo = f64::INFINITY;
     let mut hi = f64::NEG_INFINITY;
     let mut previous = f64::NEG_INFINITY;
@@ -222,7 +239,7 @@ pub fn m4(x: &[f64], y: &[f64], columns: usize) -> Option<(Vec<f64>, Vec<f64>)> 
     if !lo.is_finite() {
         return None;
     }
-    let mut aggregate = M4::new((lo, hi), columns);
+    let mut aggregate = M4::try_new((lo, hi), columns).ok()?;
     for (&xv, &yv) in x.iter().zip(y.iter()) {
         aggregate.add(xv, yv);
     }
@@ -245,10 +262,10 @@ pub(crate) fn m4_mapped(
     columns: usize,
     map: impl Fn(f64) -> f64,
 ) -> Option<(Vec<f64>, Vec<f64>)> {
-    if columns == 0 {
+    if columns == 0 || columns > super::MAX_STAT_ELEMENTS {
         return None;
     }
-    let mut aggregate = M4::columns(columns);
+    let mut aggregate = M4::try_new((0.0, 1.0), columns).ok()?;
     let mut previous = f64::NEG_INFINITY;
     for (index, &yv) in y.iter().enumerate() {
         let xv = match x {

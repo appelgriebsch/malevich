@@ -9,6 +9,25 @@ use malevich::{Frame, Plot};
 use crate::args::{Args, CharsetChoice, ColorChoice, Output, PixelsChoice};
 use crate::chart::Built;
 
+/// A destination write or bounded-render failure.
+#[derive(Debug)]
+pub enum EmitError {
+    Io(io::Error),
+    Render(malevich::Error),
+}
+
+impl From<io::Error> for EmitError {
+    fn from(error: io::Error) -> EmitError {
+        EmitError::Io(error)
+    }
+}
+
+impl From<malevich::Error> for EmitError {
+    fn from(error: malevich::Error) -> EmitError {
+        EmitError::Render(error)
+    }
+}
+
 /// Translates the `--color` escape hatch onto the environment variables whose
 /// precedence malevich already documents (`NO_COLOR` > `CLICOLOR_FORCE` > tty),
 /// so [`Frame::detect_for`] stays the single source of truth for color tiers —
@@ -33,7 +52,7 @@ pub fn apply_color(choice: ColorChoice) {
 /// Renders and writes the plot to its destination and reports the unparsed-field
 /// tally. Returns the process exit code. (`-O` passthrough already happened at
 /// read time, line by line — see `main::read_input`.)
-pub fn emit(args: &Args, built: &Built) -> io::Result<i32> {
+pub fn emit(args: &Args, built: &Built) -> Result<i32, EmitError> {
     match &args.output {
         Output::Stderr => plot_to(io::stderr(), &built.plot, args)?,
         Output::Stdout => plot_to(io::stdout(), &built.plot, args)?,
@@ -57,12 +76,16 @@ pub fn emit(args: &Args, built: &Built) -> io::Result<i32> {
 }
 
 /// Builds the frame for `dest`, renders the plot at the chosen tier, and writes it.
-fn plot_to<W: Write + IsTerminal>(mut dest: W, plot: &Plot<'_>, args: &Args) -> io::Result<()> {
+fn plot_to<W: Write + IsTerminal>(
+    mut dest: W,
+    plot: &Plot<'_>,
+    args: &Args,
+) -> Result<(), EmitError> {
     let frame = frame_for(&dest, args);
-    let text = render(plot, &frame, args.pixels, dest.is_terminal());
+    let text = render(plot, &frame, args.pixels, dest.is_terminal())?;
     dest.write_all(text.as_bytes())?;
     dest.write_all(b"\n")?;
-    dest.flush()
+    Ok(dest.flush()?)
 }
 
 /// The frame for a destination: detection keyed to `dest`, then the `--charset`
@@ -85,11 +108,16 @@ pub(crate) fn frame_for<T: IsTerminal>(dest: &T, args: &Args) -> Frame {
 /// Chooses the render tier. `render_best` upgrades the panel to a real image when
 /// a pixel protocol is detected and falls back to cells otherwise, so `auto` only
 /// attempts it for a terminal destination and `always` attempts it regardless.
-fn render(plot: &Plot<'_>, frame: &Frame, pixels: PixelsChoice, dest_is_terminal: bool) -> String {
+fn render(
+    plot: &Plot<'_>,
+    frame: &Frame,
+    pixels: PixelsChoice,
+    dest_is_terminal: bool,
+) -> malevich::Result<String> {
     match pixels {
-        PixelsChoice::Never => plot.render(frame),
-        PixelsChoice::Auto if dest_is_terminal => plot.render_best(frame),
-        PixelsChoice::Auto => plot.render(frame),
-        PixelsChoice::Always => plot.render_best(frame),
+        PixelsChoice::Never => plot.try_render(frame),
+        PixelsChoice::Auto if dest_is_terminal => plot.try_render_best(frame),
+        PixelsChoice::Auto => plot.try_render(frame),
+        PixelsChoice::Always => plot.try_render_best(frame),
     }
 }

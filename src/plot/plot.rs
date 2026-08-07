@@ -188,7 +188,7 @@ impl<'a> Plot<'a> {
 
     /// Renders into a string according to the frame's charset and color mode.
     pub fn render(&self, frame: &Frame) -> String {
-        self.rasterize(frame).encode(frame.color)
+        self.try_render_unvalidated(frame).unwrap_or_default()
     }
 
     /// Renders the complete plot as a self-contained HTML terminal card.
@@ -319,11 +319,15 @@ impl<'a> Plot<'a> {
         Ok(())
     }
 
-    /// [`Plot::validate`] then [`Plot::render`]: a rendered string, or the first
-    /// invalidity as a typed [`Error`](crate::Error).
+    /// [`Plot::validate`] followed by fallible rasterization and encoding: a
+    /// rendered string, or the first spec, geometry, or allocation error.
     pub fn try_render(&self, frame: &Frame) -> crate::Result<String> {
         self.validate()?;
-        Ok(self.render(frame))
+        self.try_render_unvalidated(frame)
+    }
+
+    pub(crate) fn try_render_unvalidated(&self, frame: &Frame) -> crate::Result<String> {
+        self.try_rasterize(frame)?.try_encode(frame.color)
     }
 
     /// Renders into `frame` at the best graphics tier the terminal offers: with
@@ -348,6 +352,16 @@ impl<'a> Plot<'a> {
         self.render(frame)
     }
 
+    /// The fallible counterpart of [`Plot::render_best`]. It validates the plot
+    /// and returns geometry/allocation errors instead of degrading to empty output.
+    pub fn try_render_best(&self, frame: &Frame) -> crate::Result<String> {
+        #[cfg(feature = "pixel")]
+        if let Some(graphics) = crate::pixel::Graphics::detect() {
+            return self.try_render_pixels(frame, &graphics);
+        }
+        self.try_render(frame)
+    }
+
     /// Renders with the plot panel as a real image (feature `pixel`): chrome —
     /// title, axes, tick labels, legend — as text cells exactly like
     /// [`Plot::render`], and the plot rectangle as device-pixel graphics in the
@@ -359,6 +373,18 @@ impl<'a> Plot<'a> {
     #[cfg(feature = "pixel")]
     pub fn render_pixels(&self, frame: &Frame, graphics: &crate::pixel::Graphics) -> String {
         crate::pixel::render(self, frame, graphics, 0)
+    }
+
+    /// Validates and renders a hybrid pixel plot, returning bounded geometry or
+    /// allocation failures as typed errors.
+    #[cfg(feature = "pixel")]
+    pub fn try_render_pixels(
+        &self,
+        frame: &Frame,
+        graphics: &crate::pixel::Graphics,
+    ) -> crate::Result<String> {
+        self.validate()?;
+        crate::pixel::try_render(self, frame, graphics, 0)
     }
 
     /// [`Plot::render_pixels`], anchored `column` cells from the left edge:
@@ -377,22 +403,34 @@ impl<'a> Plot<'a> {
         crate::pixel::render(self, frame, graphics, column)
     }
 
+    /// The fallible counterpart of [`Plot::render_pixels_at`].
+    #[cfg(feature = "pixel")]
+    pub fn try_render_pixels_at(
+        &self,
+        frame: &Frame,
+        graphics: &crate::pixel::Graphics,
+        column: usize,
+    ) -> crate::Result<String> {
+        self.validate()?;
+        crate::pixel::try_render(self, frame, graphics, column)
+    }
+
     /// Rasterizes for hybrid pixel output: chrome on a cell surface, marks on a
     /// device-pixel canvas at `cell` pixels per cell, one shared layout — so the
     /// scales map into device pixels and M4 buckets per pixel column.
     #[cfg(feature = "pixel")]
-    pub(crate) fn rasterize_hybrid(
+    pub(crate) fn try_rasterize_hybrid(
         &self,
         frame: &Frame,
         cell: (usize, usize),
-    ) -> (Surface, crate::pixel::PixelCanvas, crate::render::PlotRect) {
+    ) -> crate::Result<(Surface, crate::pixel::PixelCanvas, crate::render::PlotRect)> {
         use super::resolve::Reduce;
         use crate::mark::LineStyle;
         use crate::plot::resolve::{Kind, ResolvedLayer};
         use crate::render::PlotRect;
 
-        let mut surface = Surface::new(frame.width, frame.height, frame.charset);
-        let canvas = crate::pixel::PixelCanvas::new(frame.width, frame.height, cell);
+        let mut surface = Surface::try_new(frame.width, frame.height, frame.charset)?;
+        let canvas = crate::pixel::PixelCanvas::try_new(frame.width, frame.height, cell)?;
         let empty = PlotRect {
             gutter: 0,
             top: 0,
@@ -400,10 +438,18 @@ impl<'a> Plot<'a> {
             rows: 0,
         };
         if frame.width == 0 || frame.height == 0 || cell.0 == 0 || cell.1 == 0 {
-            return (surface, canvas, empty);
+            return Ok((surface, canvas, empty));
         }
         let mut canvas = canvas;
-        let sample_width = frame.width * cell.0;
+        let sample_width =
+            frame
+                .width
+                .checked_mul(cell.0)
+                .ok_or(crate::Error::DimensionTooLarge {
+                    what: "pixel sample width",
+                    requested: usize::MAX,
+                    limit: crate::render::MAX_DEVICE_PIXELS,
+                })?;
         let title = self.title.is_some();
         let scales = (&self.x, &self.y);
         let labels = (self.x_label.as_deref(), self.y_label.as_deref());
@@ -461,25 +507,47 @@ impl<'a> Plot<'a> {
             columns: layout.plot_cols,
             rows: layout.plot_rows,
         };
-        (surface, canvas, rect)
+        Ok((surface, canvas, rect))
     }
 
+    #[cfg_attr(
+        not(any(test, feature = "evcxr", feature = "ratatui")),
+        allow(dead_code)
+    )]
     pub(crate) fn rasterize(&self, frame: &Frame) -> Surface {
-        self.rasterize_with(frame, true)
+        self.try_rasterize(frame)
+            .unwrap_or_else(|_| Surface::new(0, 0, frame.charset))
+    }
+
+    pub(crate) fn try_rasterize(&self, frame: &Frame) -> crate::Result<Surface> {
+        self.try_rasterize_with(frame, true)
     }
 
     /// Rasterizes with M4 line downsampling optionally disabled. With `downsample`
     /// false, large line layers draw every point — the raw raster that M4 must
     /// reproduce, used as a test oracle for the aggregate-to-raster claim.
+    #[cfg(test)]
     pub(crate) fn rasterize_with(&self, frame: &Frame, downsample: bool) -> Surface {
+        self.try_rasterize_with(frame, downsample)
+            .unwrap_or_else(|_| Surface::new(0, 0, frame.charset))
+    }
+
+    fn try_rasterize_with(&self, frame: &Frame, downsample: bool) -> crate::Result<Surface> {
         use super::resolve::Reduce;
 
-        let mut surface = Surface::new(frame.width, frame.height, frame.charset);
+        let mut surface = Surface::try_new(frame.width, frame.height, frame.charset)?;
         if frame.width == 0 || frame.height == 0 {
-            return surface;
+            return Ok(surface);
         }
         let (px, _) = frame.charset.pixels_per_cell();
-        let sample_width = frame.width * px;
+        let sample_width = frame
+            .width
+            .checked_mul(px)
+            .ok_or(crate::Error::DimensionTooLarge {
+                what: "cell sample width",
+                requested: usize::MAX,
+                limit: crate::render::MAX_DEVICE_PIXELS,
+            })?;
         let title = self.title.is_some();
         let scales = (&self.x, &self.y);
         let labels = (self.x_label.as_deref(), self.y_label.as_deref());
@@ -530,7 +598,7 @@ impl<'a> Plot<'a> {
             &layers,
         );
         super::draw::layers(&mut surface, &layout, &layers);
-        surface
+        Ok(surface)
     }
 }
 

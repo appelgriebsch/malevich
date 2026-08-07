@@ -61,8 +61,9 @@ fn execute(args: &Args) -> Result<i32, Fail> {
     match output::emit(args, &built) {
         Ok(code) => Ok(code),
         // A closed downstream (`kaz … | head`) is a clean stop, not an error.
-        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(0),
-        Err(error) => Err(Fail(format!("write failed: {error}"))),
+        Err(output::EmitError::Io(error)) if error.kind() == io::ErrorKind::BrokenPipe => Ok(0),
+        Err(output::EmitError::Io(error)) => Err(Fail(format!("write failed: {error}"))),
+        Err(output::EmitError::Render(error)) => Err(Fail(format!("render failed: {error}"))),
     }
 }
 

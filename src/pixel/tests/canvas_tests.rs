@@ -25,6 +25,14 @@ fn a_new_canvas_is_fully_transparent() {
 }
 
 #[test]
+fn oversized_canvas_geometry_is_rejected_before_allocation() {
+    let error = PixelCanvas::try_new(usize::MAX, 2, (2, 2))
+        .err()
+        .expect("oversized canvas must fail");
+    assert!(matches!(error, crate::Error::DimensionTooLarge { .. }));
+}
+
+#[test]
 fn dot_stamps_a_point_marker_and_clips_outside() {
     let mut canvas = PixelCanvas::new(2, 2, (8, 8));
     canvas.dot(3.4, 5.6, RED);

@@ -18,8 +18,11 @@ mod moments;
 mod stack;
 mod window;
 
+/// Defensive ceiling for caller-selected statistical output geometry.
+pub(crate) const MAX_STAT_ELEMENTS: usize = 1_000_000;
+
 pub use agg::Agg;
-pub use bin::{Bins, Histogram2d, bins2};
+pub use bin::{Bins, Histogram2d, bins2, try_bins2};
 pub use box_stats::BoxStats;
 pub use contour::{Contour, contours};
 pub use ecdf::ecdf;

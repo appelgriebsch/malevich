@@ -7,7 +7,11 @@
 /// Bandwidth follows Silverman's rule of thumb —
 /// `0.9 * min(σ, IQR / 1.34) * n^(-1/5)` — and evaluation runs on linearly binned
 /// counts with a truncated Gaussian kernel: O(n + points × kernel), no FFT.
+/// Returns `None` when `points` exceeds the defensive statistics budget.
 pub fn kde(values: &[f64], points: usize) -> Option<(Vec<f64>, Vec<f64>)> {
+    if points > super::MAX_STAT_ELEMENTS {
+        return None;
+    }
     let finite: Vec<f64> = values.iter().copied().filter(|v| v.is_finite()).collect();
     if finite.is_empty() || points < 2 {
         return None;

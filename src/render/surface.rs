@@ -53,15 +53,41 @@ pub struct Surface {
 
 impl Surface {
     /// Creates an empty surface of `width * height` cells encoded with `charset`.
+    ///
+    /// A request beyond the renderer's defensive geometry limit degrades to a 0×0
+    /// surface. Use [`Surface::try_new`] when the caller needs the typed error.
     pub fn new(width: usize, height: usize, charset: Charset) -> Surface {
+        Surface::try_new(width, height, charset).unwrap_or_else(|_| Surface::empty(charset))
+    }
+
+    /// Creates an empty surface, rejecting dimensions that overflow or exceed the
+    /// renderer's defensive cell budget.
+    pub fn try_new(width: usize, height: usize, charset: Charset) -> crate::Result<Surface> {
         let (columns, rows) = charset.pixels_per_cell();
-        Surface {
+        let count = super::frame_cells(width, height)?;
+        let mut cells = Vec::new();
+        super::reserve_vec(&mut cells, count, "surface cells")?;
+        cells.resize(count, EMPTY);
+        Ok(Surface {
             width,
             height,
             charset,
             columns,
             rows,
-            cells: vec![EMPTY; width * height],
+            cells,
+            clip: None,
+        })
+    }
+
+    fn empty(charset: Charset) -> Surface {
+        let (columns, rows) = charset.pixels_per_cell();
+        Surface {
+            width: 0,
+            height: 0,
+            charset,
+            columns,
+            rows,
+            cells: Vec::new(),
             clip: None,
         }
     }
@@ -83,7 +109,13 @@ impl Surface {
 
     /// The size in subpixels as `(width, height)`.
     pub fn subpixel_size(&self) -> (usize, usize) {
-        (self.width * self.columns, self.height * self.rows)
+        // Construction bounds each cell dimension to u16 and every charset density
+        // to at most four, so these products cannot overflow. Keep saturating
+        // arithmetic as a final defense if those internal constants ever change.
+        (
+            self.width.saturating_mul(self.columns),
+            self.height.saturating_mul(self.rows),
+        )
     }
 
     /// Sets the subpixel at `(x, y)`; outside the surface or the active clip this
@@ -208,7 +240,35 @@ impl Surface {
     /// colored row ends with a reset. Rows are joined by newlines with trailing
     /// spaces trimmed. In [`ColorMode::Plain`] the output carries no escapes at all.
     pub fn encode(&self, mode: ColorMode) -> String {
-        let mut out = String::with_capacity((self.width + 8) * self.height);
+        self.try_encode(mode).unwrap_or_default()
+    }
+
+    /// Encodes the surface, rejecting a worst-case string beyond the defensive
+    /// output budget or a failed reservation.
+    pub fn try_encode(&self, mode: ColorMode) -> crate::Result<String> {
+        let cells = super::frame_cells(self.width, self.height)?;
+        // One UTF-8 scalar plus the longest possible color transition per cell.
+        // The extra row bytes cover newlines and SGR resets.
+        let bytes_per_cell = match mode {
+            ColorMode::Plain => 4,
+            ColorMode::Ansi16 => 10,
+            ColorMode::Ansi256 => 16,
+            ColorMode::TrueColor => 24,
+        };
+        let capacity = cells
+            .checked_mul(bytes_per_cell)
+            .and_then(|bytes| {
+                self.height
+                    .checked_mul(5)
+                    .and_then(|rows| bytes.checked_add(rows))
+            })
+            .ok_or(crate::Error::DimensionTooLarge {
+                what: "encoded output bytes",
+                requested: usize::MAX,
+                limit: super::MAX_OUTPUT_BYTES,
+            })?;
+        let mut out = String::new();
+        super::reserve_string(&mut out, capacity, "encoded output bytes")?;
         for row in 0..self.height {
             if row > 0 {
                 out.push('\n');
@@ -235,7 +295,7 @@ impl Surface {
                 out.push_str("\x1b[0m");
             }
         }
-        out
+        Ok(out)
     }
 
     /// Encodes the cell grid as HTML element content with concrete-RGB span runs.

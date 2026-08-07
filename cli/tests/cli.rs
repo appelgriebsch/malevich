@@ -480,6 +480,21 @@ fn unknown_subcommand_is_a_usage_error() {
     assert!(stderr(&out).contains("unknown subcommand"));
 }
 
+#[test]
+fn excessive_resource_flags_are_usage_errors() {
+    for args in [
+        vec!["line", "-w", "4097"],
+        vec!["line", "-w", "4096", "-h", "4096"],
+        vec!["hist", "--bins", "1000001"],
+        vec!["line", "--live", "--window", "1000001"],
+        vec!["line", "--live", "--fps", "1001"],
+    ] {
+        let out = run(&args, "1\n");
+        assert_eq!(out.status.code(), Some(2), "{args:?}: {}", stderr(&out));
+        assert!(stderr(&out).contains("must"), "{args:?}: {}", stderr(&out));
+    }
+}
+
 /// Every chart the CLI ships, for the help coverage tests.
 const CHARTS: [&str; 11] = [
     "line", "scatter", "bar", "hist", "count", "density", "ecdf", "box", "violin", "hist2d",

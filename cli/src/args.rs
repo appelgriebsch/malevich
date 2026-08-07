@@ -10,6 +10,12 @@ use std::path::PathBuf;
 use lexopt::prelude::*;
 use malevich::Charset;
 
+const MAX_FRAME_DIMENSION: usize = 4096;
+const MAX_FRAME_CELLS: usize = 4 * 1024 * 1024;
+const MAX_BINS: usize = 1_000_000;
+const MAX_WINDOW: usize = 1_000_000;
+const MAX_FPS: usize = 1_000;
+
 /// The chart subcommand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
@@ -298,8 +304,22 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
                     Fail(format!("--fmt is one of y|xy|xyy|xyxy|yx, got `{value}`"))
                 })?);
             }
-            Short('w') | Long("width") => width = Some(parser.value()?.parse()?),
-            Short('h') | Long("height") => height = Some(parser.value()?.parse()?),
+            Short('w') | Long("width") => {
+                width = Some(parse_bounded(
+                    "--width",
+                    &parser.value()?.string()?,
+                    0,
+                    MAX_FRAME_DIMENSION,
+                )?)
+            }
+            Short('h') | Long("height") => {
+                height = Some(parse_bounded(
+                    "--height",
+                    &parser.value()?.string()?,
+                    0,
+                    MAX_FRAME_DIMENSION,
+                )?)
+            }
             Short('t') | Long("title") => title = Some(parser.value()?.string()?),
             Long("xlabel") => xlabel = Some(parser.value()?.string()?),
             Long("ylabel") => ylabel = Some(parser.value()?.string()?),
@@ -309,11 +329,12 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             Long("log-y") => log_y = true,
             Long("time-x") => time_x = true,
             Long("bins") => {
-                let n: usize = parser.value()?.parse()?;
-                if n == 0 {
-                    return Err(Fail("--bins needs at least one bin".into()));
-                }
-                bins = Some(n);
+                bins = Some(parse_bounded(
+                    "--bins",
+                    &parser.value()?.string()?,
+                    1,
+                    MAX_BINS,
+                )?);
             }
             Long("color") => {
                 let value = parser.value()?.string()?;
@@ -348,18 +369,20 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             Short('q') | Long("quiet") => quiet = true,
             Long("live") => live = true,
             Long("window") => {
-                let n: usize = parser.value()?.parse()?;
-                if n == 0 {
-                    return Err(Fail("--window needs at least one sample".into()));
-                }
-                window = Some(n);
+                window = Some(parse_bounded(
+                    "--window",
+                    &parser.value()?.string()?,
+                    1,
+                    MAX_WINDOW,
+                )?);
             }
             Long("fps") => {
-                let n: usize = parser.value()?.parse()?;
-                if n == 0 {
-                    return Err(Fail("--fps needs at least one frame per second".into()));
-                }
-                fps = Some(n);
+                fps = Some(parse_bounded(
+                    "--fps",
+                    &parser.value()?.string()?,
+                    1,
+                    MAX_FPS,
+                )?);
             }
             Long("rate") => rate = true,
             _ => return Err(Fail(arg.unexpected().to_string())),
@@ -431,6 +454,15 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             command.name()
         )));
     }
+    if let (Some(width), Some(height)) = (width, height)
+        && width
+            .checked_mul(height)
+            .is_none_or(|cells| cells > MAX_FRAME_CELLS)
+    {
+        return Err(Fail(format!(
+            "--width × --height must not exceed {MAX_FRAME_CELLS} cells"
+        )));
+    }
 
     Ok(Outcome::Run(Box::new(Args {
         command,
@@ -460,6 +492,18 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
         fps,
         rate,
     })))
+}
+
+fn parse_bounded(flag: &str, value: &str, minimum: usize, maximum: usize) -> Result<usize, Fail> {
+    let parsed = value
+        .parse::<usize>()
+        .map_err(|_| Fail(format!("{flag} needs a whole number, got `{value}`")))?;
+    if !(minimum..=maximum).contains(&parsed) {
+        return Err(Fail(format!(
+            "{flag} must be between {minimum} and {maximum}, got {parsed}"
+        )));
+    }
+    Ok(parsed)
 }
 
 /// Parses a `A,B` numeric pair for `--xlim` / `--ylim`.

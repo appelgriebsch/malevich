@@ -74,6 +74,21 @@ fn an_empty_frame_renders_to_nothing_and_does_not_panic() {
 }
 
 #[test]
+fn fallible_pixel_render_rejects_extreme_rasters_and_anchors() {
+    let frame = Frame::plain(u16::MAX as usize, 1);
+    let dense = Graphics::new(Protocol::Kitty).cell_size(u16::MAX, u16::MAX);
+    assert!(matches!(
+        sample().try_render_pixels(&frame, &dense),
+        Err(crate::Error::DimensionTooLarge { .. })
+    ));
+
+    assert!(matches!(
+        sample().try_render_pixels_at(&Frame::plain(40, 12), &graphics(), usize::MAX),
+        Err(crate::Error::DimensionTooLarge { .. })
+    ));
+}
+
+#[test]
 fn the_corners_style_falls_back_to_a_pixel_line() {
     let x: Vec<f64> = (0..16).map(f64::from).collect();
     let y: Vec<f64> = x.iter().map(|v| v * 0.5).collect();

@@ -39,6 +39,7 @@ fn bins_takes_a_positive_count() {
     assert_eq!(run(&["hist", "--bins", "20"]).bins, Some(20));
     assert!(parse(&["hist", "--bins", "0"]).is_err());
     assert!(parse(&["hist", "--bins", "-3"]).is_err());
+    assert!(parse(&["hist", "--bins", "1000001"]).is_err());
 }
 
 #[test]
@@ -82,6 +83,8 @@ fn window_fps_and_rate_require_live() {
 fn window_and_fps_reject_zero() {
     assert!(parse(&["line", "--live", "--window", "0"]).is_err());
     assert!(parse(&["line", "--live", "--fps", "0"]).is_err());
+    assert!(parse(&["line", "--live", "--window", "1000001"]).is_err());
+    assert!(parse(&["line", "--live", "--fps", "1001"]).is_err());
 }
 
 #[test]
@@ -195,6 +198,9 @@ fn size_flags_take_numbers_and_h_is_height() {
     let args = run(&["line", "-w", "100", "-h", "20"]);
     assert_eq!(args.width, Some(100));
     assert_eq!(args.height, Some(20));
+    assert!(parse(&["line", "-w", "4097"]).is_err());
+    assert!(parse(&["line", "-h", "4097"]).is_err());
+    assert!(parse(&["line", "-w", "4096", "-h", "4096"]).is_err());
 }
 
 #[test]

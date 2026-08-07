@@ -43,6 +43,25 @@ pub enum Error {
         /// What conflicts, e.g. `"a log y axis needs a positive domain"`.
         detail: &'static str,
     },
+    /// A constructor argument is outside the operation's mathematical domain.
+    InvalidParameter {
+        /// What the caller must change.
+        detail: &'static str,
+    },
+    /// A caller-controlled dimension or derived area exceeds a defensive limit.
+    DimensionTooLarge {
+        /// The dimension being checked, e.g. `"frame cell count"`.
+        what: &'static str,
+        /// The requested value, or [`usize::MAX`] when its calculation overflowed.
+        requested: usize,
+        /// The largest accepted value.
+        limit: usize,
+    },
+    /// Memory for a bounded operation could not be reserved.
+    AllocationFailed {
+        /// The allocation being attempted.
+        what: &'static str,
+    },
 }
 
 impl fmt::Display for Error {
@@ -63,6 +82,18 @@ impl fmt::Display for Error {
             Error::EmptyDimension { what } => write!(f, "{what} is empty"),
             Error::NonFiniteDomain { axis } => write!(f, "the {axis} domain is not finite"),
             Error::IncompatibleScale { detail } => write!(f, "incompatible scale: {detail}"),
+            Error::InvalidParameter { detail } => write!(f, "invalid parameter: {detail}"),
+            Error::DimensionTooLarge {
+                what,
+                requested,
+                limit,
+            } => write!(
+                f,
+                "{what} is too large (requested {requested}, limit {limit})"
+            ),
+            Error::AllocationFailed { what } => {
+                write!(f, "could not reserve memory for {what}")
+            }
         }
     }
 }

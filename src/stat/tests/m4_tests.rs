@@ -21,6 +21,14 @@ fn each_column_keeps_its_extremes_and_endpoints() {
 }
 
 #[test]
+fn caller_selected_column_count_is_bounded() {
+    assert!(matches!(
+        M4::try_new((0.0, 1.0), usize::MAX),
+        Err(crate::Error::DimensionTooLarge { .. })
+    ));
+}
+
+#[test]
 fn merged_chunks_equal_one_sequential_pass() {
     let (x, y) = wave(10_000);
     let mut sequential = M4::new((0.0, 9_999.0), 160);

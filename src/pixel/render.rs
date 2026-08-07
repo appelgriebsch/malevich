@@ -17,28 +17,65 @@ use crate::plot::{Frame, Plot};
 use crate::render::PlotRect;
 
 pub(crate) fn render(plot: &Plot<'_>, frame: &Frame, graphics: &Graphics, column: usize) -> String {
+    try_render(plot, frame, graphics, column)
+        .unwrap_or_else(|_| at_column(&plot.render(frame), column).unwrap_or_default())
+}
+
+/// The bounded hybrid render path used by the public fallible API.
+pub(crate) fn try_render(
+    plot: &Plot<'_>,
+    frame: &Frame,
+    graphics: &Graphics,
+    column: usize,
+) -> crate::Result<String> {
     let cell = (graphics.cell_size.0 as usize, graphics.cell_size.1 as usize);
+    validate_geometry(frame, graphics.protocol, cell)?;
     if cell.0 == 0 || cell.1 == 0 {
         // No pixel geometry to draw into: degrade to ordinary cell output.
-        return at_column(&plot.render(frame), column);
+        return at_column(&plot.try_render_unvalidated(frame)?, column);
     }
-    let (surface, canvas, rect) = plot.rasterize_hybrid(frame, cell);
-    let mut out = at_column(&surface.encode(frame.color), column);
+    let (surface, canvas, rect) = plot.try_rasterize_hybrid(frame, cell)?;
+    let mut out = at_column(&surface.try_encode(frame.color)?, column)?;
     if rect.columns == 0 || rect.rows == 0 {
-        return out;
+        return Ok(out);
     }
-    let image = crop(&canvas, rect);
+    let image = crop(&canvas, rect)?;
     if image.width == 0 || image.height == 0 {
-        return out;
+        return Ok(out);
     }
     let payload = match graphics.protocol {
         Protocol::Sixel => sixel::encode(&image),
         Protocol::Kitty => kitty::encode(&image),
         Protocol::ITerm2 => iterm::encode(&image, rect.columns, rect.rows),
     };
+    let extra = payload
+        .len()
+        .checked_add(96)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel output bytes",
+            requested: usize::MAX,
+            limit: crate::render::MAX_OUTPUT_BYTES,
+        })?;
+    let total = out
+        .len()
+        .checked_add(extra)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel output bytes",
+            requested: usize::MAX,
+            limit: crate::render::MAX_OUTPUT_BYTES,
+        })?;
+    crate::render::checked_dimension("pixel output bytes", total, crate::render::MAX_OUTPUT_BYTES)?;
+    crate::render::reserve_string(&mut out, extra, "pixel output")?;
     out.push_str("\x1b7");
     // CHA is 1-based; land on the block's column, then walk to the panel.
-    let _ = write!(out, "\x1b[{}G", column + 1);
+    let anchor = column
+        .checked_add(1)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel column anchor",
+            requested: usize::MAX,
+            limit: usize::MAX - 1,
+        })?;
+    let _ = write!(out, "\x1b[{anchor}G");
     let up = frame.height - 1 - rect.top;
     if up > 0 {
         let _ = write!(out, "\x1b[{up}A");
@@ -48,18 +85,93 @@ pub(crate) fn render(plot: &Plot<'_>, frame: &Frame, graphics: &Graphics, column
     }
     out.push_str(&payload);
     out.push_str("\x1b8");
-    out
+    Ok(out)
+}
+
+fn validate_geometry(frame: &Frame, protocol: Protocol, cell: (usize, usize)) -> crate::Result<()> {
+    crate::render::frame_cells(frame.width, frame.height)?;
+    if cell.0 == 0 || cell.1 == 0 {
+        return Ok(());
+    }
+    let width = frame
+        .width
+        .checked_mul(cell.0)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "device-pixel width",
+            requested: usize::MAX,
+            limit: crate::render::MAX_DEVICE_PIXELS,
+        })?;
+    let height = frame
+        .height
+        .checked_mul(cell.1)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "device-pixel height",
+            requested: usize::MAX,
+            limit: crate::render::MAX_DEVICE_PIXELS,
+        })?;
+    let pixels = crate::render::checked_area(
+        "device-pixel count",
+        width,
+        height,
+        crate::render::MAX_DEVICE_PIXELS,
+    )?;
+    // Conservative protocol-specific upper bounds. Sixel may revisit a row for
+    // several color planes; raw-RGBA protocols base64-expand four bytes per pixel.
+    let factor = match protocol {
+        Protocol::Sixel => 64,
+        Protocol::Kitty | Protocol::ITerm2 => 6,
+    };
+    let estimated = pixels
+        .checked_mul(factor)
+        .and_then(|bytes| {
+            frame
+                .height
+                .checked_mul(32)
+                .and_then(|rows| bytes.checked_add(rows))
+        })
+        .and_then(|bytes| bytes.checked_add(65_536))
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "estimated pixel output bytes",
+            requested: usize::MAX,
+            limit: crate::render::MAX_OUTPUT_BYTES,
+        })?;
+    crate::render::checked_dimension(
+        "estimated pixel output bytes",
+        estimated,
+        crate::render::MAX_OUTPUT_BYTES,
+    )
 }
 
 /// Anchors every row of a rendered block at `column`: each row starts with an
 /// absolute-column jump (CHA), so printing the block leaves anything to its
 /// left untouched. Column 0 stays escape-free — flush-left output is plain.
-fn at_column(text: &str, column: usize) -> String {
+fn at_column(text: &str, column: usize) -> crate::Result<String> {
     if column == 0 {
-        return text.to_string();
+        let mut out = String::new();
+        crate::render::reserve_string(&mut out, text.len(), "pixel text block")?;
+        out.push_str(text);
+        return Ok(out);
     }
-    let jump = format!("\x1b[{}G", column + 1);
-    let mut out = String::with_capacity(text.len() + jump.len() * 32);
+    let anchor = column
+        .checked_add(1)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel column anchor",
+            requested: usize::MAX,
+            limit: usize::MAX - 1,
+        })?;
+    let jump = format!("\x1b[{anchor}G");
+    let rows = text.split('\n').count();
+    let capacity = jump
+        .len()
+        .checked_mul(rows)
+        .and_then(|jumps| text.len().checked_add(jumps))
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "anchored pixel text bytes",
+            requested: usize::MAX,
+            limit: crate::render::MAX_OUTPUT_BYTES,
+        })?;
+    let mut out = String::new();
+    crate::render::reserve_string(&mut out, capacity, "anchored pixel text")?;
     for (index, row) in text.split('\n').enumerate() {
         if index > 0 {
             out.push('\n');
@@ -67,7 +179,7 @@ fn at_column(text: &str, column: usize) -> String {
         out.push_str(&jump);
         out.push_str(row);
     }
-    out
+    Ok(out)
 }
 
 /// A concrete color, resolved for pixel output.
@@ -82,21 +194,58 @@ pub(crate) struct Image {
 }
 
 /// The panel rectangle of the canvas as an [`Image`] of resolved RGB pixels.
-fn crop(canvas: &PixelCanvas, rect: PlotRect) -> Image {
+fn crop(canvas: &PixelCanvas, rect: PlotRect) -> crate::Result<Image> {
     let (cw, ch) = canvas.cell();
-    let (x0, y0) = (rect.gutter * cw, rect.top * ch);
-    let (width, height) = (rect.columns * cw, rect.rows * ch);
-    let mut pixels = Vec::with_capacity(width * height);
+    let x0 = rect
+        .gutter
+        .checked_mul(cw)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel crop x offset",
+            requested: usize::MAX,
+            limit: crate::render::MAX_DEVICE_PIXELS,
+        })?;
+    let y0 = rect
+        .top
+        .checked_mul(ch)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel crop y offset",
+            requested: usize::MAX,
+            limit: crate::render::MAX_DEVICE_PIXELS,
+        })?;
+    let width = rect
+        .columns
+        .checked_mul(cw)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel crop width",
+            requested: usize::MAX,
+            limit: crate::render::MAX_DEVICE_PIXELS,
+        })?;
+    let height = rect
+        .rows
+        .checked_mul(ch)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "pixel crop height",
+            requested: usize::MAX,
+            limit: crate::render::MAX_DEVICE_PIXELS,
+        })?;
+    let count = crate::render::checked_area(
+        "pixel crop count",
+        width,
+        height,
+        crate::render::MAX_DEVICE_PIXELS,
+    )?;
+    let mut pixels = Vec::new();
+    crate::render::reserve_vec(&mut pixels, count, "pixel crop")?;
     for y in 0..height {
         for x in 0..width {
             pixels.push(canvas.get(x0 + x, y0 + y).map(|color| color.to_rgb()));
         }
     }
-    Image {
+    Ok(Image {
         width,
         height,
         pixels,
-    }
+    })
 }
 
 #[cfg(test)]

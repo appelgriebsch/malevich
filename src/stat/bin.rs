@@ -20,17 +20,46 @@ impl Bins {
     ///
     /// # Panics
     ///
-    /// Panics if `width` is not finite and positive, or `bins` is zero.
+    /// Panics if `width` is not finite and positive, `bins` is zero, or the
+    /// requested allocation exceeds the defensive statistics budget. Use
+    /// [`Bins::try_new`] for caller-controlled geometry.
     pub fn new(start: f64, width: f64, bins: usize) -> Bins {
-        assert!(
-            start.is_finite() && width.is_finite() && width > 0.0 && bins > 0,
-            "Bins::new requires a finite start, positive width, and at least one bin"
-        );
-        Bins {
+        Bins::try_new(start, width, bins).expect(
+            "Bins::new requires a finite start, positive width, and a bounded non-empty grid",
+        )
+    }
+
+    /// Fallible counterpart to [`Bins::new`] for caller-controlled bin counts.
+    pub fn try_new(start: f64, width: f64, bins: usize) -> crate::Result<Bins> {
+        if !(start.is_finite() && width.is_finite() && width > 0.0) {
+            return Err(crate::Error::InvalidParameter {
+                detail: "Bins needs a finite start and a finite positive width",
+            });
+        }
+        if bins == 0 {
+            return Err(crate::Error::EmptyDimension {
+                what: "Bins buckets",
+            });
+        }
+        if bins > super::MAX_STAT_ELEMENTS {
+            return Err(crate::Error::DimensionTooLarge {
+                what: "Bins bucket count",
+                requested: bins,
+                limit: super::MAX_STAT_ELEMENTS,
+            });
+        }
+        let mut counts = Vec::new();
+        counts
+            .try_reserve_exact(bins)
+            .map_err(|_| crate::Error::AllocationFailed {
+                what: "Bins buckets",
+            })?;
+        counts.resize(bins, 0);
+        Ok(Bins {
             start,
             width,
-            counts: vec![0; bins],
-        }
+            counts,
+        })
     }
 
     /// Bins sized to the data: bin count by the larger of Sturges' rule and
@@ -72,7 +101,7 @@ impl Bins {
 
         // Snap the bin width and edges to the nice decimals the tick engine picks,
         // so bin boundaries land on readable numbers.
-        let cap = limit.max(1);
+        let cap = limit.clamp(1, super::MAX_STAT_ELEMENTS);
         let ticks = Ticks::linear(min, max, target.min(50));
         let mut width = ticks.step().unwrap_or((max - min) / target as f64);
         let mut start = (min / width).floor() * width;
@@ -175,10 +204,43 @@ pub struct Histogram2d {
 ///
 /// # Panics
 ///
-/// Panics if the series lengths differ or the grid is empty.
+/// Panics if the series lengths differ, the grid is empty, or its area exceeds
+/// the defensive statistics budget. Use [`try_bins2`] for caller-controlled grids.
 pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Histogram2d> {
-    assert_eq!(x.len(), y.len(), "bins2 requires series of equal length");
-    assert!(columns > 0 && rows > 0, "bins2 requires a non-empty grid");
+    try_bins2(x, y, columns, rows)
+        .expect("bins2 requires equal channels and a bounded non-empty grid")
+}
+
+/// Fallible counterpart to [`bins2`] for caller-controlled grid geometry.
+pub fn try_bins2(
+    x: &[f64],
+    y: &[f64],
+    columns: usize,
+    rows: usize,
+) -> crate::Result<Option<Histogram2d>> {
+    if x.len() != y.len() {
+        return Err(crate::Error::UnequalChannels {
+            mark: "bins2: x and y",
+            lengths: (x.len(), y.len()),
+        });
+    }
+    if columns == 0 || rows == 0 {
+        return Err(crate::Error::EmptyDimension { what: "bins2 grid" });
+    }
+    let cells = columns
+        .checked_mul(rows)
+        .ok_or(crate::Error::DimensionTooLarge {
+            what: "bins2 cell count",
+            requested: usize::MAX,
+            limit: super::MAX_STAT_ELEMENTS,
+        })?;
+    if cells > super::MAX_STAT_ELEMENTS {
+        return Err(crate::Error::DimensionTooLarge {
+            what: "bins2 cell count",
+            requested: cells,
+            limit: super::MAX_STAT_ELEMENTS,
+        });
+    }
     let mut x_extent: Option<(f64, f64)> = None;
     let mut y_extent: Option<(f64, f64)> = None;
     for (&xv, &yv) in x.iter().zip(y.iter()) {
@@ -188,7 +250,9 @@ pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Histog
         x_extent = Some(x_extent.map_or((xv, xv), |(lo, hi)| (lo.min(xv), hi.max(xv))));
         y_extent = Some(y_extent.map_or((yv, yv), |(lo, hi)| (lo.min(yv), hi.max(yv))));
     }
-    let (x_extent, y_extent) = (x_extent?, y_extent?);
+    let (Some(x_extent), Some(y_extent)) = (x_extent, y_extent) else {
+        return Ok(None);
+    };
     let width = (x_extent.1 - x_extent.0).max(f64::MIN_POSITIVE);
     let height = (y_extent.1 - y_extent.0).max(f64::MIN_POSITIVE);
     // A constant coordinate leaves a zero-width extent that later renders blank
@@ -202,7 +266,13 @@ pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Histog
             (lo - half, hi + half)
         }
     };
-    let mut counts = vec![0.0f64; columns * rows];
+    let mut counts = Vec::new();
+    counts
+        .try_reserve_exact(cells)
+        .map_err(|_| crate::Error::AllocationFailed {
+            what: "bins2 cells",
+        })?;
+    counts.resize(cells, 0.0f64);
     for (&xv, &yv) in x.iter().zip(y.iter()) {
         if !xv.is_finite() || !yv.is_finite() {
             continue;
@@ -211,12 +281,12 @@ pub fn bins2(x: &[f64], y: &[f64], columns: usize, rows: usize) -> Option<Histog
         let row = (((yv - y_extent.0) / height) * rows as f64) as usize;
         counts[row.min(rows - 1) * columns + column.min(columns - 1)] += 1.0;
     }
-    Some(Histogram2d {
+    Ok(Some(Histogram2d {
         counts,
         columns,
         x: widen(x_extent),
         y: widen(y_extent),
-    })
+    }))
 }
 
 #[cfg(test)]

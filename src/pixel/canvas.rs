@@ -31,16 +31,61 @@ pub(crate) struct PixelCanvas {
 impl PixelCanvas {
     /// An empty (fully transparent) canvas of `columns × rows` cells, each
     /// `cell.0 × cell.1` device pixels.
+    #[cfg(test)]
     pub(crate) fn new(columns: usize, rows: usize, cell: (usize, usize)) -> PixelCanvas {
-        let (width, height) = (columns * cell.0, rows * cell.1);
-        let stroke = ((cell.1 + 8) / 16).max(1) as i64;
-        PixelCanvas {
+        PixelCanvas::try_new(columns, rows, cell).unwrap_or_else(|_| PixelCanvas::empty(cell))
+    }
+
+    /// Fallible construction for caller-controlled frame and cell geometry.
+    pub(crate) fn try_new(
+        columns: usize,
+        rows: usize,
+        cell: (usize, usize),
+    ) -> crate::Result<PixelCanvas> {
+        let width = columns
+            .checked_mul(cell.0)
+            .ok_or(crate::Error::DimensionTooLarge {
+                what: "device-pixel width",
+                requested: usize::MAX,
+                limit: crate::render::MAX_DEVICE_PIXELS,
+            })?;
+        let height = rows
+            .checked_mul(cell.1)
+            .ok_or(crate::Error::DimensionTooLarge {
+                what: "device-pixel height",
+                requested: usize::MAX,
+                limit: crate::render::MAX_DEVICE_PIXELS,
+            })?;
+        let count = crate::render::checked_area(
+            "device-pixel count",
+            width,
+            height,
+            crate::render::MAX_DEVICE_PIXELS,
+        )?;
+        let stroke = (cell.1.saturating_add(8) / 16).max(1) as i64;
+        let mut pixels = Vec::new();
+        crate::render::reserve_vec(&mut pixels, count, "device-pixel canvas")?;
+        pixels.resize(count, None);
+        Ok(PixelCanvas {
             width,
             height,
             cell,
             stroke,
             point: stroke + 1,
-            pixels: vec![None; width * height],
+            pixels,
+            clip: None,
+        })
+    }
+
+    #[cfg(test)]
+    fn empty(cell: (usize, usize)) -> PixelCanvas {
+        PixelCanvas {
+            width: 0,
+            height: 0,
+            cell,
+            stroke: 1,
+            point: 2,
+            pixels: Vec::new(),
             clip: None,
         }
     }

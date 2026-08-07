@@ -134,6 +134,17 @@ fn empty_surfaces_encode_to_nothing() {
 }
 
 #[test]
+fn oversized_surfaces_are_fallible_and_the_convenience_constructor_stays_safe() {
+    let error =
+        Surface::try_new(usize::MAX, 0, Charset::Braille).expect_err("oversized surface must fail");
+    assert!(matches!(error, crate::Error::DimensionTooLarge { .. }));
+
+    let surface = Surface::new(usize::MAX, 0, Charset::Braille);
+    assert_eq!(surface.size(), (0, 0));
+    assert_eq!(surface.to_plain(), "");
+}
+
+#[test]
 fn uncolored_surfaces_encode_identically_in_both_encoders() {
     let mut surface = Surface::new(4, 2, Charset::Braille);
     surface.line((0.0, 0.0), (7.0, 7.0), Color::Default);

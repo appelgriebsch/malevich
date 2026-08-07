@@ -87,3 +87,15 @@ fn bins2_of_constant_data_keeps_a_drawable_extent() {
     assert!(grid.y.0 < grid.y.1, "y extent must be drawable");
     assert_eq!(grid.counts.iter().sum::<f64>(), 3.0);
 }
+
+#[test]
+fn caller_selected_histogram_geometry_is_bounded() {
+    assert!(matches!(
+        Bins::try_new(0.0, 1.0, usize::MAX),
+        Err(crate::Error::DimensionTooLarge { .. })
+    ));
+    assert!(matches!(
+        super::try_bins2(&[1.0], &[1.0], usize::MAX, 2),
+        Err(crate::Error::DimensionTooLarge { .. })
+    ));
+}
