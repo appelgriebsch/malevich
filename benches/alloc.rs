@@ -13,7 +13,7 @@ static BYTES: AtomicUsize = AtomicUsize::new(0);
 // Structural regression fences, not optimization targets. The recorded Rust 1.88
 // baseline is comfortably below both; headroom absorbs allocator/platform details
 // while still catching an accidental allocation per point or a large new buffer.
-const MAX_ALLOCATIONS: usize = 450;
+const MAX_ALLOCATIONS: usize = 275;
 const MAX_ALLOCATED_BYTES: usize = 64 * 1024;
 
 struct Counting;

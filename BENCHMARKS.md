@@ -7,7 +7,7 @@ background load. This file is the authoritative dated record behind the README's
 
 ## 2026-08-07 baseline
 
-- Revision: `0f3ad5a`
+- Revision: `4962935`
 - Machine: 2021 MacBook Pro, Apple M1 Pro (10 cores), 32 GB RAM
 - OS: macOS 26.5.2 (Darwin 25.5.0), arm64
 - Compiler: `rustc 1.97.1 (8bab26f4f 2026-07-14)`, LLVM 22.1.8
@@ -15,8 +15,8 @@ background load. This file is the authoritative dated record behind the README's
 
 | Measurement | Estimate | 95% interval |
 | --- | ---: | ---: |
-| `render/line_10k_80x20` | 81.818 µs | 81.756–81.878 µs |
-| `render/line_10m_80x20` | 42.260 ms | 42.224–42.300 ms |
+| `render/line_10k_80x20` | 68.197 µs | 68.118–68.283 µs |
+| `render/line_10m_80x20` | 36.469 ms | 36.426–36.514 ms |
 
 Commands:
 
@@ -30,17 +30,37 @@ perform M4 reduction, rasterize an 80×20 braille frame, and encode the final st
 It is single-threaded. The ten-million-point input vectors are prepared outside the
 timed iteration.
 
+The earlier `0f3ad5a` record on this machine was 81.818 µs and 42.260 ms,
+respectively. The current measurements are 16.6% and 13.7% lower. These are
+same-machine historical comparisons, not portable performance promises.
+
+### Profiling decision
+
+A five-second Instruments Time Profiler capture of the 10k case attributed 2,670
+of 5,108 leaf samples (about 52%) to resolution. A measured A/B implementation
+kept the compact resolved-layer probe rather than duplicating every mark's domain
+rules in a parallel metadata type: the smaller design was faster and retains one
+source of truth. The accepted change instead:
+
+- keeps implicit coordinates symbolic;
+- summarizes a line into only the two endpoints needed by its linear or log axis;
+- retains the probed layout for drawing, avoiding a second round of tick formatting,
+  gutter measurement, and colorbar work.
+
+The pixel-exact raw-versus-M4 oracle and all rendering snapshots remained identical.
+
 ## Allocation contract
 
-The same revision, optimized on the machine above, measured the 10k render at **356
-allocations and 51,954 allocated bytes**, producing 2,966 output bytes:
+The same revision, optimized on the machine above, measured the 10k render at **183
+allocations and 49,508 allocated bytes**, producing 2,966 output bytes. Rust 1.88
+reported the same figures:
 
 ```sh
 cargo bench --bench alloc
 ```
 
 CI runs that harness on Ubuntu 24.04 with Rust 1.88 and `--check`. It permits at most
-450 allocations and 64 KiB of heap traffic. Those ceilings intentionally leave
+275 allocations and 64 KiB of heap traffic. Those ceilings intentionally leave
 headroom for compiler and allocator details while catching structural regressions
 such as an allocation per input point or a new large intermediate buffer. CI does not
 gate wall-clock time on shared runners.
