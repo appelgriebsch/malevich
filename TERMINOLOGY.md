@@ -81,8 +81,10 @@ specification is `scale::Scale` (`Linear | Log | Time | Bands`) set via
 `Plot::x_scale`/`y_scale` (with `log_y()`-style sugar kept), axis titles come from
 `Plot::x_label`/`y_label` (x centered below, y vertical along the left edge), and
 log/time axes are also
-enabled per plot with `Plot::log_x`/`Plot::log_y`/`Plot::time_x`, `scale::Colormap` covers the
-sequential color scale, and the richer scale-spec API arrives with the time work.
+enabled per plot with `Plot::log_x`/`Plot::log_y`/`Plot::time_x`.
+`scale::Colormap` covers the sequential color scale: static palettes use `new`, while
+runtime-generated or configured palettes move into `try_from_stops` and expose their
+RGB stops read-only through `stops`.
 
 ## Ticks
 

@@ -41,9 +41,34 @@ impl Colormap {
         }
     }
 
+    /// Builds a colormap from runtime-owned, evenly spaced RGB stops.
+    ///
+    /// The vector is retained without copying, so generated palettes and palettes
+    /// loaded from configuration do not need to be leaked into `'static` storage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::EmptyDimension`](crate::Error::EmptyDimension) when fewer
+    /// than two stops are supplied.
+    pub fn try_from_stops(stops: Vec<(u8, u8, u8)>) -> crate::Result<Colormap> {
+        if stops.len() < 2 {
+            return Err(crate::Error::EmptyDimension {
+                what: "Colormap stops",
+            });
+        }
+        Ok(Colormap {
+            stops: Cow::Owned(stops),
+        })
+    }
+
+    /// The evenly spaced RGB stops, from the low end to the high end.
+    pub fn stops(&self) -> &[(u8, u8, u8)] {
+        &self.stops
+    }
+
     /// The number of stops. A valid colormap has at least two.
     pub(crate) fn stop_count(&self) -> usize {
-        self.stops.len()
+        self.stops().len()
     }
 
     /// The color at `position` in `[0, 1]` (clamped; `NaN` maps to the low end).
