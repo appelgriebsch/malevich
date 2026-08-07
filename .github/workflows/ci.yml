@@ -55,6 +55,16 @@ jobs:
       - run: cargo test --all-features --all-targets
       - run: cargo test -p malevich-cli
 
+  # Allocation counts are structural and deterministic enough to gate when both
+  # the OS image and compiler are pinned. Wall-clock Criterion results are recorded,
+  # not gated, because shared-runner timing is noisy.
+  allocation-budget:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - run: cargo bench --bench alloc -- --check
+
   # The declared MSRV actually builds. Library + optional features only — dev-deps
   # (criterion, ratatui) are free to require newer toolchains.
   msrv:

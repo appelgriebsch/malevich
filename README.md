@@ -5,11 +5,11 @@ points.**
 
 ![Malevich terminal rendering with cell glyphs and real pixels](examples/suprematist-composition.png)
 
-Eight marks. A real statistics layer. Ten million points in 28 milliseconds. Axes
-placed by the same algorithm the visualization literature settled on — with labels
-that are exact decimals, never `0.30000000000000004`. All of it in plain values that
-render to a `String`, degrade gracefully on any terminal, and never touch global
-state.
+Eight marks. A real statistics layer. Ten million points in tens of milliseconds on
+the [recorded baseline](BENCHMARKS.md). Axes placed by the same algorithm the
+visualization literature settled on — with labels that are exact decimals, never
+`0.30000000000000004`. All of it in plain values that render to a `String`, degrade
+gracefully on any terminal, and never touch global state.
 
 ```rust
 println!("{}", malevich::line(&[1.0, 5.0, 2.0, 8.0][..]));
@@ -125,10 +125,10 @@ iTerm2) on the right, from the same plot values:
 - **Millions of points, measured.** Large line layers are aggregated by M4 —
   min/max/first/last per raster column, bucketed by the column each point renders
   into, so the reduction is *pixel-identical* to drawing every point. Ten million
-  points render end to end in ~45 ms single-threaded; a million
-  KDE samples take 23 ms (`cargo bench --bench render`). Every aggregator is a
-  mergeable monoid, so host-side parallelism and streaming are compositions, not
-  features.
+  points render end to end in tens of milliseconds single-threaded on the
+  [dated baseline](BENCHMARKS.md); `cargo bench --bench render` carries the complete
+  suite. Every aggregator is a mergeable monoid, so host-side parallelism and
+  streaming are compositions, not features.
 - **Axes that are actually good.** Extended-Wilkinson tick placement (Talbot, Lin,
   Hanrahan 2010), exact-decimal labels that parse back to their values, one shared SI
   prefix per axis (`2.5M`, `100µ`), log axes with superscript decades, calendar time
