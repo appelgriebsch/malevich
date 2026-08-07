@@ -568,8 +568,14 @@ impl<'a> Plot<'a> {
 
         // The same probe-then-reduce dance as cell output (see rasterize_with):
         // M4 must bucket by the rendered column, which here is one device pixel.
-        let probe = super::resolve::resolve(&self.layers, sample_width, palette, Reduce::Extent);
-        let geometry = super::layout::Layout::compute(
+        // The probe already contains every layout input, so retain its geometry
+        // instead of formatting ticks and measuring gutters a second time.
+        let extent = Reduce::Extent {
+            x_positive: matches!(&self.x, Scale::Log),
+            y_positive: matches!(&self.y, Scale::Log),
+        };
+        let probe = super::resolve::resolve(&self.layers, sample_width, palette, extent);
+        let layout = super::layout::Layout::compute(
             frame,
             cell,
             &probe,
@@ -580,8 +586,8 @@ impl<'a> Plot<'a> {
             self.colorbar,
         );
         let reduce = Reduce::Mapped {
-            map: geometry.x_scale,
-            columns: geometry.plot_sub_w,
+            map: layout.x_scale,
+            columns: layout.plot_sub_w,
         };
         let mut layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
         // Corners is cell-glyph art; at pixel resolution the honest line is the
@@ -593,16 +599,6 @@ impl<'a> Plot<'a> {
                 *kind = Kind::Line(LineStyle::Pixels);
             }
         }
-        let layout = super::layout::Layout::compute(
-            frame,
-            cell,
-            &layers,
-            title,
-            scales,
-            labels,
-            domains,
-            self.colorbar,
-        );
         super::chrome::draw(
             &mut surface,
             &layout,
@@ -668,38 +664,48 @@ impl<'a> Plot<'a> {
         // fixes — but the layout needs the data first. So probe once with a coarse
         // reduction (M4 preserves the extents the layout reads), lift the scale and
         // width from that geometry, then reduce for real in exactly that raster space.
-        let reduce = if downsample {
-            let probe =
-                super::resolve::resolve(&self.layers, sample_width, palette, Reduce::Extent);
-            let geometry = super::layout::Layout::compute(
+        // That probed layout is final: recomputing it from the reduced layers only
+        // repeats tick formatting, label measurement, and colorbar work.
+        let extent = Reduce::Extent {
+            x_positive: matches!(&self.x, Scale::Log),
+            y_positive: matches!(&self.y, Scale::Log),
+        };
+        let probe = downsample
+            .then(|| super::resolve::resolve(&self.layers, sample_width, palette, extent));
+        let probed_layout = probe.as_ref().map(|probe| {
+            super::layout::Layout::compute(
                 frame,
                 frame.charset.pixels_per_cell(),
-                &probe,
+                probe,
                 title,
                 scales,
                 labels,
                 domains,
                 self.colorbar,
-            );
+            )
+        });
+        let reduce = if let Some(layout) = &probed_layout {
             Reduce::Mapped {
-                map: geometry.x_scale,
-                columns: geometry.plot_sub_w,
+                map: layout.x_scale,
+                columns: layout.plot_sub_w,
             }
         } else {
             Reduce::None
         };
 
         let layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
-        let layout = super::layout::Layout::compute(
-            frame,
-            frame.charset.pixels_per_cell(),
-            &layers,
-            title,
-            scales,
-            labels,
-            domains,
-            self.colorbar,
-        );
+        let layout = probed_layout.unwrap_or_else(|| {
+            super::layout::Layout::compute(
+                frame,
+                frame.charset.pixels_per_cell(),
+                &layers,
+                title,
+                scales,
+                labels,
+                domains,
+                self.colorbar,
+            )
+        });
         super::chrome::draw(
             &mut surface,
             &layout,

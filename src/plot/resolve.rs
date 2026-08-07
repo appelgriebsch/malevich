@@ -72,10 +72,9 @@ impl ExactSizeIterator for CoordinatesIter<'_> {}
 pub(crate) enum Reduce {
     /// Draw every point — the raw raster, and the oracle it is checked against.
     None,
-    /// Collapse each line to its two extent corners: a fast min/max fold that gives
-    /// the layout the domains it needs, without a full reduction pass. Used by the
-    /// geometry probe before the real mapped reduction.
-    Extent,
+    /// Collapse each line to the two endpoints of the extent needed by each axis.
+    /// The flags select positive-only summaries for log scales.
+    Extent { x_positive: bool, y_positive: bool },
     /// Pixel-exact M4 bucketed by the rendered column, using the resolved layout's
     /// scale and subpixel width.
     Mapped { map: Map, columns: usize },
@@ -384,9 +383,15 @@ pub(crate) fn resolve<'p>(
                             // the reduction is pixel-exact; non-monotonic x declines.
                             let downsampled = match reduce {
                                 Reduce::None => None,
-                                Reduce::Extent => {
-                                    line_extent(x.as_ref().map(|s| s.as_slice()), y.as_slice())
-                                }
+                                Reduce::Extent {
+                                    x_positive,
+                                    y_positive,
+                                } => line_extent(
+                                    x.as_ref().map(|s| s.as_slice()),
+                                    y.as_slice(),
+                                    x_positive,
+                                    y_positive,
+                                ),
                                 Reduce::Mapped { map, columns } if y.len() > 4 * columns.max(1) => {
                                     crate::stat::m4_mapped(
                                         x.as_ref().map(|series| series.as_slice()),
@@ -497,48 +502,50 @@ pub(crate) fn resolve<'p>(
         .collect()
 }
 
-/// The x channel: a borrowed series, or generated indices `0, 1, 2, …`.
-/// The two extent corners of a line, `(x_min, y_min)` and `(x_max, y_max)` — a fast
-/// min/max fold carrying the same x- and y-extents as the full series (the pairing is
-/// irrelevant; the layout reads each axis independently). `None` when no finite point
-/// exists. `x = None` means the implicit indices `0, 1, 2, …`.
-fn line_extent(x: Option<&[f64]>, y: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
-    // `f64::min`/`max` skip NaN (`min(v, NaN) == v`), so gaps drop out for free, and
-    // LLVM lowers the reduction to a vectorized `vminpd`/`vmaxpd` sweep — memory-bound,
-    // which is the whole point of a cheap probe pass.
-    let (mut y_min, mut y_max) = (f64::INFINITY, f64::NEG_INFINITY);
-    match x {
-        // Index line: x is `0..=len-1`, all finite — fold only y (the hot path for a
-        // long series plotted against its indices).
-        None => {
-            for &yv in y {
-                y_min = y_min.min(yv);
-                y_max = y_max.max(yv);
-            }
-            (y_min <= y_max).then(|| (vec![0.0, (y.len() - 1) as f64], vec![y_min, y_max]))
+/// Compact x and y summaries for the extent each axis actually consumes.
+/// Layout reads the channels independently; `x = None` means the implicit indices
+/// `0, 1, 2, …`.
+fn line_extent(
+    x: Option<&[f64]>,
+    y: &[f64],
+    x_positive: bool,
+    y_positive: bool,
+) -> Option<(Vec<f64>, Vec<f64>)> {
+    let len = y.len();
+    let y = selected_extent_summary(y, y_positive)?;
+    let x = match x {
+        Some(values) => selected_extent_summary(values, x_positive)?,
+        None if x_positive && len > 1 => vec![1.0, (len - 1) as f64],
+        None if !x_positive && len > 0 => vec![0.0, (len - 1) as f64],
+        None => return None,
+    };
+    Some((x, y))
+}
+
+fn selected_extent_summary(values: &[f64], positive: bool) -> Option<Vec<f64>> {
+    if !positive {
+        // The common linear-axis path stays branch-free and vectorizable. NaNs
+        // disappear through `f64::min`/`max`; infinities trigger the exact slow
+        // path so they cannot hide the outermost finite value.
+        let (mut min, mut max) = (f64::INFINITY, f64::NEG_INFINITY);
+        for &value in values {
+            min = min.min(value);
+            max = max.max(value);
         }
-        Some(values) => {
-            let (mut x_min, mut x_max) = (f64::INFINITY, f64::NEG_INFINITY);
-            for (&xv, &yv) in values.iter().zip(y) {
-                // Only a finite pair should move either extent; guard on both.
-                if xv.is_finite() && yv.is_finite() {
-                    if xv < x_min {
-                        x_min = xv;
-                    }
-                    if xv > x_max {
-                        x_max = xv;
-                    }
-                    if yv < y_min {
-                        y_min = yv;
-                    }
-                    if yv > y_max {
-                        y_max = yv;
-                    }
-                }
-            }
-            (x_min <= x_max).then(|| (vec![x_min, x_max], vec![y_min, y_max]))
+        if min.is_finite() && max.is_finite() {
+            return Some(vec![min, max]);
+        }
+        return extent(values).map(|(min, max)| vec![min, max]);
+    }
+
+    let (mut min, mut max) = (f64::INFINITY, f64::NEG_INFINITY);
+    for &value in values {
+        if value.is_finite() && value > 0.0 {
+            min = min.min(value);
+            max = max.max(value);
         }
     }
+    (min <= max).then(|| vec![min, max])
 }
 
 pub(crate) fn coordinates<'p>(
@@ -587,7 +594,7 @@ pub(crate) fn union(extents: impl Iterator<Item = Option<(f64, f64)>>) -> Option
 
 #[cfg(test)]
 mod tests {
-    use super::{Coordinates, coordinates};
+    use super::{Coordinates, coordinates, extent, extent_positive, line_extent};
 
     #[test]
     fn implicit_coordinates_remain_symbolic() {
@@ -606,5 +613,31 @@ mod tests {
         assert_eq!(Coordinates::Indices(0).extent(), None);
         assert_eq!(Coordinates::Indices(0).extent_positive(), None);
         assert_eq!(Coordinates::Indices(1).extent_positive(), None);
+    }
+
+    #[test]
+    fn line_summaries_preserve_independent_and_log_extents() {
+        let x = [-10.0, 1.0, 100.0];
+        let y = [f64::NAN, 0.1, 10.0];
+        let (finite_x, finite_y) =
+            line_extent(Some(&x), &y, false, false).expect("each channel has finite data");
+        assert_eq!(extent(&finite_x), Some((-10.0, 100.0)));
+        assert_eq!(extent(&finite_y), Some((0.1, 10.0)));
+
+        let (positive_x, positive_y) =
+            line_extent(Some(&x), &y, true, true).expect("each channel has positive data");
+        assert_eq!(extent_positive(&positive_x), Some((1.0, 100.0)));
+        assert_eq!(extent_positive(&positive_y), Some((0.1, 10.0)));
+
+        let (indices, _) =
+            line_extent(None, &[2.0, 3.0, 4.0], false, false).expect("finite values");
+        assert_eq!(extent(&indices), Some((0.0, 2.0)));
+        let (indices, _) =
+            line_extent(None, &[2.0, 3.0, 4.0], true, true).expect("positive values");
+        assert_eq!(extent_positive(&indices), Some((1.0, 2.0)));
+
+        let (_, finite_y) = line_extent(None, &[1.0, f64::INFINITY, 3.0], false, false)
+            .expect("finite values survive an infinity");
+        assert_eq!(extent(&finite_y), Some((1.0, 3.0)));
     }
 }
