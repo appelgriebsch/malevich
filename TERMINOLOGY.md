@@ -133,10 +133,11 @@ fidelities diverge. Crate-private; maps to `render::Canvas`, implemented by
 
 How to draw the plot panel as a real image (feature `pixel`): which protocol, at
 what cell size in device pixels. Render state like `Frame`, and a plain value like
-everything else — `Graphics::detect()` is sugar for `Capabilities::detect().best()`,
-and `None` means the caller falls back to cells. Output stays hybrid: chrome as
-text, only the plot rectangle as pixels, undrawn panel transparent. Maps to
-`pixel::Graphics`.
+everything else — `Graphics::detect()` is stdout-oriented sugar for
+`Capabilities::detect().best()`, while `Graphics::detect_for(destination)` keys the
+choice to another stream. `None` means the caller falls back to cells. Output stays
+hybrid: chrome as text, only the plot rectangle as pixels, undrawn panel transparent.
+Maps to `pixel::Graphics`.
 
 ## Capabilities
 
@@ -147,9 +148,11 @@ environment variables — free, instant, wrong only by omission; probing asks th
 terminal itself over one raw-mode `/dev/tty` round trip (kitty graphics query,
 XTVERSION, XTSMGRAPHICS, `CSI 16 t`, with DA1 as the ordering barrier) — ground
 truth that survives ssh, ~100 ms once per process, and only where writing escapes
-is safe: a real tty, no tmux/screen between, `TERM` not dumb. An unanswered probe
-is not evidence; it degrades to the sniff answer. Maps to `pixel::Capabilities`
-and `pixel::Source`.
+is safe: the actual output destination is a tty, no tmux/screen between, `TERM` not
+dumb. `Capabilities::detect_for(destination)` supplies that destination explicitly;
+the returned value can then drive pure `render_with_capabilities` calls. An
+unanswered probe is not evidence; it degrades to the sniff answer. Maps to
+`pixel::Capabilities` and `pixel::Source`.
 
 ## Protocol
 

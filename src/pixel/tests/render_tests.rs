@@ -1,4 +1,4 @@
-use crate::pixel::{Graphics, Protocol};
+use crate::pixel::{Capabilities, Graphics, Protocol, Source};
 use crate::plot::Frame;
 use crate::{Line, Plot, Points};
 
@@ -54,6 +54,30 @@ fn pixel_rendering_is_deterministic() {
         sample().render_pixels(&Frame::plain(40, 12), &graphics()),
     );
     assert_eq!(a, b);
+}
+
+#[test]
+fn an_explicit_capability_context_selects_pixels_or_cells() {
+    let frame = Frame::plain(40, 12);
+    let pixels = Capabilities {
+        protocols: vec![Protocol::Sixel],
+        cell_size: Some((4, 8)),
+        source: Source::Sniffed,
+    };
+    assert_eq!(
+        sample().render_with_capabilities(&frame, &pixels),
+        sample().render_pixels(&frame, &graphics())
+    );
+
+    let cells = Capabilities {
+        protocols: Vec::new(),
+        cell_size: Some((4, 8)),
+        source: Source::Sniffed,
+    };
+    assert_eq!(
+        sample().render_with_capabilities(&frame, &cells),
+        sample().render(&frame)
+    );
 }
 
 #[test]

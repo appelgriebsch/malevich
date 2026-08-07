@@ -148,10 +148,12 @@ iTerm2) on the right, from the same plot values:
   Marks rasterize at device-pixel resolution through the same pipeline (M4 buckets
   per pixel column; heatmaps sample per pixel), undrawn panel stays transparent to
   your terminal background, and the result is still a deterministic `String`.
-  `Capabilities::detect()` asks the terminal itself what it speaks — one probed
-  round trip (cached per process) that, unlike environment sniffing, survives
-  ssh — and `plot.render_best(&frame)` is the one-call ladder top: pixels when
-  capable, cells everywhere else. Every gallery example upgrades with
+  `Capabilities::detect_for(&destination)` uses the stream that will receive the
+  plot to decide whether its cached terminal probe is safe, while `detect()`
+  remains the stdout convenience. Pass that value to
+  `plot.render_with_capabilities(&frame, &caps)` for a pure, explicit auto-render;
+  `plot.render_best(&frame)` is the one-call stdout ladder top. Every gallery
+  example upgrades with
   `--features pixel`, and `cargo run --example showcase --features pixel` renders
   each chart side by side, cells against pixels.
 - **Rich Evcxr notebooks, still just cells (feature `evcxr`).** End a Jupyter cell

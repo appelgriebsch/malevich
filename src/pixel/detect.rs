@@ -7,13 +7,19 @@
 use super::{Capabilities, Graphics, Protocol};
 
 impl Graphics {
-    /// The best pixel graphics the terminal offers, or `None` when cells are
-    /// the ceiling. Sugar for [`Capabilities::detect`]`().best()` — which
-    /// probes the terminal itself (once per process) where that is safe, and
-    /// falls back to environment sniffing everywhere else: pipes, tmux/screen,
-    /// `TERM=dumb`, non-unix. An explicit [`Graphics`] value always overrides.
+    /// The best pixel graphics stdout's terminal offers, or `None` when cells
+    /// are the ceiling. Sugar for [`Capabilities::detect`]`().best()`.
+    ///
+    /// Use [`Graphics::detect_for`] for another destination. An explicit
+    /// [`Graphics`] value always overrides ambient detection.
     pub fn detect() -> Option<Graphics> {
         Capabilities::detect().best()
+    }
+
+    /// The best pixel graphics `destination` offers, or `None` when cells are
+    /// the ceiling. Sugar for [`Capabilities::detect_for`]`(destination).best()`.
+    pub fn detect_for(destination: &impl std::io::IsTerminal) -> Option<Graphics> {
+        Capabilities::detect_for(destination).best()
     }
 }
 
@@ -59,10 +65,10 @@ pub(crate) fn sniff(variable: &impl Fn(&str) -> Option<String>) -> Vec<Protocol>
 /// The cell size in device pixels from the kernel's window size, when the
 /// terminal fills in the pixel fields (kitty, iTerm2, WezTerm, foot do).
 ///
-/// Tries stdout first, then the controlling terminal directly. The winsize ioctl
-/// is a plain syscall — no terminal I/O, so it is safe even when stdout is piped
-/// (as under evcxr or a mid-pipeline CLI); without the `/dev/tty` fallback such a
-/// pipe would default to an 8×16 cell and a hairline stroke.
+/// Tries the controlling terminal directly, then stdout. The winsize ioctl is a
+/// plain syscall — no terminal I/O, so it is safe even when stdout is piped (as
+/// under evcxr or a mid-pipeline CLI); without the `/dev/tty` path such a pipe
+/// would default to an 8×16 cell and a hairline stroke.
 #[cfg(unix)]
 pub(crate) fn cell_size() -> Option<(u16, u16)> {
     use std::os::fd::AsFd;
@@ -77,7 +83,10 @@ pub(crate) fn cell_size() -> Option<(u16, u16)> {
         (cell.0 >= 2 && cell.1 >= 4).then_some(cell)
     }
 
-    from(std::io::stdout()).or_else(|| from(std::fs::File::open("/dev/tty").ok()?))
+    std::fs::File::open("/dev/tty")
+        .ok()
+        .and_then(from)
+        .or_else(|| from(std::io::stdout()))
 }
 
 #[cfg(not(unix))]

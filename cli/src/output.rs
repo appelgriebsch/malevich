@@ -4,6 +4,7 @@
 use std::fs::File;
 use std::io::{self, IsTerminal, Write};
 
+use malevich::pixel::Capabilities;
 use malevich::{Frame, Plot};
 
 use crate::args::{Args, CharsetChoice, ColorChoice, Output, PixelsChoice};
@@ -82,7 +83,7 @@ fn plot_to<W: Write + IsTerminal>(
     args: &Args,
 ) -> Result<(), EmitError> {
     let frame = frame_for(&dest, args);
-    let text = render(plot, &frame, args.pixels, dest.is_terminal())?;
+    let text = render(plot, &frame, args.pixels, &dest)?;
     dest.write_all(text.as_bytes())?;
     dest.write_all(b"\n")?;
     Ok(dest.flush()?)
@@ -105,19 +106,23 @@ pub(crate) fn frame_for<T: IsTerminal>(dest: &T, args: &Args) -> Frame {
     frame
 }
 
-/// Chooses the render tier. `render_best` upgrades the panel to a real image when
-/// a pixel protocol is detected and falls back to cells otherwise, so `auto` only
-/// attempts it for a terminal destination and `always` attempts it regardless.
-fn render(
+/// Chooses the render tier with capabilities detected for the actual destination.
+/// `auto` only attempts pixels for a terminal; `always` also permits a sniffed
+/// protocol when writing a pipe or file.
+fn render<T: IsTerminal>(
     plot: &Plot<'_>,
     frame: &Frame,
     pixels: PixelsChoice,
-    dest_is_terminal: bool,
+    destination: &T,
 ) -> malevich::Result<String> {
     match pixels {
         PixelsChoice::Never => plot.try_render(frame),
-        PixelsChoice::Auto if dest_is_terminal => plot.try_render_best(frame),
+        PixelsChoice::Auto if destination.is_terminal() => {
+            plot.try_render_with_capabilities(frame, &Capabilities::detect_for(destination))
+        }
         PixelsChoice::Auto => plot.try_render(frame),
-        PixelsChoice::Always => plot.try_render_best(frame),
+        PixelsChoice::Always => {
+            plot.try_render_with_capabilities(frame, &Capabilities::detect_for(destination))
+        }
     }
 }

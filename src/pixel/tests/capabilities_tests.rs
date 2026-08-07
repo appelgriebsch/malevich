@@ -1,4 +1,4 @@
-use super::{Source, resolve};
+use super::{Source, probing_is_safe, resolve};
 use crate::pixel::probe::Report;
 use crate::pixel::{Capabilities, Protocol};
 
@@ -102,4 +102,14 @@ fn capabilities_without_a_cell_size_keep_the_default_in_best() {
         source: Source::Sniffed,
     };
     assert_eq!(capabilities.best().expect("sixel").cell_size, (8, 16));
+}
+
+#[test]
+fn probe_safety_is_keyed_to_the_output_destination() {
+    let clear = |_: &str| None;
+    assert!(probing_is_safe(true, &clear));
+    assert!(!probing_is_safe(false, &clear));
+
+    let behind_tmux = |name: &str| (name == "TMUX").then(|| "session".into());
+    assert!(!probing_is_safe(true, &behind_tmux));
 }

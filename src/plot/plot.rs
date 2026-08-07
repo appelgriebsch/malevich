@@ -227,18 +227,19 @@ impl<'a> Plot<'a> {
     /// plot (80×24) for the terminal REPL, which cannot render HTML and would
     /// otherwise show nothing. With the `pixel` feature also enabled, the terminal
     /// block becomes a real sixel/kitty/iTerm2 image in a graphics-capable terminal
-    /// (detected by sniffing the environment; evcxr pipes stdout, so no tty probe
-    /// runs) and stays cells everywhere else. Use [`Plot::to_html`] with a custom
-    /// [`Frame`] for explicit size, charset, or theme control.
+    /// (detected explicitly for Evcxr's stdout destination; its pipe prevents an
+    /// active tty probe, so environment sniffing supplies the fallback) and stays
+    /// cells everywhere else. Use [`Plot::to_html`] with a custom [`Frame`] for
+    /// explicit size, charset, or theme control.
     #[cfg(feature = "evcxr")]
     pub fn evcxr_display(&self) {
         let html = self.to_html(&Frame::portable(100, 26));
         let terminal = Frame::portable(80, 24);
-        // `render_best` upgrades the terminal block to a real image when a graphics
-        // protocol is sniffed, and is exactly `render` otherwise — so a pipe, an
-        // unknown terminal, or a missing `pixel` feature all yield honest cells.
         #[cfg(feature = "pixel")]
-        let plain = self.render_best(&terminal);
+        let plain = self.render_with_capabilities(
+            &terminal,
+            &crate::pixel::Capabilities::detect_for(&std::io::stdout()),
+        );
         #[cfg(not(feature = "pixel"))]
         let plain = self.render(&terminal);
         println!(
@@ -425,9 +426,8 @@ impl<'a> Plot<'a> {
     /// ```
     pub fn render_best(&self, frame: &Frame) -> String {
         #[cfg(feature = "pixel")]
-        if let Some(graphics) = crate::pixel::Graphics::detect() {
-            return self.render_pixels(frame, &graphics);
-        }
+        return self.render_with_capabilities(frame, &crate::pixel::Capabilities::detect());
+        #[cfg(not(feature = "pixel"))]
         self.render(frame)
     }
 
@@ -435,10 +435,41 @@ impl<'a> Plot<'a> {
     /// and returns geometry/allocation errors instead of degrading to empty output.
     pub fn try_render_best(&self, frame: &Frame) -> crate::Result<String> {
         #[cfg(feature = "pixel")]
-        if let Some(graphics) = crate::pixel::Graphics::detect() {
-            return self.try_render_pixels(frame, &graphics);
-        }
+        return self.try_render_with_capabilities(frame, &crate::pixel::Capabilities::detect());
+        #[cfg(not(feature = "pixel"))]
         self.try_render(frame)
+    }
+
+    /// Renders at the best tier allowed by an explicit capability context.
+    ///
+    /// The first advertised pixel protocol is used at the detected cell size;
+    /// when `capabilities` contains no pixel protocol this is exactly
+    /// [`Plot::render`]. Unlike [`Plot::render_best`], this method never reads the
+    /// process environment or touches a terminal. It is the auto-render path for
+    /// stderr, tests, and applications managing more than one terminal.
+    #[cfg(feature = "pixel")]
+    pub fn render_with_capabilities(
+        &self,
+        frame: &Frame,
+        capabilities: &crate::pixel::Capabilities,
+    ) -> String {
+        match capabilities.best() {
+            Some(graphics) => self.render_pixels(frame, &graphics),
+            None => self.render(frame),
+        }
+    }
+
+    /// The fallible counterpart of [`Plot::render_with_capabilities`].
+    #[cfg(feature = "pixel")]
+    pub fn try_render_with_capabilities(
+        &self,
+        frame: &Frame,
+        capabilities: &crate::pixel::Capabilities,
+    ) -> crate::Result<String> {
+        match capabilities.best() {
+            Some(graphics) => self.try_render_pixels(frame, &graphics),
+            None => self.try_render(frame),
+        }
     }
 
     /// Renders with the plot panel as a real image (feature `pixel`): chrome —

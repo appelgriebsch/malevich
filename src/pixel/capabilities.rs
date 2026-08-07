@@ -39,16 +39,31 @@ pub enum Source {
 }
 
 impl Capabilities {
-    /// Detects the terminal's capabilities: probes when stdout is a tty and no
-    /// multiplexer intervenes (cached — the terminal is asked at most once per
-    /// process), sniffs the environment otherwise, and merges the two. An
-    /// empty `protocols` means cells are the ceiling; callers wanting one
-    /// answer use [`Capabilities::best`].
+    /// Detects stdout's terminal capabilities.
+    ///
+    /// This is the stdout-oriented convenience form of
+    /// [`Capabilities::detect_for`]. An empty `protocols` means cells are the
+    /// ceiling; callers wanting one answer use [`Capabilities::best`].
     pub fn detect() -> Capabilities {
+        Capabilities::detect_for(&std::io::stdout())
+    }
+
+    /// Detects capabilities for the stream that will receive the output.
+    ///
+    /// The destination's tty status decides whether an active terminal probe is
+    /// safe. The probe is cached, so the controlling terminal is asked at most
+    /// once per process. Environment sniffing remains the fallback for pipes,
+    /// multiplexers, dumb terminals, non-Unix targets, and unanswered probes.
+    ///
+    /// Use this instead of [`Capabilities::detect`] when rendering somewhere
+    /// other than stdout, such as a CLI whose plot goes to stderr. Applications
+    /// that already know a remote or secondary terminal's capabilities can build
+    /// this plain value directly and skip ambient detection entirely.
+    pub fn detect_for(destination: &impl IsTerminal) -> Capabilities {
         let variable = |name: &str| std::env::var(name).ok().filter(|value| !value.is_empty());
         let sniffed = detect::sniff(&variable);
         let fallback = detect::cell_size();
-        if !probing_is_safe(&variable) {
+        if !probing_is_safe(destination.is_terminal(), &variable) {
             return resolve(None, sniffed, fallback);
         }
         resolve(probed(), sniffed, fallback)
@@ -116,11 +131,14 @@ fn resolve(
     }
 }
 
-/// Whether writing probe escapes to the terminal is safe and meaningful:
-/// stdout is a tty, no multiplexer would swallow or mangle the queries, and
-/// the terminal is not declared dumb.
-fn probing_is_safe(variable: &impl Fn(&str) -> Option<String>) -> bool {
-    if !std::io::stdout().is_terminal() || variable("TMUX").is_some() {
+/// Whether writing probe escapes to the controlling terminal is safe and
+/// meaningful: the output destination is a tty, no multiplexer would swallow
+/// or mangle the queries, and the terminal is not declared dumb.
+fn probing_is_safe(
+    destination_is_terminal: bool,
+    variable: &impl Fn(&str) -> Option<String>,
+) -> bool {
+    if !destination_is_terminal || variable("TMUX").is_some() {
         return false;
     }
     let term = variable("TERM").unwrap_or_default();
