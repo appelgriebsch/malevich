@@ -72,3 +72,23 @@ fn encoding_is_deterministic() {
         encode(&image(3, 2, pixels.clone()))
     );
 }
+
+#[test]
+fn every_tiny_raster_encodes_deterministically() {
+    for width in 0..=4 {
+        for height in 0..=4 {
+            let pixels = (0..width * height)
+                .map(|index| match index % 3 {
+                    0 => RED,
+                    1 => None,
+                    _ => BLUE,
+                })
+                .collect();
+            let image = image(width, height, pixels);
+            let first = encode(&image);
+            assert_eq!(first, encode(&image));
+            assert!(first.starts_with("\x1bP0;1;0q"));
+            assert!(first.ends_with("\x1b\\"));
+        }
+    }
+}

@@ -44,6 +44,17 @@ jobs:
       - run: cargo clippy -p malevich-cli --all-targets -- -D warnings
       - run: cargo test -p malevich-cli
 
+  # Exercise the non-Unix pixel/detection fallbacks and the CLI's cfg-gated live
+  # path on a native Windows toolchain. Generated docs stay on the Unix matrix so
+  # newline-sensitive fixtures have one canonical producer.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --all-features --all-targets
+      - run: cargo test -p malevich-cli
+
   # The declared MSRV actually builds. Library + optional features only — dev-deps
   # (criterion, ratatui) are free to require newer toolchains.
   msrv:

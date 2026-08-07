@@ -67,3 +67,20 @@ fn interleaved_unknown_replies_are_skipped() {
     assert!(report.sixel);
     assert!(report.answered);
 }
+
+#[test]
+fn every_reply_prefix_is_safe_and_agrees_with_the_barrier_parser() {
+    let replies = b"noise\x1b_Gi=31;OK\x1b\\\x1bP>|terminal\x1b\\\x1b[6;18;9t\x1b[?62;4c";
+    for end in 0..=replies.len() {
+        let prefix = &replies[..end];
+        assert_eq!(parse(prefix).answered, done(prefix), "prefix length {end}");
+    }
+
+    // Every possible byte value, including invalid UTF-8 and a lone ESC, is
+    // ordinary untrusted input to the pure parser.
+    let bytes: Vec<u8> = (u8::MIN..=u8::MAX).collect();
+    for end in 0..=bytes.len() {
+        let _ = parse(&bytes[..end]);
+        let _ = done(&bytes[..end]);
+    }
+}

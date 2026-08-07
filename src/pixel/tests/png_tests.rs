@@ -82,3 +82,25 @@ fn large_images_split_into_multiple_stored_blocks() {
     assert_eq!(first_len, 65535);
     assert_eq!(data[7 + first_len], 1);
 }
+
+#[test]
+fn every_tiny_raster_encodes_deterministically() {
+    for width in 0..=4 {
+        for height in 0..=4 {
+            let pixels = (0..width * height)
+                .map(|index| match index % 3 {
+                    0 => Some((index as u8, 20, 30)),
+                    1 => None,
+                    _ => Some((40, index as u8, 60)),
+                })
+                .collect();
+            let image = image(width, height, pixels);
+            let first = encode(&image);
+            assert_eq!(first, encode(&image));
+            assert_eq!(
+                &first[..8],
+                &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]
+            );
+        }
+    }
+}

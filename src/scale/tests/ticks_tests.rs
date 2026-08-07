@@ -226,3 +226,35 @@ fn extreme_but_finite_bounds_do_not_panic() {
     let _ = Ticks::linear(f64::MIN_POSITIVE, f64::MAX, 8);
     let _ = Ticks::linear(-1e300, 1e300, 100);
 }
+
+#[test]
+fn deterministic_extreme_ranges_remain_finite_ascending_and_bounded() {
+    let min_subnormal = f64::from_bits(1);
+    let next_after_one = f64::from_bits(1.0f64.to_bits() + 1);
+    let ranges = [
+        (-f64::MAX, f64::MAX),
+        (f64::MIN_POSITIVE, f64::MAX),
+        (-1e300, 1e300),
+        (-f64::MIN_POSITIVE, f64::MIN_POSITIVE),
+        (-min_subnormal, min_subnormal),
+        (0.0, min_subnormal),
+        (1.0, next_after_one),
+    ];
+    for (lo, hi) in ranges {
+        for target in [0, 2, 8, 10_000] {
+            let ticks = Ticks::linear(lo, hi, target);
+            assert!((1..=200).contains(&ticks.len()), "[{lo}, {hi}], {target}");
+            assert!(
+                ticks.iter().all(|tick| tick.value.is_finite()),
+                "[{lo}, {hi}], {target}"
+            );
+            assert!(
+                ticks
+                    .as_slice()
+                    .windows(2)
+                    .all(|pair| pair[0].value < pair[1].value),
+                "[{lo}, {hi}], {target}"
+            );
+        }
+    }
+}

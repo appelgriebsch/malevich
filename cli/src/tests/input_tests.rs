@@ -50,3 +50,21 @@ fn no_header_flag_leaves_the_first_row_as_data() {
     assert_eq!(table.header, None);
     assert_eq!(table.rows.len(), 2);
 }
+
+#[test]
+fn literal_delimiters_preserve_boundaries_for_ascii_unicode_and_nul() {
+    for separator in [',', '|', '\u{1f9ea}', '\0'] {
+        let text = format!("left{separator}{separator}right\n{separator}\n");
+        let table = frame(&text, Some(separator), false);
+        assert_eq!(table.rows[0], ["left", "", "right"]);
+        assert_eq!(table.rows[1], ["", ""]);
+    }
+}
+
+#[test]
+fn crlf_and_lf_inputs_frame_identically() {
+    assert_eq!(
+        frame("name,value\r\na,1\r\nb,2\r\n", Some(','), true),
+        frame("name,value\na,1\nb,2\n", Some(','), true)
+    );
+}

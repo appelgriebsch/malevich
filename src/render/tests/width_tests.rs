@@ -19,6 +19,19 @@ fn ansi_control_strings_are_zero_width() {
 }
 
 #[test]
+fn every_control_string_prefix_is_safe_to_measure() {
+    let text = "\x1b[38;2;1;2;3mred\x1b[0m \x1b]8;;https://example.com\x1b\\日本\x1b]8;;\x1b\\";
+    for end in text
+        .char_indices()
+        .map(|(index, _)| index)
+        .chain(std::iter::once(text.len()))
+    {
+        let prefix = &text[..end];
+        assert!(display_width_ansi(prefix) <= display_width(prefix));
+    }
+}
+
+#[test]
 fn combining_marks_measure_nothing() {
     assert_eq!(display_width("e\u{0301}"), 1);
 }

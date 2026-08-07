@@ -45,3 +45,27 @@ fn encoding_is_deterministic() {
         encode(&image(2, 2, pixels))
     );
 }
+
+#[test]
+fn every_tiny_raster_encodes_deterministically() {
+    for width in 0..=4 {
+        for height in 0..=4 {
+            let pixels = (0..width * height)
+                .map(|index| match index % 3 {
+                    0 => Some((index as u8, 20, 30)),
+                    1 => None,
+                    _ => Some((40, index as u8, 60)),
+                })
+                .collect();
+            let image = image(width, height, pixels);
+            let first = encode(&image);
+            assert_eq!(first, encode(&image));
+            if width == 0 || height == 0 {
+                assert!(first.is_empty());
+            } else {
+                assert!(first.starts_with("\x1b_G"));
+                assert!(first.ends_with("\x1b\\"));
+            }
+        }
+    }
+}
