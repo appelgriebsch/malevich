@@ -17,6 +17,24 @@ fn cells_sit_side_by_side_with_aligned_rows() {
     assert!(text.lines().all(|l| l.chars().count() <= 60));
 }
 
+const LINE_AND_BARS: &str = r"          line                      bars
+3 ┤         ⣀⠔⠉⠒⠤⣀        5 ┤        █████
+  │       ⡠⠊      ⠉⠒⠤⣀      │        █████  ▁▁▁▁▁
+  │    ⢀⠔⠊            ⠉⠒⠤   │  ▁▁▁▁▁ █████  █████
+  │  ⢀⠔⠁                    │  █████ █████  █████
+1 ┤⡠⠊⠁                    0 ┤  █████ █████  █████
+  └┬────────────────────┬   └──────────────────────
+   0                    2        a      b     c";
+
+#[test]
+fn two_charts_side_by_side_match_their_snapshot() {
+    let grid = Grid::new(2)
+        .with(crate::line(&[1.0, 3.0, 2.0][..]).title("line"))
+        .with(crate::bar(["a", "b", "c"], &[2.0, 5.0, 3.0][..]).title("bars"));
+    let text = grid.render(&Frame::plain(52, 8));
+    assert_eq!(text, LINE_AND_BARS);
+}
+
 fn malevich_line(values: &[f64]) -> Plot<'_> {
     Plot::new().layer(Line::y(values))
 }

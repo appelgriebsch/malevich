@@ -314,6 +314,23 @@ fn a_small_line_chart_matches_its_snapshot() {
     assert_eq!(text, SPIKY);
 }
 
+const SIMPLE_BARS: &str = r"            bars
+5 ┤         ██████
+  │         ██████  ▁▁▁▁▁▁
+  │  ▁▁▁▁▁▁ ██████  ██████
+  │  ██████ ██████  ██████
+0 ┤  ██████ ██████  ██████
+  └─────────────────────────
+        a      b       c";
+
+#[test]
+fn a_small_bar_chart_matches_its_snapshot() {
+    let text = crate::bar(["a", "b", "c"], &[2.0, 5.0, 3.0][..])
+        .title("bars")
+        .render(&Frame::plain(28, 8));
+    assert_eq!(text, SIMPLE_BARS);
+}
+
 const GAPPY: &str = r"5 ┤                      ⢀⠤⠊
   │       ⢀⡠⠒⠁         ⡠⠔⠁
   │    ⢀⡠⠔⠁           ⠈

@@ -2,7 +2,7 @@
 //! column — the instantly-legible low-fi style that kroitor/asciichart made famous
 //! (credited in ACKNOWLEDGEMENTS.md), here with real axes underneath it.
 
-use malevich::{Frame, Line, LineStyle, Plot};
+use malevich::{Charset, Frame, Line, LineStyle, Plot};
 
 fn main() {
     let values: Vec<f64> = (0..60)
@@ -11,5 +11,9 @@ fn main() {
     let chart = Plot::new()
         .layer(Line::y(&values[..]).style(LineStyle::Corners))
         .title("the corners style");
-    println!("{}", chart.render(&Frame::plain(70, 16)));
+    let frame = Frame {
+        charset: Charset::Quadrants,
+        ..Frame::plain(70, 16)
+    };
+    println!("{}", chart.render(&frame));
 }
