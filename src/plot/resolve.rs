@@ -7,6 +7,66 @@ use crate::plot::layout::Map;
 use crate::render::Color;
 use crate::scale::Colormap;
 
+/// A resolved coordinate channel, either backed by values or by the implicit
+/// `0, 1, 2, ...` indices used when a mark omits x coordinates.
+///
+/// Keeping indices symbolic avoids allocating an otherwise redundant `Vec<f64>`
+/// for every unreduced line, point, area, and numeric range layer.
+pub(crate) enum Coordinates<'p> {
+    Values(Cow<'p, [f64]>),
+    Indices(usize),
+}
+
+impl Coordinates<'_> {
+    pub(crate) fn iter(&self) -> CoordinatesIter<'_> {
+        match self {
+            Coordinates::Values(values) => CoordinatesIter::Values(values.iter()),
+            Coordinates::Indices(len) => CoordinatesIter::Indices(0..*len),
+        }
+    }
+
+    fn extent(&self) -> Option<(f64, f64)> {
+        match self {
+            Coordinates::Values(values) => extent(values),
+            Coordinates::Indices(0) => None,
+            Coordinates::Indices(len) => Some((0.0, (*len - 1) as f64)),
+        }
+    }
+
+    fn extent_positive(&self) -> Option<(f64, f64)> {
+        match self {
+            Coordinates::Values(values) => extent_positive(values),
+            Coordinates::Indices(0 | 1) => None,
+            Coordinates::Indices(len) => Some((1.0, (*len - 1) as f64)),
+        }
+    }
+}
+
+pub(crate) enum CoordinatesIter<'a> {
+    Values(std::slice::Iter<'a, f64>),
+    Indices(std::ops::Range<usize>),
+}
+
+impl Iterator for CoordinatesIter<'_> {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            CoordinatesIter::Values(values) => values.next().copied(),
+            CoordinatesIter::Indices(indices) => indices.next().map(|index| index as f64),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            CoordinatesIter::Values(values) => values.size_hint(),
+            CoordinatesIter::Indices(indices) => indices.size_hint(),
+        }
+    }
+}
+
+impl ExactSizeIterator for CoordinatesIter<'_> {}
+
 /// How large line layers are reduced before rasterizing.
 #[derive(Clone, Copy)]
 pub(crate) enum Reduce {
@@ -30,7 +90,7 @@ pub(crate) enum Kind {
 /// One layer, resolved to drawable data.
 pub(crate) enum ResolvedLayer<'p> {
     Series {
-        x: Cow<'p, [f64]>,
+        x: Coordinates<'p>,
         y: Cow<'p, [f64]>,
         color: Color,
         kind: Kind,
@@ -43,7 +103,7 @@ pub(crate) enum ResolvedLayer<'p> {
         label: Option<&'p str>,
     },
     Area {
-        x: Cow<'p, [f64]>,
+        x: Coordinates<'p>,
         low: Option<&'p [f64]>,
         high: &'p [f64],
         horizontal: bool,
@@ -57,7 +117,7 @@ pub(crate) enum ResolvedLayer<'p> {
         colormap: Colormap,
     },
     Range {
-        x: Cow<'p, [f64]>,
+        x: Coordinates<'p>,
         categories: Option<&'p [String]>,
         low: &'p [f64],
         high: &'p [f64],
@@ -84,7 +144,7 @@ impl ResolvedLayer<'_> {
     /// Bars contribute none — their axis is the band scale.
     pub(crate) fn x_extent(&self) -> Option<(f64, f64)> {
         match self {
-            ResolvedLayer::Series { x, .. } => extent(x),
+            ResolvedLayer::Series { x, .. } => x.extent(),
             ResolvedLayer::Bars {
                 placement: Placement::Spans { start, width },
                 values,
@@ -101,7 +161,7 @@ impl ResolvedLayer<'_> {
                 if *horizontal {
                     union([low.and_then(extent), extent(high)].into_iter())
                 } else {
-                    extent(x)
+                    x.extent()
                 }
             }
             ResolvedLayer::Rule {
@@ -120,7 +180,7 @@ impl ResolvedLayer<'_> {
                 if categories.is_some() {
                     None
                 } else {
-                    extent(x)
+                    x.extent()
                 }
             }
         }
@@ -139,7 +199,7 @@ impl ResolvedLayer<'_> {
                 ..
             } => {
                 if *horizontal {
-                    extent(x)
+                    x.extent()
                 } else {
                     let highs = extent(high);
                     let lows = match low {
@@ -189,7 +249,7 @@ impl ResolvedLayer<'_> {
     /// [`ResolvedLayer::x_extent`] over strictly positive values (log axes).
     pub(crate) fn x_extent_positive(&self) -> Option<(f64, f64)> {
         match self {
-            ResolvedLayer::Series { x, .. } => extent_positive(x),
+            ResolvedLayer::Series { x, .. } => x.extent_positive(),
             ResolvedLayer::Area {
                 x,
                 low,
@@ -200,7 +260,7 @@ impl ResolvedLayer<'_> {
                 if *horizontal {
                     union([low.and_then(extent_positive), extent_positive(high)].into_iter())
                 } else {
-                    extent_positive(x)
+                    x.extent_positive()
                 }
             }
             ResolvedLayer::Rule {
@@ -213,7 +273,7 @@ impl ResolvedLayer<'_> {
                 x,
                 categories: None,
                 ..
-            } => extent_positive(x),
+            } => x.extent_positive(),
             _ => None,
         }
     }
@@ -231,7 +291,7 @@ impl ResolvedLayer<'_> {
                 ..
             } => {
                 if *horizontal {
-                    extent_positive(x)
+                    x.extent_positive()
                 } else {
                     union([extent_positive(high), low.and_then(extent_positive)].into_iter())
                 }
@@ -339,14 +399,14 @@ pub(crate) fn resolve<'p>(
                             };
                             match downsampled {
                                 Some((dx, dy)) => ResolvedLayer::Series {
-                                    x: Cow::Owned(dx),
+                                    x: Coordinates::Values(Cow::Owned(dx)),
                                     y: Cow::Owned(dy),
                                     color,
                                     kind: Kind::Line(line.style),
                                     label: line.label.as_deref(),
                                 },
                                 None => ResolvedLayer::Series {
-                                    x: index_or_borrow(x.as_ref(), y.len()),
+                                    x: coordinates(x.as_ref(), y.len()),
                                     y: Cow::Borrowed(y.as_slice()),
                                     color,
                                     kind: Kind::Line(line.style),
@@ -361,7 +421,7 @@ pub(crate) fn resolve<'p>(
                                 (0..samples).map(|i| domain.0 + i as f64 * step).collect();
                             let y: Vec<f64> = x.iter().map(|&value| function(value)).collect();
                             ResolvedLayer::Series {
-                                x: Cow::Owned(x),
+                                x: Coordinates::Values(Cow::Owned(x)),
                                 y: Cow::Owned(y),
                                 color,
                                 kind: Kind::Line(line.style),
@@ -371,7 +431,7 @@ pub(crate) fn resolve<'p>(
                     }
                 }
                 Mark::Points(points) => ResolvedLayer::Series {
-                    x: index_or_borrow(points.x.as_ref(), points.y.len()),
+                    x: coordinates(points.x.as_ref(), points.y.len()),
                     y: Cow::Borrowed(points.y.as_slice()),
                     color: assigned(points.color),
                     kind: Kind::Points,
@@ -384,7 +444,7 @@ pub(crate) fn resolve<'p>(
                     label: bars.label.as_deref(),
                 },
                 Mark::Area(area) => ResolvedLayer::Area {
-                    x: index_or_borrow(area.x.as_ref(), area.high.len()),
+                    x: coordinates(area.x.as_ref(), area.high.len()),
                     low: area.low.as_ref().map(|series| series.as_slice()),
                     high: area.high.as_slice(),
                     horizontal: area.horizontal,
@@ -398,12 +458,12 @@ pub(crate) fn resolve<'p>(
                     colormap: cells.colormap.clone(),
                 },
                 Mark::Range(range) => {
-                    let (x, categories): (Cow<'_, [f64]>, _) = match &range.placement {
+                    let (x, categories) = match &range.placement {
                         RangePlacement::Numeric(x) => {
-                            (index_or_borrow(x.as_ref(), range.low.len()), None)
+                            (coordinates(x.as_ref(), range.low.len()), None)
                         }
                         RangePlacement::Bands(categories) => (
-                            Cow::Owned((0..categories.len()).map(|i| i as f64).collect()),
+                            Coordinates::Indices(categories.len()),
                             Some(categories.as_slice()),
                         ),
                     };
@@ -481,13 +541,13 @@ fn line_extent(x: Option<&[f64]>, y: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
     }
 }
 
-pub(crate) fn index_or_borrow<'p>(
+pub(crate) fn coordinates<'p>(
     x: Option<&'p crate::data::Series<'_>>,
     len: usize,
-) -> Cow<'p, [f64]> {
+) -> Coordinates<'p> {
     match x {
-        Some(series) => Cow::Borrowed(series.as_slice()),
-        None => Cow::Owned((0..len).map(|i| i as f64).collect()),
+        Some(series) => Coordinates::Values(Cow::Borrowed(series.as_slice())),
+        None => Coordinates::Indices(len),
     }
 }
 
@@ -523,4 +583,28 @@ pub(crate) fn union(extents: impl Iterator<Item = Option<(f64, f64)>>) -> Option
     extents
         .flatten()
         .reduce(|(min_a, max_a), (min_b, max_b)| (min_a.min(min_b), max_a.max(max_b)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Coordinates, coordinates};
+
+    #[test]
+    fn implicit_coordinates_remain_symbolic() {
+        let coordinates = coordinates(None, 4);
+        assert!(matches!(coordinates, Coordinates::Indices(4)));
+        assert_eq!(
+            coordinates.iter().collect::<Vec<_>>(),
+            vec![0.0, 1.0, 2.0, 3.0]
+        );
+        assert_eq!(coordinates.extent(), Some((0.0, 3.0)));
+        assert_eq!(coordinates.extent_positive(), Some((1.0, 3.0)));
+    }
+
+    #[test]
+    fn empty_and_zero_only_indices_have_no_positive_extent() {
+        assert_eq!(Coordinates::Indices(0).extent(), None);
+        assert_eq!(Coordinates::Indices(0).extent_positive(), None);
+        assert_eq!(Coordinates::Indices(1).extent_positive(), None);
+    }
 }

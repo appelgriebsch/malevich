@@ -8,7 +8,7 @@
 use crate::mark::LineStyle;
 use crate::mark::{Orientation, Placement};
 use crate::plot::layout::{Layout, Map};
-use crate::plot::resolve::{Kind, ResolvedLayer, extent};
+use crate::plot::resolve::{Coordinates, Kind, ResolvedLayer, extent};
 use crate::render::{Canvas, Charset, Color, PlotRect};
 use crate::scale::Colormap;
 
@@ -220,7 +220,7 @@ pub(crate) fn layers<C: Canvas>(
 fn draw_series<C: Canvas>(
     surface: &mut C,
     kind: &Kind,
-    x: &[f64],
+    x: &Coordinates<'_>,
     y: &[f64],
     color: Color,
     x_scale: &Map,
@@ -233,7 +233,7 @@ fn draw_series<C: Canvas>(
         }
         Kind::Line(LineStyle::Pixels) => {
             let mut previous: Option<(f64, f64)> = None;
-            for (&xv, &yv) in x.iter().zip(y.iter()) {
+            for (xv, &yv) in x.iter().zip(y.iter()) {
                 if !xv.is_finite() || !yv.is_finite() {
                     previous = None;
                     continue;
@@ -253,7 +253,7 @@ fn draw_series<C: Canvas>(
             }
         }
         Kind::Points => {
-            for (&xv, &yv) in x.iter().zip(y.iter()) {
+            for (xv, &yv) in x.iter().zip(y.iter()) {
                 if xv.is_finite() && yv.is_finite() {
                     surface.dot(
                         offset.0 + x_scale.map(xv),
@@ -275,7 +275,7 @@ fn draw_series<C: Canvas>(
 fn draw_corners<C: Canvas>(
     surface: &mut C,
     layout: &Layout<'_>,
-    x: &[f64],
+    x: &Coordinates<'_>,
     y: &[f64],
     color: Color,
 ) {
@@ -304,8 +304,7 @@ fn draw_corners<C: Canvas>(
     // The line's row at each cell column, sampled at the column center.
     let mut rows: Vec<Option<i64>> = vec![None; plot_cols];
     let mut previous: Option<(f64, f64)> = None;
-    for index in 0..y.len().min(x.len()) {
-        let (xv, yv) = (x[index], y[index]);
+    for (xv, &yv) in x.iter().zip(y) {
         if !xv.is_finite() || !yv.is_finite() {
             previous = None;
             continue;
@@ -419,7 +418,7 @@ fn draw_bars<C: Canvas>(
 #[allow(clippy::too_many_arguments)]
 fn draw_ranges<C: Canvas>(
     surface: &mut C,
-    x: &[f64],
+    x: &Coordinates<'_>,
     low: &[f64],
     high: &[f64],
     body: Option<(&[f64], &[f64])>,
@@ -433,9 +432,7 @@ fn draw_ranges<C: Canvas>(
     let cap = (half_width * 0.6).max(1.0);
     // Bound to the shortest required channel: constructors keep these equal, but a
     // deserialized range can arrive ragged, and rendering must not index past an end.
-    let count = x.len().min(low.len()).min(high.len());
-    for index in 0..count {
-        let (xv, lv, hv) = (x[index], low[index], high[index]);
+    for (index, ((xv, &lv), &hv)) in x.iter().zip(low).zip(high).enumerate() {
         if !xv.is_finite() || !lv.is_finite() || !hv.is_finite() {
             continue;
         }
@@ -553,7 +550,7 @@ fn position_on(scale: &Map, sub: f64, lo: f64, hi: f64) -> Option<f64> {
 #[allow(clippy::too_many_arguments)]
 fn draw_area<C: Canvas>(
     surface: &mut C,
-    channel: &[f64],
+    channel: &Coordinates<'_>,
     low: Option<&[f64]>,
     high: &[f64],
     horizontal: bool,
@@ -579,10 +576,7 @@ fn draw_area<C: Canvas>(
     let mut previous: Option<(f64, f64, f64)> = None;
     // Constructors keep channel and edges equal length; a deserialized area may not,
     // so bound to the shortest and read the optional low edge by index.
-    let count = channel.len().min(high.len());
-    for index in 0..count {
-        let cv = channel[index];
-        let hv = high[index];
+    for (index, (cv, &hv)) in channel.iter().zip(high).enumerate() {
         let lv = match low {
             Some(low) => match low.get(index) {
                 Some(&value) => value,
