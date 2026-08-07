@@ -1,4 +1,4 @@
-use super::{Report, done, parse};
+use super::{MAX_REPLY_BYTES, Report, done, parse};
 
 #[test]
 fn a_kitty_terminal_answers_the_graphics_query_and_da1() {
@@ -83,4 +83,45 @@ fn every_reply_prefix_is_safe_and_agrees_with_the_barrier_parser() {
         let _ = parse(&bytes[..end]);
         let _ = done(&bytes[..end]);
     }
+}
+
+#[test]
+fn deterministic_arbitrary_streams_are_total_and_barrier_consistent() {
+    let mut state = 0x4d41_4c45_5649_4348_u64;
+    let known = b"\x1b_Gi=31;OK\x1b\\\x1bP>|terminal\x1b\\\x1b[6;18;9t\x1b[?62;4c";
+
+    for case in 0..10_000usize {
+        let length = next(&mut state) as usize % (MAX_REPLY_BYTES + 1);
+        let mut bytes = vec![0; length];
+        for byte in &mut bytes {
+            *byte = next(&mut state) as u8;
+        }
+        // Half the corpus carries a mutated or truncated real reply, so the
+        // state machine sees much more than uniformly rare ESC bytes.
+        if case % 2 == 0 && !bytes.is_empty() {
+            let copied = known.len().min(bytes.len());
+            let start = next(&mut state) as usize % (bytes.len() - copied + 1);
+            bytes[start..start + copied].copy_from_slice(&known[..copied]);
+            for _ in 0..case % 5 {
+                let index = next(&mut state) as usize % bytes.len();
+                bytes[index] = next(&mut state) as u8;
+            }
+        }
+
+        let report = parse(&bytes);
+        assert_eq!(
+            report.answered,
+            done(&bytes),
+            "barrier disagreement in generated case {case}"
+        );
+    }
+}
+
+fn next(state: &mut u64) -> u64 {
+    // xorshift64*: deterministic, dependency-free input generation rather than
+    // a source of statistical randomness.
+    *state ^= *state >> 12;
+    *state ^= *state << 25;
+    *state ^= *state >> 27;
+    state.wrapping_mul(0x2545_f491_4f6c_dd1d)
 }

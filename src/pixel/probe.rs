@@ -11,6 +11,9 @@
 //!
 //! Parsing is pure over the reply bytes: fixtures test it without a terminal.
 
+/// Maximum aggregate reply bytes retained and parsed from one probe.
+pub(crate) const MAX_REPLY_BYTES: usize = 4 * 1024;
+
 /// The query batch, barrier last.
 pub(crate) const QUERIES: &str = concat!(
     // Kitty graphics support probe from the protocol docs: a 1×1 query-action

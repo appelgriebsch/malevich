@@ -6,7 +6,17 @@
 //! line-buffered, with the previous settings restored on every path. Reads are
 //! paced by `VTIME` (100 ms of silence per attempt) under a total budget, so a
 //! terminal that answers nothing costs a fraction of a second exactly once —
-//! the caller caches.
+//! the caller caches. Replies are capped because the four expected reports are
+//! small and no terminal-controlled byte stream should grow memory without bound.
+
+use super::probe::MAX_REPLY_BYTES;
+
+/// Appends the prefix that fits and reports whether the reply buffer is full.
+fn append_reply(replies: &mut Vec<u8>, chunk: &[u8]) -> bool {
+    let remaining = MAX_REPLY_BYTES.saturating_sub(replies.len());
+    replies.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
+    replies.len() >= MAX_REPLY_BYTES
+}
 
 #[cfg(unix)]
 pub(crate) fn exchange(
@@ -51,9 +61,15 @@ pub(crate) fn exchange(
     let mut replies = Vec::new();
     let mut chunk = [0u8; 512];
     while start.elapsed() < budget && !done(&replies) {
-        match (&tty).read(&mut chunk) {
+        let remaining = MAX_REPLY_BYTES.saturating_sub(replies.len());
+        if remaining == 0 {
+            break;
+        }
+        let read_len = remaining.min(chunk.len());
+        match (&tty).read(&mut chunk[..read_len]) {
             Ok(0) => continue,
-            Ok(count) => replies.extend_from_slice(&chunk[..count]),
+            Ok(count) if append_reply(&mut replies, &chunk[..count]) => break,
+            Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(_) => break,
         }
@@ -70,3 +86,7 @@ pub(crate) fn exchange(
 ) -> Option<Vec<u8>> {
     None
 }
+
+#[cfg(test)]
+#[path = "tests/query_tests.rs"]
+mod tests;
