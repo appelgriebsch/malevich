@@ -1,4 +1,4 @@
-use crate::render::{Canvas, Color, PlotRect};
+use crate::render::{Canvas, Color, PlotRect, PointShape};
 
 use super::PixelCanvas;
 
@@ -47,6 +47,20 @@ fn dot_stamps_a_point_marker_and_clips_outside() {
         .filter(|&(x, y)| canvas.get(x, y).is_some())
         .count();
     assert_eq!(drawn, 4);
+}
+
+#[test]
+fn plus_and_cross_points_keep_their_pixel_shapes() {
+    let mut canvas = PixelCanvas::new(6, 3, (8, 8));
+    canvas.point(10.0, 10.0, PointShape::Plus, RED);
+    assert_eq!(canvas.get(12, 10), Some(RED));
+    assert_eq!(canvas.get(10, 12), Some(RED));
+    assert_eq!(canvas.get(12, 12), None);
+
+    canvas.point(30.0, 10.0, PointShape::Cross, RED);
+    assert_eq!(canvas.get(32, 12), Some(RED));
+    assert_eq!(canvas.get(28, 8), Some(RED));
+    assert_eq!(canvas.get(32, 10), None);
 }
 
 #[test]

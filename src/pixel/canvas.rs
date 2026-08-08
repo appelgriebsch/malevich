@@ -7,7 +7,7 @@
 //! not draw, exactly as it does between glyphs in cell output.
 
 use super::font;
-use crate::render::{Canvas, Color, PlotRect};
+use crate::render::{Canvas, Color, PlotRect, PointShape};
 
 /// A device-pixel raster covering the whole frame; encoders crop the plot panel.
 pub(crate) struct PixelCanvas {
@@ -171,6 +171,28 @@ impl Canvas for PixelCanvas {
         if x.is_finite() && y.is_finite() {
             let point = self.point;
             self.stamp(x.round() as i64, y.round() as i64, point, color);
+        }
+    }
+
+    fn point(&mut self, x: f64, y: f64, shape: PointShape, color: Color) {
+        if !x.is_finite() || !y.is_finite() {
+            return;
+        }
+        let (x, y) = (x.round() as i64, y.round() as i64);
+        match shape {
+            PointShape::Dot => self.stamp(x, y, self.point, color),
+            PointShape::Plus => {
+                for offset in -self.point..=self.point {
+                    self.set(x + offset, y, color);
+                    self.set(x, y + offset, color);
+                }
+            }
+            PointShape::Cross => {
+                for offset in -self.point..=self.point {
+                    self.set(x + offset, y + offset, color);
+                    self.set(x + offset, y - offset, color);
+                }
+            }
         }
     }
 

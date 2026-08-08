@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use crate::mark::{LineStyle, Mark, Orientation, Placement, RangePlacement, Source};
+use crate::mark::{LineStyle, Mark, Orientation, Placement, PointStyle, RangePlacement, Source};
 use crate::plot::layout::Map;
 use crate::render::Color;
 use crate::scale::Colormap;
@@ -83,7 +83,7 @@ pub(crate) enum Reduce {
 /// How a resolved series layer draws its columns.
 pub(crate) enum Kind {
     Line(LineStyle),
-    Points,
+    Points(PointStyle),
 }
 
 /// One layer, resolved to drawable data.
@@ -317,8 +317,10 @@ impl ResolvedLayer<'_> {
                 let swatch = match (kind, ascii) {
                     (Kind::Line(_), false) => "\u{2500}\u{2500}",
                     (Kind::Line(_), true) => "--",
-                    (Kind::Points, false) => "\u{2022}\u{2022}",
-                    (Kind::Points, true) => "**",
+                    (Kind::Points(PointStyle::Dot), false) => "\u{2022}\u{2022}",
+                    (Kind::Points(PointStyle::Dot), true) => "**",
+                    (Kind::Points(PointStyle::Plus), _) => "++",
+                    (Kind::Points(PointStyle::Cross), _) => "xx",
                 };
                 (swatch, *color, *label)
             }
@@ -439,7 +441,7 @@ pub(crate) fn resolve<'p>(
                     x: coordinates(points.x.as_ref(), points.y.len()),
                     y: Cow::Borrowed(points.y.as_slice()),
                     color: assigned(points.color),
-                    kind: Kind::Points,
+                    kind: Kind::Points(points.style),
                     label: points.label.as_deref(),
                 },
                 Mark::Bars(bars) => ResolvedLayer::Bars {

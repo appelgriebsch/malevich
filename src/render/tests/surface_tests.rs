@@ -1,4 +1,4 @@
-use super::super::{Canvas, Charset, Color, ColorMode, PlotRect};
+use super::super::{Canvas, Charset, Color, ColorMode, PlotRect, PointShape};
 use super::Surface;
 
 const ONE_CELL: PlotRect = PlotRect {
@@ -22,6 +22,15 @@ fn a_dot_lights_one_braille_subpixel() {
     let mut surface = Surface::new(2, 1, Charset::Braille);
     surface.dot(0.0, 0.0, Color::Default);
     assert_eq!(surface.to_plain(), "\u{2801}");
+}
+
+#[test]
+fn point_shapes_stay_distinct_in_colorless_cell_output() {
+    let mut surface = Surface::new(3, 1, Charset::Braille);
+    Canvas::point(&mut surface, 0.0, 0.0, PointShape::Dot, Color::Default);
+    Canvas::point(&mut surface, 2.0, 0.0, PointShape::Plus, Color::Default);
+    Canvas::point(&mut surface, 4.0, 0.0, PointShape::Cross, Color::Default);
+    assert_eq!(surface.to_plain(), "\u{2801}+x");
 }
 
 #[test]

@@ -9,6 +9,14 @@
 
 use super::color::Color;
 
+/// A target-independent point marker selected by the public mark style.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PointShape {
+    Dot,
+    Plus,
+    Cross,
+}
+
 /// The plot rectangle in cell coordinates: where marks may draw, chrome excluded.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PlotRect {
@@ -32,6 +40,9 @@ pub(crate) trait Canvas {
 
     /// Sets the subpixel nearest to `(x, y)`; non-finite coordinates draw nothing.
     fn dot(&mut self, x: f64, y: f64, color: Color);
+
+    /// Draws a point marker centered nearest `(x, y)` at target-native fidelity.
+    fn point(&mut self, x: f64, y: f64, shape: PointShape, color: Color);
 
     /// Draws a line between two subpixel positions, clipped to the target.
     fn line(&mut self, from: (f64, f64), to: (f64, f64), color: Color);

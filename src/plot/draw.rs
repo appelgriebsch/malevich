@@ -5,11 +5,11 @@
 //! precision-dependent — bar fills, marker crossbars, Cells patches — goes through
 //! the canvas's mid-level ops, so each target renders it at its own fidelity.
 
-use crate::mark::LineStyle;
+use crate::mark::{LineStyle, PointStyle};
 use crate::mark::{Orientation, Placement};
 use crate::plot::layout::{Layout, Map};
 use crate::plot::resolve::{Coordinates, Kind, ResolvedLayer, extent};
-use crate::render::{Canvas, Charset, Color, PlotRect};
+use crate::render::{Canvas, Charset, Color, PlotRect, PointShape};
 use crate::scale::Colormap;
 
 /// Draws every resolved layer, in order, through the shared scales.
@@ -252,12 +252,18 @@ fn draw_series<C: Canvas>(
                 previous = Some(position);
             }
         }
-        Kind::Points => {
+        Kind::Points(style) => {
+            let shape = match style {
+                PointStyle::Dot => PointShape::Dot,
+                PointStyle::Plus => PointShape::Plus,
+                PointStyle::Cross => PointShape::Cross,
+            };
             for (xv, &yv) in x.iter().zip(y.iter()) {
                 if xv.is_finite() && yv.is_finite() {
-                    surface.dot(
+                    surface.point(
                         offset.0 + x_scale.map(xv),
                         offset.1 + y_scale.map(yv),
+                        shape,
                         color,
                     );
                 }

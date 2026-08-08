@@ -1,9 +1,27 @@
-//! The points mark: unconnected dots at data positions.
+//! The points mark: unconnected markers at data positions.
 
 use crate::data::{IntoSeries, Series};
 use crate::render::Color;
 
-/// Unconnected dots at data positions; gaps (`NaN`) simply have no dot.
+/// The shape used for a [`Points`] layer.
+///
+/// [`PointStyle::Dot`] keeps subcell precision. Plus and cross markers occupy a
+/// whole terminal cell so labeled series remain distinguishable without color;
+/// pixel output draws their corresponding geometric shapes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum PointStyle {
+    /// A compact subpixel dot. The default.
+    #[default]
+    Dot,
+    /// A `+` marker.
+    Plus,
+    /// An `x` marker.
+    Cross,
+}
+
+/// Unconnected markers at data positions; gaps (`NaN`) simply have no marker.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Points<'a> {
@@ -11,6 +29,8 @@ pub struct Points<'a> {
     pub(crate) y: Series<'a>,
     pub(crate) color: Option<Color>,
     pub(crate) label: Option<String>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub(crate) style: PointStyle,
 }
 
 impl<'a> Points<'a> {
@@ -21,6 +41,7 @@ impl<'a> Points<'a> {
             y: values.into_series(),
             color: None,
             label: None,
+            style: PointStyle::Dot,
         }
     }
 
@@ -42,7 +63,15 @@ impl<'a> Points<'a> {
             y,
             color: None,
             label: None,
+            style: PointStyle::Dot,
         }
+    }
+
+    /// Sets the marker shape; [`PointStyle::Dot`] by default.
+    #[must_use]
+    pub fn style(mut self, style: PointStyle) -> Points<'a> {
+        self.style = style;
+        self
     }
 
     /// Sets an explicit color; without one, layers take colors from the palette.
@@ -67,6 +96,7 @@ impl<'a> Points<'a> {
             y: self.y.into_owned(),
             color: self.color,
             label: self.label,
+            style: self.style,
         }
     }
 }
@@ -77,6 +107,7 @@ impl std::fmt::Debug for Points<'_> {
             .field("points", &self.y.len())
             .field("indexed", &self.x.is_none())
             .field("color", &self.color)
+            .field("style", &self.style)
             .finish()
     }
 }

@@ -32,7 +32,7 @@ const GALLERY: &[(&str, &str)] = &[
     (
         "clusters",
         "Palmer penguins: bill dimensions separate the species into visible \
-         clusters, one labeled layer each.",
+         clusters, with portable marker shapes keeping layers distinct without color.",
     ),
     (
         "waveform",

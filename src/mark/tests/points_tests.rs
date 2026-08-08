@@ -1,8 +1,9 @@
-use super::Points;
+use super::{PointStyle, Points};
 use crate::render::Color;
 
 const fn assert_send_sync<T: Send + Sync>() {}
 const _: () = assert_send_sync::<Points<'static>>();
+const _: () = assert_send_sync::<PointStyle>();
 
 #[test]
 #[should_panic(expected = "equal length")]
@@ -14,6 +15,15 @@ fn paired_series_of_unequal_lengths_panic() {
 fn explicit_colors_stick() {
     let points = Points::y(&[1.0][..]).color(Color::Green);
     assert_eq!(points.color, Some(Color::Green));
+}
+
+#[test]
+fn marker_styles_are_explicit_and_dots_are_the_default() {
+    assert_eq!(Points::y([1.0]).style, PointStyle::Dot);
+    assert_eq!(
+        Points::y([1.0]).style(PointStyle::Cross).style,
+        PointStyle::Cross
+    );
 }
 
 #[test]

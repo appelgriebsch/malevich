@@ -1,7 +1,8 @@
 //! Palmer penguins (CC0 — see examples/data/README.md): bill dimensions separate
-//! the species into visible clusters, one labeled layer each.
+//! the species into visible clusters, with marker shapes preserving the distinction
+//! in colorless output.
 
-use malevich::{Frame, Plot, Points};
+use malevich::{Frame, Plot, PointStyle, Points};
 
 fn main() {
     let mut species: [(&str, Vec<f64>, Vec<f64>); 3] = [
@@ -29,8 +30,9 @@ fn main() {
         .title("penguin bills by species")
         .x_label("bill length, mm")
         .y_label("depth");
-    for (name, xs, ys) in &species {
-        plot = plot.layer(Points::xy(&xs[..], &ys[..]).label(*name));
+    let styles = [PointStyle::Dot, PointStyle::Plus, PointStyle::Cross];
+    for ((name, xs, ys), style) in species.iter().zip(styles) {
+        plot = plot.layer(Points::xy(&xs[..], &ys[..]).style(style).label(*name));
     }
     println!("{}", plot.render_best(&Frame::plain(72, 20)));
 }

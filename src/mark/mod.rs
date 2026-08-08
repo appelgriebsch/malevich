@@ -20,7 +20,7 @@ pub(crate) use bars::Placement;
 pub use cells::Cells;
 pub(crate) use line::Source;
 pub use line::{Line, LineStyle};
-pub use points::Points;
+pub use points::{PointStyle, Points};
 pub use range::Range;
 pub(crate) use range::RangePlacement;
 pub(crate) use rule::Orientation;
@@ -36,7 +36,7 @@ pub use text::Text;
 pub enum Mark<'a> {
     /// A polyline through ordered points.
     Line(Line<'a>),
-    /// Unconnected dots.
+    /// Unconnected point markers.
     Points(Points<'a>),
     /// Filled columns over a categorical axis.
     Bars(Bars<'a>),

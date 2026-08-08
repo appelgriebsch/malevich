@@ -1,6 +1,6 @@
 //! The subpixel surface: the grid marks draw on, and its string encoders.
 
-use super::canvas::{Canvas, PlotRect};
+use super::canvas::{Canvas, PlotRect, PointShape};
 use super::charset::Charset;
 use super::color::{Color, ColorMode, Resolved};
 
@@ -488,6 +488,24 @@ impl Canvas for Surface {
 
     fn dot(&mut self, x: f64, y: f64, color: Color) {
         Surface::dot(self, x, y, color);
+    }
+
+    fn point(&mut self, x: f64, y: f64, shape: PointShape, color: Color) {
+        if shape == PointShape::Dot {
+            Surface::dot(self, x, y, color);
+            return;
+        }
+        if !x.is_finite() || !y.is_finite() {
+            return;
+        }
+        let column = (x.round() as i64).div_euclid(self.columns as i64);
+        let row = (y.round() as i64).div_euclid(self.rows as i64);
+        let glyph = match shape {
+            PointShape::Dot => unreachable!(),
+            PointShape::Plus => "+",
+            PointShape::Cross => "x",
+        };
+        Surface::text(self, column, row, glyph, color);
     }
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), color: Color) {
