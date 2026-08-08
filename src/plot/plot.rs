@@ -620,6 +620,7 @@ impl<'a> Plot<'a> {
         not(any(test, feature = "evcxr", feature = "ratatui")),
         allow(dead_code)
     )]
+    #[cfg(any(feature = "evcxr", feature = "ratatui"))]
     pub(crate) fn rasterize(&self, frame: &Frame) -> Surface {
         self.try_rasterize(frame)
             .unwrap_or_else(|_| Surface::new(0, 0, frame.charset))
