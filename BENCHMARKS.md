@@ -7,7 +7,7 @@ background load. This file is the authoritative dated record behind the README's
 
 ## 2026-08-07 baseline
 
-- Revision: `4962935`
+- Revision: `7ff2bc0`
 - Machine: 2021 MacBook Pro, Apple M1 Pro (10 cores), 32 GB RAM
 - OS: macOS 26.5.2 (Darwin 25.5.0), arm64
 - Compiler: `rustc 1.97.1 (8bab26f4f 2026-07-14)`, LLVM 22.1.8
@@ -15,8 +15,8 @@ background load. This file is the authoritative dated record behind the README's
 
 | Measurement | Estimate | 95% interval |
 | --- | ---: | ---: |
-| `render/line_10k_80x20` | 68.197 µs | 68.118–68.283 µs |
-| `render/line_10m_80x20` | 36.469 ms | 36.426–36.514 ms |
+| `render/line_10k_80x20` | 67.928 µs | 67.887–67.973 µs |
+| `render/line_10m_80x20` | 36.226 ms | 36.202–36.251 ms |
 
 Commands:
 
@@ -31,7 +31,7 @@ It is single-threaded. The ten-million-point input vectors are prepared outside 
 timed iteration.
 
 The earlier `0f3ad5a` record on this machine was 81.818 µs and 42.260 ms,
-respectively. The current measurements are 16.6% and 13.7% lower. These are
+respectively. The current measurements are 17.0% and 14.3% lower. These are
 same-machine historical comparisons, not portable performance promises.
 
 ### Profiling decision
@@ -52,7 +52,7 @@ The pixel-exact raw-versus-M4 oracle and all rendering snapshots remained identi
 ## Allocation contract
 
 The same revision, optimized on the machine above, measured the 10k render at **183
-allocations and 49,508 allocated bytes**, producing 2,966 output bytes. Rust 1.88
+allocations and 55,908 allocated bytes**, producing 2,966 output bytes. Rust 1.88
 reported the same figures:
 
 ```sh
@@ -64,6 +64,12 @@ CI runs that harness on Ubuntu 24.04 with Rust 1.88 and `--check`. It permits at
 headroom for compiler and allocator details while catching structural regressions
 such as an allocation per input point or a new large intermediate buffer. CI does not
 gate wall-clock time on shared runners.
+
+The two-color cell renderer added independent background color and a compact shade
+state to every surface cell. That intentionally adds 6,400 bytes to this 80×20
+render versus `4962935`, without adding allocations; a dedicated plain-text encoder
+path keeps the end-to-end line timing at the earlier baseline. The unchanged 64 KiB
+ceiling still catches a larger per-cell representation.
 
 To update this record, benchmark an otherwise idle machine, record the revision,
 hardware, OS, compiler, commands, point estimates, and confidence intervals, then
