@@ -3,6 +3,37 @@
 Notable changes, written for humans. Since 1.0, breaking changes mean a major
 release; the pre-1.0 entries below recorded breakage freely, without apology.
 
+## Unreleased
+
+- Rendering and statistics now reject overflowing or over-budget geometry through
+  typed fallible paths; the infallible conveniences degrade without attempting giant
+  allocations. The `kaz` CLI applies corresponding bounds to user-controlled sizes.
+- Automatic UTF-8 output now conservatively uses quadrants. `Frame::portable` and
+  `MALEVICH_CHARSET` make deterministic and explicit charset policy available to
+  hosts; braille, sextants, and octants remain opt-in dense tiers.
+- Mark/scale validation now rejects meaningless combinations and `Cells` correctly
+  inverts logarithmic axes. `Grid::validate`/`try_render` and exhaustive tiny-frame
+  layout keep every rendered row and column inside the requested frame.
+- `Document` is a validated, versioned serde envelope with committed v1 and legacy
+  fixtures. Additive fields default safely; malformed specs remain representable only
+  until the strict validation boundary.
+- Pixel capability detection is destination-aware through
+  `Capabilities::detect_for`; explicit capability-driven rendering stays pure. Probe
+  replies are bounded and their parser is covered by deterministic arbitrary streams.
+- Runtime-owned colormaps and checked option structs now configure histogram, 2D
+  histogram, KDE, violin, and contour presets without abandoning their short defaults.
+- Heatmaps render two vertical colors per terminal cell through independent
+  foreground/background half-blocks. ANSI transitions, HTML spans, and ratatui styles
+  preserve both channels; plain output keeps an averaged shade-ramp fallback.
+- `PointStyle::{Dot, Plus, Cross}` gives point layers and legends portable shapes that
+  remain distinguishable without color, with corresponding geometric pixel markers.
+- Windows joins Linux and macOS CI; boundary sweeps cover extreme ticks, tiny rasters,
+  image encoders, grids, and terminal replies.
+- `BENCHMARKS.md` records the dated, reproducible performance baseline and CI enforces
+  structural allocation ceilings. Implicit coordinates no longer allocate, profiled
+  layout metadata is reused, and the plain encoder keeps the richer cell model at the
+  prior end-to-end timing.
+
 ## 1.14.3 — 2026-08-05
 
 - A compact Suprematist composition joins the examples and README, rendering the

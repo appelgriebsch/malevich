@@ -98,8 +98,10 @@ one fraction width per axis, and never show float artifacts. Maps to `scale::Tic
 
 Where and how to render: width and height in cells, charset, color mode (theme joins
 later). Frame is render state, not plot state — the same `Plot` renders into many
-frames. `Frame::detect()` is the only place the crate inspects the environment
-(terminal size, color variables, locale, and whether stdout is a terminal);
+frames. `Frame::detect()` is the cell-rendering convenience that inspects terminal
+size, color variables, locale, and whether stdout is a terminal; pixel capability
+detection is the separate, explicitly documented auto boundary. `Plot::render` with
+an explicit frame inspects neither.
 `Frame::plain()` is the legacy braille snapshot form and `Frame::portable()` is the
 conservative deterministic Unicode form. Maps to `plot::Frame` and
 `plot::ColorMode`.
@@ -108,9 +110,10 @@ conservative deterministic Unicode form. Maps to `plot::Frame` and
 
 The subpixel grid that marks draw on during rasterization, before glyphs exist
 (raster convention: origin top-left, y down; the data-space flip happens in scales). A
-charset codec maps each cell's subpixel pattern to one glyph plus a color; text shares
-the grid and wins over pixels. Drawing is infallible: out-of-surface clips, non-finite
-draws nothing, the last write owns a shared cell's color. Maps to `render::Surface`.
+charset codec maps each cell's subpixel pattern to a glyph with independent foreground
+and background colors; heatmap half-blocks use both channels for two vertical samples.
+Text shares the grid and wins over pixels. Drawing is infallible: out-of-surface clips
+and non-finite coordinates draw nothing. Maps to `render::Surface`.
 
 ## Charset
 
@@ -127,7 +130,7 @@ automatic choice.
 The drawing-target contract marks rasterize through, generic over fidelity: the cell
 `Surface` fills with eighth-block ramps and glyph textures, the pixel canvas with
 exact rectangles and real pixels — same mark code, monomorphized per target.
-Mid-level operations (`bar`, `marker`, `patch`) exist precisely where the two
+Mid-level operations (`point`, `bar`, `marker`, `patch`) exist precisely where the two
 fidelities diverge. Crate-private; maps to `render::Canvas`, implemented by
 `render::Surface` and `pixel::PixelCanvas`.
 

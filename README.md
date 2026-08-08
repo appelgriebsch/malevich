@@ -8,8 +8,8 @@ points.**
 Eight marks. A real statistics layer. Ten million points in tens of milliseconds on
 the [recorded baseline](BENCHMARKS.md). Axes placed by the same algorithm the
 visualization literature settled on — with labels that are exact decimals, never
-`0.30000000000000004`. All of it in plain values that render to a `String`, degrade
-gracefully on any terminal, and never touch global state.
+`0.30000000000000004`. All of it in plain values whose explicit render paths produce
+a deterministic `String`, degrade gracefully on any terminal, and never take over it.
 
 ```rust
 println!("{}", malevich::line(&[1.0, 5.0, 2.0, 8.0][..]));
@@ -117,7 +117,8 @@ iTerm2) on the right, from the same plot values:
   range, rule, text) × a stats layer × shared scales compose into the whole basic
   chart catalog. Every preset — `line`, `scatter`, `bar`, `hist`, `stairs`, `ecdf`,
   `heatmap`, `hist2d`, `density`, `box_plot`, `violin`, `error_bars` — is proven
-  bit-identical to its grammar expansion in tests.
+  bit-identical to its grammar expansion in tests. Point layers can use compact dots
+  or portable `+`/`x` markers when series must remain distinct without color.
 - **The statistical set no terminal library has.** Box plots with type-7 quartiles
   and Tukey whiskers, violins from a real KDE (Silverman bandwidth), ECDFs, error
   bars, 2D densities (with a colorbar legending the value scale) — the charts
@@ -141,8 +142,10 @@ iTerm2) on the right, from the same plot values:
   detection conservatively uses old block-element quadrants. Braille, sextants, and
   Unicode 16 octants remain explicit high-density choices for fonts that cover them
   (`--charset` or `MALEVICH_CHARSET`). Four color tiers (truecolor → 256 → 16 →
-  plain) quantize honestly downhill; piped output is clean plain text; CJK labels
-  stay aligned; `NaN` is always a visible gap, never interpolated away.
+  plain) quantize honestly downhill; heatmap half-blocks carry independent upper and
+  lower colors while plain output retains an averaged shade. Piped output is clean
+  plain text; CJK labels stay aligned, combining marks are deliberately dropped at
+  the cell grid, and `NaN` is always a visible gap, never interpolated away.
 - **Real pixels where the terminal speaks them (feature `pixel`).** The ladder's
   top rung: `plot.render_pixels(&frame, &graphics)` keeps title, axes, and legend
   as crisp text cells and draws the plot rectangle as an actual image — sixel,
@@ -163,7 +166,9 @@ iTerm2) on the right, from the same plot values:
   self-contained HTML terminal card. Quadrants and box-drawing stay crisp, mark colors
   become RGB spans, chrome follows the card foreground, and plot text is HTML-escaped.
   The adapter adds no dependency; `plot.to_html(&frame)` is the pure, deterministic
-  path for custom sizes and themes. In an Evcxr notebook:
+  path for custom sizes and mark palettes. `Theme::LIGHT` selects the light card;
+  other custom palettes currently use the dark card foreground/background because
+  card colors are not theme roles yet. In an Evcxr notebook:
 
   ```rust
   :dep malevich = { version = "1.14", features = ["evcxr"] }
@@ -211,14 +216,18 @@ iTerm2) on the right, from the same plot values:
   in-place repaint handle (cursor up, erase down, one write): flicker-free streaming
   that survives in scrollback and never takes over your terminal
   (`cargo run --example live`).
-- **Plots are plain values.** `Clone + Send + Sync`, no globals, rendering is a pure
-  function of plot and frame — build on one thread, render on another, snapshot-test
-  the strings. Two tiny dependencies (`terminal_size`, `unicode-width`).
+- **Plots are plain values.** `Clone + Send + Sync`; `Plot::render`, `to_html`, and
+  `render_with_capabilities` are pure functions of explicit values — build on one
+  thread, render on another, snapshot-test the strings. `Display`, `Frame::detect`,
+  and `render_best` are the documented conveniences that read the environment;
+  pixel capability detection may also perform one bounded, cached terminal probe.
+  Two tiny required dependencies (`terminal_size`, `unicode-width`).
 
 **Stability**: the crate is 1.x — the public API follows semver (breaking changes
 mean a 2.0), guarded in CI by `cargo-semver-checks` against the last published
 release. The concept vocabulary is documented in [TERMINOLOGY.md](TERMINOLOGY.md)
-and changes are in the [CHANGELOG](CHANGELOG.md).
+and changes are in the [CHANGELOG](CHANGELOG.md). Maintainers use the reproducible
+[release checklist](RELEASING.md).
 
 ## Command line
 
