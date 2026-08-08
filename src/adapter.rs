@@ -77,7 +77,7 @@ impl Widget for &PlotWidget<'_> {
             theme: self.theme,
         };
         let surface = self.plot.rasterize(&frame);
-        for (column, row, glyph, color) in surface.cells() {
+        for (column, row, glyph, foreground, background) in surface.cells() {
             let x = area.x + column as u16;
             let y = area.y + row as u16;
             if x >= area.right() || y >= area.bottom() {
@@ -86,8 +86,11 @@ impl Widget for &PlotWidget<'_> {
             let cell = &mut buffer[(x, y)];
             let mut symbol = [0u8; 4];
             cell.set_symbol(glyph.encode_utf8(&mut symbol));
-            if let Some(fg) = convert(color) {
+            if let Some(fg) = convert(foreground) {
                 cell.set_fg(fg);
+            }
+            if let Some(bg) = convert(background) {
+                cell.set_bg(bg);
             }
         }
     }

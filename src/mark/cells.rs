@@ -5,10 +5,11 @@ use crate::scale::Colormap;
 
 /// A grid of values — a heatmap, a matrix, a 2D histogram.
 ///
-/// Values normalize to the grid's own finite extent and render as a shade ramp
-/// (`░▒▓█`) colored by a [`Colormap`]: the value is carried by glyph *and* color, so
-/// the grid stays readable even in plain, colorless output. Gaps (`NaN`) render as
-/// blanks. Row 0 is the bottom row — matrix y grows upward like any other y axis.
+/// Values normalize to the grid's own finite extent. Colored cell output packs two
+/// vertical samples into an upper half block's foreground and background; plain
+/// output substitutes an averaged shade-ramp glyph (`░▒▓█`). The value is therefore
+/// readable with or without color. Gaps (`NaN`) render as blanks. Row 0 is the
+/// bottom row — matrix y grows upward like any other y axis.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cells<'a> {

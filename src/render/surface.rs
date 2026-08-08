@@ -4,7 +4,8 @@ use super::canvas::{Canvas, PlotRect};
 use super::charset::Charset;
 use super::color::{Color, ColorMode, Resolved};
 
-/// One character cell: a subpixel pattern, a text slot, and a color.
+/// One character cell: a subpixel pattern, a text slot, independent foreground
+/// and background colors, and an optional colorless fallback glyph.
 ///
 /// Text wins over pixels when the cell prints — labels are never corrupted by marks
 /// drawing underneath them.
@@ -12,7 +13,11 @@ use super::color::{Color, ColorMode, Resolved};
 struct Cell {
     bits: u8,
     text: Text,
-    color: Color,
+    foreground: Color,
+    background: Color,
+    /// `0..=3` is a final plain shade, `0x80..=0x83` is a pending top sample,
+    /// and `u8::MAX` means the styled glyph is also its plain fallback.
+    plain_shade: u8,
 }
 
 /// The text slot of a cell. A wide glyph (CJK) occupies its own cell plus a
@@ -27,15 +32,21 @@ enum Text {
 const EMPTY: Cell = Cell {
     bits: 0,
     text: Text::None,
-    color: Color::Default,
+    foreground: Color::Default,
+    background: Color::Default,
+    plain_shade: u8::MAX,
 };
+
+const SHADE_RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
+const PENDING_TOP: u8 = 0x80;
 
 /// A grid of character cells addressed in subpixel coordinates.
 ///
 /// The surface is pure raster state: origin at the top-left, y growing downward,
 /// `width * height` cells at the charset's subpixel density. Drawing is infallible —
 /// coordinates outside the surface clip away, non-finite coordinates draw nothing.
-/// When several colors land in one cell, the last write wins.
+/// Ordinary subpixel drawing retains last-write foreground semantics. Cell patches
+/// can additionally use the background channel to carry a second vertical sample.
 #[derive(Clone, PartialEq)]
 pub struct Surface {
     width: usize,
@@ -134,7 +145,7 @@ impl Surface {
         let index = (y / self.rows) * self.width + x / self.columns;
         let cell = &mut self.cells[index];
         cell.bits |= self.charset.bit(x % self.columns, y % self.rows);
-        cell.color = color;
+        cell.foreground = color;
     }
 
     /// Sets the subpixel nearest to `(x, y)`; non-finite coordinates draw nothing.
@@ -205,25 +216,58 @@ impl Surface {
 
     /// Puts one text slot into a cell, breaking any wide-glyph pair it overlaps.
     fn place(&mut self, row: usize, column: usize, text: Text, color: Color) {
+        self.place_styled(row, column, text, color, Color::Default, u8::MAX);
+    }
+
+    fn place_styled(
+        &mut self,
+        row: usize,
+        column: usize,
+        text: Text,
+        foreground: Color,
+        background: Color,
+        plain_shade: u8,
+    ) {
+        let Some(index) = self.cell_index(row, column) else {
+            return;
+        };
+        let base = row * self.width;
+        // Overwriting a continuation orphans the wide glyph to its left.
+        if self.cells[index].text == Text::Continuation && column > 0 {
+            self.blank(base + column - 1);
+        }
+        // Overwriting a wide glyph orphans its continuation to the right.
+        if column + 1 < self.width && self.cells[base + column + 1].text == Text::Continuation {
+            self.blank(base + column + 1);
+        }
+        let cell = &mut self.cells[index];
+        cell.text = text;
+        cell.foreground = foreground;
+        cell.background = background;
+        cell.plain_shade = plain_shade;
+    }
+
+    fn cell_index(&self, row: usize, column: usize) -> Option<usize> {
+        if row >= self.height || column >= self.width {
+            return None;
+        }
         if let Some((x0, y0, x1, y1)) = self.clip {
             let (col, row) = (column as i64, row as i64);
             let (px, py) = (self.columns as i64, self.rows as i64);
             if col < x0 / px || col >= x1 / px || row < y0 / py || row >= y1 / py {
-                return;
+                return None;
             }
         }
-        let base = row * self.width;
-        // Overwriting a continuation orphans the wide glyph to its left.
-        if self.cells[base + column].text == Text::Continuation && column > 0 {
-            self.cells[base + column - 1].text = Text::Glyph(' ');
-        }
-        // Overwriting a wide glyph orphans its continuation to the right.
-        if column + 1 < self.width && self.cells[base + column + 1].text == Text::Continuation {
-            self.cells[base + column + 1].text = Text::Glyph(' ');
-        }
-        let cell = &mut self.cells[base + column];
-        cell.text = text;
-        cell.color = color;
+        Some(row * self.width + column)
+    }
+
+    fn blank(&mut self, index: usize) {
+        let bits = self.cells[index].bits;
+        self.cells[index] = Cell {
+            bits,
+            text: Text::Glyph(' '),
+            ..EMPTY
+        };
     }
 
     /// Encodes as plain text — no escape codes ever. Sugar for
@@ -235,10 +279,11 @@ impl Surface {
     /// Encodes the surface at the color tier of `mode`.
     ///
     /// Colors resolve to what the mode can carry (RGB quantizes downhill; see
-    /// [`Color`]); an SGR sequence is emitted only when the resolved color changes
-    /// along a row, so colors that quantize identically share one sequence, and any
-    /// colored row ends with a reset. Rows are joined by newlines with trailing
-    /// spaces trimmed. In [`ColorMode::Plain`] the output carries no escapes at all.
+    /// [`Color`]); an SGR sequence is emitted only when a resolved foreground or
+    /// background changes along a row, so colors that quantize identically share
+    /// one sequence, and any colored row ends with a reset. Rows are joined by
+    /// newlines with trailing spaces trimmed. In [`ColorMode::Plain`] the output
+    /// carries no escapes at all.
     pub fn encode(&self, mode: ColorMode) -> String {
         self.try_encode(mode).unwrap_or_default()
     }
@@ -251,9 +296,9 @@ impl Surface {
         // The extra row bytes cover newlines and SGR resets.
         let bytes_per_cell = match mode {
             ColorMode::Plain => 4,
-            ColorMode::Ansi16 => 10,
-            ColorMode::Ansi256 => 16,
-            ColorMode::TrueColor => 24,
+            ColorMode::Ansi16 => 16,
+            ColorMode::Ansi256 => 32,
+            ColorMode::TrueColor => 48,
         };
         let capacity = cells
             .checked_mul(bytes_per_cell)
@@ -269,29 +314,55 @@ impl Surface {
             })?;
         let mut out = String::new();
         super::reserve_string(&mut out, capacity, "encoded output bytes")?;
+        if mode == ColorMode::Plain {
+            for row in 0..self.height {
+                if row > 0 {
+                    out.push('\n');
+                }
+                let mut kept = out.len();
+                for (_, glyph, _, _) in self.row(row) {
+                    out.push(glyph);
+                    if glyph != ' ' {
+                        kept = out.len();
+                    }
+                }
+                out.truncate(kept);
+            }
+            return Ok(out);
+        }
         for row in 0..self.height {
             if row > 0 {
                 out.push('\n');
             }
-            let mut current = Resolved::Default;
+            let mut current_foreground = Resolved::Default;
+            let mut current_background = Resolved::Default;
             let mut kept = out.len();
-            for (glyph, color) in self.row(row) {
-                // Spaces carry no visible color; letting them inherit the current
-                // one lengthens runs and keeps trailing whitespace trimmable.
-                if glyph != ' ' {
-                    let resolved = color.resolve(mode);
-                    if resolved != current {
-                        resolved.write_sgr(&mut out);
-                        current = resolved;
-                    }
+            let mut kept_foreground = Resolved::Default;
+            let mut kept_background = Resolved::Default;
+            for (styled, _, foreground, background) in self.row(row) {
+                let glyph = styled;
+                let next_foreground = foreground.resolve(mode);
+                let next_background = background.resolve(mode);
+                let foreground_change = (glyph != ' ' && next_foreground != current_foreground)
+                    .then_some(next_foreground);
+                let background_change =
+                    (next_background != current_background).then_some(next_background);
+                Resolved::write_transition(foreground_change, background_change, &mut out);
+                if foreground_change.is_some() {
+                    current_foreground = next_foreground;
                 }
+                current_background = next_background;
                 out.push(glyph);
-                if glyph != ' ' {
+                // A background-colored space is visible; ordinary default spaces
+                // remain trimmable and may inherit the current foreground.
+                if glyph != ' ' || current_background != Resolved::Default {
                     kept = out.len();
+                    kept_foreground = current_foreground;
+                    kept_background = current_background;
                 }
             }
             out.truncate(kept);
-            if current != Resolved::Default {
+            if kept_foreground != Resolved::Default || kept_background != Resolved::Default {
                 out.push_str("\x1b[0m");
             }
         }
@@ -311,63 +382,97 @@ impl Surface {
             if row > 0 {
                 out.push('\n');
             }
-            let mut current = None;
+            let mut current = (None, None);
             let mut kept = out.len();
-            for (glyph, color) in self.row(row) {
-                // Spaces carry no visible color; letting them inherit the current
-                // one lengthens runs and keeps trailing whitespace trimmable.
-                if glyph != ' ' {
-                    let next = match color {
-                        Color::Default => None,
-                        color => Some(color.to_rgb()),
-                    };
-                    if next != current {
-                        if current.is_some() {
-                            out.push_str("</span>");
-                        }
-                        if let Some((r, g, b)) = next {
-                            let _ = write!(out, "<span style=\"color:#{r:02x}{g:02x}{b:02x}\">");
-                        }
-                        current = next;
+            let mut kept_style = (None, None);
+            for (glyph, _, foreground, background) in self.row(row) {
+                let foreground = match foreground {
+                    Color::Default => None,
+                    color => Some(color.to_rgb()),
+                };
+                let background = match background {
+                    Color::Default => None,
+                    color => Some(color.to_rgb()),
+                };
+                // Foreground is immaterial on a space, but its background is not.
+                let next = (
+                    if glyph == ' ' { current.0 } else { foreground },
+                    background,
+                );
+                if next != current {
+                    if current != (None, None) {
+                        out.push_str("</span>");
                     }
+                    if next != (None, None) {
+                        out.push_str("<span style=\"");
+                        if let Some((r, g, b)) = next.0 {
+                            let _ = write!(out, "color:#{r:02x}{g:02x}{b:02x}");
+                            if next.1.is_some() {
+                                out.push(';');
+                            }
+                        }
+                        if let Some((r, g, b)) = next.1 {
+                            let _ = write!(out, "background-color:#{r:02x}{g:02x}{b:02x}");
+                        }
+                        out.push_str("\">");
+                    }
+                    current = next;
                 }
                 super::html::escape(glyph, &mut out);
-                if glyph != ' ' {
+                if glyph != ' ' || background.is_some() {
                     kept = out.len();
+                    kept_style = current;
                 }
             }
             out.truncate(kept);
-            if current.is_some() {
+            if kept_style != (None, None) {
                 out.push_str("</span>");
             }
         }
         out
     }
 
-    /// Every printable cell as `(column, row, glyph, color)`, skipping wide-glyph
-    /// continuations (the glyph to their left covers them). For adapters that write
-    /// into cell buffers instead of strings.
+    /// Every printable cell as `(column, row, glyph, foreground, background)`,
+    /// skipping wide-glyph continuations (the glyph to their left covers them).
+    /// For adapters that write into cell buffers instead of strings.
     #[cfg_attr(not(feature = "ratatui"), allow(dead_code))]
-    pub(crate) fn cells(&self) -> impl Iterator<Item = (usize, usize, char, Color)> + '_ {
+    pub(crate) fn cells(&self) -> impl Iterator<Item = (usize, usize, char, Color, Color)> + '_ {
         self.cells.iter().enumerate().filter_map(|(index, cell)| {
             let (row, column) = (index / self.width.max(1), index % self.width.max(1));
             match cell.text {
                 Text::Continuation => None,
-                Text::Glyph(glyph) => Some((column, row, glyph, cell.color)),
-                Text::None => Some((column, row, self.charset.glyph(cell.bits), cell.color)),
+                Text::Glyph(glyph) => Some((column, row, glyph, cell.foreground, cell.background)),
+                Text::None => Some((
+                    column,
+                    row,
+                    self.charset.glyph(cell.bits),
+                    cell.foreground,
+                    cell.background,
+                )),
             }
         })
     }
 
     /// The printable glyphs of one row, in order. Continuation cells emit nothing:
     /// the wide glyph to their left covers their column.
-    fn row(&self, row: usize) -> impl Iterator<Item = (char, Color)> + '_ {
+    fn row(&self, row: usize) -> impl Iterator<Item = (char, char, Color, Color)> + '_ {
         self.cells[row * self.width..(row + 1) * self.width]
             .iter()
             .filter_map(|cell| match cell.text {
                 Text::Continuation => None,
-                Text::Glyph(glyph) => Some((glyph, cell.color)),
-                Text::None => Some((self.charset.glyph(cell.bits), cell.color)),
+                Text::Glyph(glyph) => Some((
+                    glyph,
+                    SHADE_RAMP
+                        .get(cell.plain_shade as usize)
+                        .copied()
+                        .unwrap_or(glyph),
+                    cell.foreground,
+                    cell.background,
+                )),
+                Text::None => {
+                    let glyph = self.charset.glyph(cell.bits);
+                    Some((glyph, glyph, cell.foreground, cell.background))
+                }
             })
     }
 }
@@ -492,23 +597,80 @@ impl Canvas for Surface {
         }
     }
 
-    fn patch_size(&self) -> (usize, usize) {
-        (self.columns, self.rows)
+    fn patch_density(&self) -> (usize, usize) {
+        if self.charset == Charset::Ascii {
+            (1, 1)
+        } else {
+            (1, 2)
+        }
     }
 
-    /// One Cells patch as a shade-ramp glyph colored by the colormap — value in
-    /// glyph and color both, readable at every color tier.
-    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, intensity: f64, color: Color) {
-        const RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
-        let mut buffer = [0u8; 4];
-        let glyph = RAMP[((intensity * 4.0) as usize).min(3)];
-        Surface::text(
-            self,
-            (rect.gutter + column) as i64,
-            (rect.top + row) as i64,
-            glyph.encode_utf8(&mut buffer),
-            color,
-        );
+    /// Two vertically adjacent cell samples share a terminal cell: the upper
+    /// half-block foreground carries the top color and its background carries the
+    /// bottom color. Plain output substitutes an averaged shade-ramp glyph.
+    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, sample: Option<(f64, Color)>) {
+        let sample = sample.map(|(intensity, color)| (((intensity * 4.0) as u8).min(3), color));
+        let cell_column = rect.gutter + column;
+
+        if self.charset == Charset::Ascii {
+            if let Some((shade, color)) = sample {
+                let glyph = SHADE_RAMP[shade as usize];
+                self.place(rect.top + row, cell_column, Text::Glyph(glyph), color);
+            }
+            return;
+        }
+
+        let cell_row = rect.top + row / 2;
+        if row.is_multiple_of(2) {
+            if let Some((shade, color)) = sample {
+                self.place_styled(
+                    cell_row,
+                    cell_column,
+                    Text::Glyph('\u{2580}'),
+                    color,
+                    Color::Default,
+                    PENDING_TOP + shade,
+                );
+            }
+            return;
+        }
+
+        let Some(index) = self.cell_index(cell_row, cell_column) else {
+            return;
+        };
+        let pending = self.cells[index]
+            .plain_shade
+            .checked_sub(PENDING_TOP)
+            .filter(|shade| *shade < SHADE_RAMP.len() as u8)
+            .map(|shade| (shade, self.cells[index].foreground));
+        match (pending, sample) {
+            (Some((top_shade, top_color)), Some((bottom_shade, bottom_color))) => {
+                let shade = (u16::from(top_shade) + u16::from(bottom_shade)).div_ceil(2) as u8;
+                let (glyph, foreground, background) = if top_color == bottom_color {
+                    ('\u{2588}', top_color, Color::Default)
+                } else {
+                    ('\u{2580}', top_color, bottom_color)
+                };
+                self.place_styled(
+                    cell_row,
+                    cell_column,
+                    Text::Glyph(glyph),
+                    foreground,
+                    background,
+                    shade,
+                );
+            }
+            (Some((top_shade, _)), None) => self.cells[index].plain_shade = top_shade,
+            (None, Some((bottom_shade, bottom_color))) => self.place_styled(
+                cell_row,
+                cell_column,
+                Text::Glyph('\u{2584}'),
+                bottom_color,
+                Color::Default,
+                bottom_shade,
+            ),
+            (None, None) => {}
+        }
     }
 }
 

@@ -69,11 +69,26 @@ fn indexed_colors_only_downgrade_for_sixteen_color_output() {
 }
 
 #[test]
-fn resolved_colors_write_their_sgr_forms() {
+fn resolved_colors_write_combined_foreground_and_background_sgr_forms() {
     let mut out = String::new();
-    Resolved::Indexed16(31).write_sgr(&mut out);
-    Resolved::Indexed256(196).write_sgr(&mut out);
-    Resolved::Rgb(1, 2, 3).write_sgr(&mut out);
-    Resolved::Default.write_sgr(&mut out);
-    assert_eq!(out, "\x1b[31m\x1b[38;5;196m\x1b[38;2;1;2;3m\x1b[39m");
+    Resolved::write_transition(
+        Some(Resolved::Indexed16(31)),
+        Some(Resolved::Indexed16(34)),
+        &mut out,
+    );
+    Resolved::write_transition(
+        Some(Resolved::Indexed256(196)),
+        Some(Resolved::Indexed256(21)),
+        &mut out,
+    );
+    Resolved::write_transition(
+        Some(Resolved::Rgb(1, 2, 3)),
+        Some(Resolved::Rgb(4, 5, 6)),
+        &mut out,
+    );
+    Resolved::write_transition(Some(Resolved::Default), Some(Resolved::Default), &mut out);
+    assert_eq!(
+        out,
+        "\x1b[31;44m\x1b[38;5;196;48;5;21m\x1b[38;2;1;2;3;48;2;4;5;6m\x1b[39;49m"
+    );
 }

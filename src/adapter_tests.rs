@@ -40,3 +40,22 @@ fn rendering_clips_to_the_area() {
         assert_eq!(buffer[(x, 0)].symbol(), " ", "wrote outside the area");
     }
 }
+
+#[test]
+fn heatmap_half_blocks_map_both_colors_into_ratatui_styles() {
+    let values: Vec<f64> = (0..128).map(f64::from).collect();
+    let plot = crate::heatmap(1, &values);
+    let area = Rect::new(0, 0, 24, 8);
+    let mut buffer = Buffer::empty(area);
+    plot.widget().render(area, &mut buffer);
+
+    let paired = (0..area.width).any(|x| {
+        (0..area.height).any(|y| {
+            let cell = &buffer[(x, y)];
+            cell.symbol() == "\u{2580}"
+                && cell.fg != ratatui_core::style::Color::Reset
+                && cell.bg != ratatui_core::style::Color::Reset
+        })
+    });
+    assert!(paired, "no independently styled heatmap half-block");
+}

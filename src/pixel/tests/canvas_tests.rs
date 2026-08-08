@@ -163,14 +163,14 @@ fn the_marker_clears_a_band_through_a_fill() {
 #[test]
 fn patches_are_single_pixels_inside_the_plot_rectangle() {
     let mut canvas = PixelCanvas::new(4, 4, (8, 8));
-    assert_eq!(canvas.patch_size(), (1, 1));
+    assert_eq!(canvas.patch_density(), (8, 8));
     let offset = PlotRect {
         gutter: 1,
         top: 1,
         columns: 3,
         rows: 3,
     };
-    canvas.patch(3, 5, offset, 0.5, RED);
+    canvas.patch(3, 5, offset, Some((0.5, RED)));
     assert_eq!(canvas.get(11, 13), Some(RED));
     assert_eq!(canvas.get(10, 13), None);
 }

@@ -380,6 +380,22 @@ fn a_sampled_function_matches_its_snapshot() {
     assert_eq!(plot.render(&Frame::plain(26, 7)), SINE);
 }
 
+const SMALL_HEATMAP: &str = r"8 ┤█████████████████  █ 30
+  │█████████████████  █
+  │▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ▓ 20
+4 ┤▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ▒ 10
+  │▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ░
+0 ┤░░░░░░░░░░░░░░░░░  ░ 0
+  └┬────────────────┬
+   0                4";
+
+#[test]
+fn a_small_heatmap_matches_its_plain_snapshot() {
+    let values: Vec<f64> = (0..32).map(f64::from).collect();
+    let text = crate::heatmap(4, values).render(&Frame::plain(26, 8));
+    assert_eq!(text, SMALL_HEATMAP);
+}
+
 #[cfg(feature = "evcxr")]
 const HTML_GRID: &str = r#"    a &lt; b &amp; c
 3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>

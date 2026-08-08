@@ -336,9 +336,10 @@ pub fn ecdf<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
     Plot::new().layer(Line::xy(x, y))
 }
 
-/// A heatmap of a row-major grid, `columns` wide: shade-ramp glyphs colored by the
-/// default colormap, with a [colorbar](crate::Plot::colorbar) legending the value
-/// range. Row 0 is the bottom row.
+/// A heatmap of a row-major grid, `columns` wide: two vertical color samples per
+/// cell (an averaged shade-ramp glyph in plain output), with a
+/// [colorbar](crate::Plot::colorbar) legending the value range. Row 0 is the bottom
+/// row.
 ///
 /// ```
 /// let grid = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0];

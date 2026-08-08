@@ -496,36 +496,39 @@ fn draw_cells<C: Canvas>(
     };
     let spread = if high > low { high - low } else { 1.0 };
     let ((x0, x1), (y0, y1)) = extents.unwrap_or(((0.0, columns as f64), (0.0, rows as f64)));
-    let (patch_w, patch_h) = surface.patch_size();
-    let units_x = rect.columns * px / patch_w;
-    let units_y = rect.rows * py / patch_h;
+    let (samples_x, samples_y) = surface.patch_density();
+    if samples_x == 0 || samples_y == 0 {
+        return;
+    }
+    let units_x = rect.columns * samples_x;
+    let units_y = rect.rows * samples_y;
 
     for unit_row in 0..units_y {
         for unit_col in 0..units_x {
             // The data position at this patch's center, via the shared scales'
             // subpixel geometry.
-            let sub_x = (unit_col * patch_w) as f64 + patch_w as f64 / 2.0;
-            let sub_y = (unit_row * patch_h) as f64 + patch_h as f64 / 2.0;
-            let fx = position_on(x_scale, sub_x, x0, x1);
-            let fy = position_on(y_scale, sub_y, y0, y1);
-            let (Some(fx), Some(fy)) = (fx, fy) else {
-                continue;
-            };
-            let column = ((fx - x0) / (x1 - x0) * columns as f64).floor();
-            let row = ((fy - y0) / (y1 - y0) * rows as f64).floor();
-            if column < 0.0 || row < 0.0 {
-                continue;
-            }
-            let (column, row) = (column as usize, row as usize);
-            if column >= columns || row >= rows {
-                continue;
-            }
-            let value = values[row * columns + column];
-            if !value.is_finite() {
-                continue;
-            }
-            let position = (value - low) / spread;
-            surface.patch(unit_col, unit_row, rect, position, colormap.color(position));
+            let sub_x = (unit_col as f64 + 0.5) * px as f64 / samples_x as f64;
+            let sub_y = (unit_row as f64 + 0.5) * py as f64 / samples_y as f64;
+            let sample = (|| {
+                let fx = position_on(x_scale, sub_x, x0, x1)?;
+                let fy = position_on(y_scale, sub_y, y0, y1)?;
+                let column = ((fx - x0) / (x1 - x0) * columns as f64).floor();
+                let row = ((fy - y0) / (y1 - y0) * rows as f64).floor();
+                if column < 0.0 || row < 0.0 {
+                    return None;
+                }
+                let (column, row) = (column as usize, row as usize);
+                if column >= columns || row >= rows {
+                    return None;
+                }
+                let value = values[row * columns + column];
+                if !value.is_finite() {
+                    return None;
+                }
+                let position = (value - low) / spread;
+                Some((position, colormap.color(position)))
+            })();
+            surface.patch(unit_col, unit_row, rect, sample);
         }
     }
 }

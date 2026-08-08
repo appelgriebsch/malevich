@@ -21,7 +21,7 @@ pub enum ColorMode {
     TrueColor,
 }
 
-/// A foreground color.
+/// A terminal color.
 ///
 /// The named variants map to SGR codes 30–37 and 90–97; what they look like is the
 /// terminal theme's decision — which is what makes them safe defaults.
@@ -133,14 +133,43 @@ impl Color {
 }
 
 impl Resolved {
-    /// Appends the SGR sequence selecting this color.
-    pub(crate) fn write_sgr(self, out: &mut String) {
+    /// Appends one SGR sequence for the foreground and/or background channels
+    /// that changed. Keeping both parameters in one control sequence avoids
+    /// doubling terminal transitions for two-color cells.
+    pub(crate) fn write_transition(
+        foreground: Option<Resolved>,
+        background: Option<Resolved>,
+        out: &mut String,
+    ) {
+        if foreground.is_none() && background.is_none() {
+            return;
+        }
+        out.push_str("\x1b[");
+        if let Some(color) = foreground {
+            color.write_parameters(out, false);
+            if background.is_some() {
+                out.push(';');
+            }
+        }
+        if let Some(color) = background {
+            color.write_parameters(out, true);
+        }
+        out.push('m');
+    }
+
+    fn write_parameters(self, out: &mut String, background: bool) {
         use std::fmt::Write as _;
         let _ = match self {
-            Resolved::Default => write!(out, "\x1b[39m"),
-            Resolved::Indexed16(code) => write!(out, "\x1b[{code}m"),
-            Resolved::Indexed256(index) => write!(out, "\x1b[38;5;{index}m"),
-            Resolved::Rgb(r, g, b) => write!(out, "\x1b[38;2;{r};{g};{b}m"),
+            Resolved::Default => write!(out, "{}", if background { 49 } else { 39 }),
+            Resolved::Indexed16(code) => {
+                write!(out, "{}", if background { code + 10 } else { code })
+            }
+            Resolved::Indexed256(index) => {
+                write!(out, "{};5;{index}", if background { 48 } else { 38 })
+            }
+            Resolved::Rgb(r, g, b) => {
+                write!(out, "{};2;{r};{g};{b}", if background { 48 } else { 38 })
+            }
         };
     }
 }

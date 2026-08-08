@@ -58,14 +58,14 @@ pub(crate) trait Canvas {
     /// same color.
     fn marker(&mut self, sx: f64, half_width: f64, sy: f64, color: Color);
 
-    /// The sampling unit of a Cells layer in subpixels: one cell on glyph targets,
-    /// one pixel on pixel targets.
-    fn patch_size(&self) -> (usize, usize);
+    /// The cell-patch sampling density per terminal cell. Glyph targets encode two
+    /// vertical samples with foreground/background half blocks; pixel targets use
+    /// their full device-pixel cell size.
+    fn patch_density(&self) -> (usize, usize);
 
-    /// Fills the Cells patch at patch-grid `(column, row)` inside `rect`.
-    /// `intensity` is the normalized value, for targets whose fill carries it
-    /// (the shade-ramp glyph); color-only targets ignore it.
-    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, intensity: f64, color: Color);
+    /// Fills the cell patch at patch-grid `(column, row)` inside `rect`.
+    /// `sample` carries normalized intensity and color; `None` records a gap.
+    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, sample: Option<(f64, Color)>);
 }
 
 /// Walks the segment `from → to` as subpixels: Liang–Barsky clip to `window`

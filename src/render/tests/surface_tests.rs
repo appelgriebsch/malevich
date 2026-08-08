@@ -1,5 +1,16 @@
-use super::super::{Charset, Color, ColorMode};
+use super::super::{Canvas, Charset, Color, ColorMode, PlotRect};
 use super::Surface;
+
+const ONE_CELL: PlotRect = PlotRect {
+    gutter: 0,
+    top: 0,
+    columns: 1,
+    rows: 1,
+};
+
+fn patch(surface: &mut Surface, row: usize, sample: Option<(f64, Color)>) {
+    Canvas::patch(surface, 0, row, ONE_CELL, sample);
+}
 
 const fn assert_send_sync<T: Send + Sync>() {}
 const _: () = assert_send_sync::<Surface>();
@@ -183,6 +194,100 @@ fn colored_rows_end_with_a_reset_even_after_trimming() {
     assert_eq!(encoded, "\x1b[32m*\x1b[0m");
 }
 
+#[test]
+fn two_vertical_samples_snapshot_every_string_color_tier() {
+    let mut surface = Surface::new(1, 1, Charset::Quadrants);
+    patch(&mut surface, 0, Some((0.0, Color::Rgb(255, 0, 0))));
+    patch(&mut surface, 1, Some((1.0, Color::Rgb(0, 0, 255))));
+
+    let snapshots = [
+        (ColorMode::Plain, "\u{2593}"),
+        (ColorMode::Ansi16, "\x1b[91;44m\u{2580}\x1b[0m"),
+        (ColorMode::Ansi256, "\x1b[38;5;196;48;5;21m\u{2580}\x1b[0m"),
+        (
+            ColorMode::TrueColor,
+            "\x1b[38;2;255;0;0;48;2;0;0;255m\u{2580}\x1b[0m",
+        ),
+    ];
+    for (mode, expected) in snapshots {
+        assert_eq!(surface.encode(mode), expected, "{mode:?}");
+    }
+}
+
+#[test]
+fn same_color_and_missing_half_cell_patches_have_stable_fallbacks() {
+    let mut solid = Surface::new(1, 1, Charset::Quadrants);
+    patch(&mut solid, 0, Some((0.0, Color::Red)));
+    patch(&mut solid, 1, Some((1.0, Color::Red)));
+    assert_eq!(solid.to_plain(), "\u{2593}");
+    assert_eq!(solid.encode(ColorMode::Ansi16), "\x1b[31m\u{2588}\x1b[0m");
+
+    let mut top = Surface::new(1, 1, Charset::Quadrants);
+    patch(&mut top, 0, Some((0.25, Color::Red)));
+    patch(&mut top, 1, None);
+    assert_eq!(top.to_plain(), "\u{2592}");
+    assert_eq!(top.encode(ColorMode::Ansi16), "\x1b[31m\u{2580}\x1b[0m");
+
+    let mut bottom = Surface::new(1, 1, Charset::Quadrants);
+    patch(&mut bottom, 0, None);
+    patch(&mut bottom, 1, Some((0.75, Color::Blue)));
+    assert_eq!(bottom.to_plain(), "\u{2588}");
+    assert_eq!(bottom.encode(ColorMode::Ansi16), "\x1b[34m\u{2584}\x1b[0m");
+}
+
+#[test]
+fn foreground_and_background_reset_together_at_run_boundaries() {
+    let rect = PlotRect {
+        columns: 2,
+        ..ONE_CELL
+    };
+    let mut surface = Surface::new(2, 1, Charset::Quadrants);
+    Canvas::patch(&mut surface, 0, 0, rect, Some((0.0, Color::Red)));
+    Canvas::patch(&mut surface, 0, 1, rect, Some((1.0, Color::Blue)));
+    surface.text(1, 0, "x", Color::Green);
+    assert_eq!(
+        surface.encode(ColorMode::Ansi16),
+        "\x1b[31;44m\u{2580}\x1b[32;49mx\x1b[0m"
+    );
+
+    surface.text(0, 0, "y", Color::Yellow);
+    assert_eq!(
+        surface.encode(ColorMode::Ansi16),
+        "\x1b[33my\x1b[32mx\x1b[0m"
+    );
+}
+
+#[test]
+fn patch_pair_overwrites_are_atomic_and_identical_styles_share_one_sgr_run() {
+    let rect = PlotRect {
+        columns: 2,
+        ..ONE_CELL
+    };
+    let mut surface = Surface::new(2, 1, Charset::Quadrants);
+    for column in 0..2 {
+        Canvas::patch(&mut surface, column, 0, rect, Some((0.0, Color::Red)));
+        Canvas::patch(&mut surface, column, 1, rect, Some((1.0, Color::Blue)));
+    }
+    assert_eq!(
+        surface.encode(ColorMode::Ansi16),
+        "\x1b[31;44m\u{2580}\u{2580}\x1b[0m"
+    );
+
+    Canvas::patch(&mut surface, 0, 0, rect, None);
+    Canvas::patch(&mut surface, 0, 1, rect, None);
+    assert_eq!(
+        surface.encode(ColorMode::Ansi16),
+        "\x1b[31;44m\u{2580}\u{2580}\x1b[0m"
+    );
+
+    Canvas::patch(&mut surface, 0, 0, rect, Some((0.25, Color::Green)));
+    Canvas::patch(&mut surface, 0, 1, rect, Some((0.75, Color::Yellow)));
+    assert_eq!(
+        surface.encode(ColorMode::Ansi16),
+        "\x1b[32;43m\u{2580}\x1b[31;44m\u{2580}\x1b[0m"
+    );
+}
+
 #[cfg(feature = "evcxr")]
 #[test]
 fn html_escapes_every_glyph_that_can_open_markup() {
@@ -201,6 +306,18 @@ fn html_collapses_concrete_rgb_runs() {
     assert_eq!(
         surface.encode_html(),
         "<span style=\"color:#cd0000\">**</span><span style=\"color:#0000ee\">*</span>"
+    );
+}
+
+#[cfg(feature = "evcxr")]
+#[test]
+fn html_preserves_both_colors_of_a_half_block() {
+    let mut surface = Surface::new(1, 1, Charset::Quadrants);
+    patch(&mut surface, 0, Some((0.0, Color::Red)));
+    patch(&mut surface, 1, Some((1.0, Color::Blue)));
+    assert_eq!(
+        surface.encode_html(),
+        "<span style=\"color:#cd0000;background-color:#0000ee\">\u{2580}</span>"
     );
 }
 

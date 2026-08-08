@@ -281,16 +281,18 @@ impl Canvas for PixelCanvas {
     }
 
     /// Cells layers sample per device pixel: real-resolution heatmaps.
-    fn patch_size(&self) -> (usize, usize) {
-        (1, 1)
+    fn patch_density(&self) -> (usize, usize) {
+        self.cell
     }
 
-    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, _intensity: f64, color: Color) {
-        self.set(
-            (rect.gutter * self.cell.0 + column) as i64,
-            (rect.top * self.cell.1 + row) as i64,
-            color,
-        );
+    fn patch(&mut self, column: usize, row: usize, rect: PlotRect, sample: Option<(f64, Color)>) {
+        if let Some((_, color)) = sample {
+            self.set(
+                (rect.gutter * self.cell.0 + column) as i64,
+                (rect.top * self.cell.1 + row) as i64,
+                color,
+            );
+        }
     }
 }
 
