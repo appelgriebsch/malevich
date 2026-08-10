@@ -5,6 +5,13 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- The `evcxr` feature now exposes a public `evcxr` module: `mime_bundle` writes
+  Evcxr's stdout protocol and `card_colors` returns the background and foreground
+  a plot card paints itself with. Both were internal, which left a crate rendering
+  its own types beside a chart with nothing to do but hardcode the colors and
+  reimplement the framing, then drift on the next theme change. `Plot` now draws
+  through the same two functions, so the exported values cannot disagree with what
+  it paints.
 - Rendering and statistics now reject overflowing or over-budget geometry through
   typed fallible paths; the infallible conveniences degrade without attempting giant
   allocations. The `kaz` CLI applies corresponding bounds to user-controlled sizes.

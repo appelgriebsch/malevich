@@ -211,7 +211,7 @@ impl<'a> Plot<'a> {
         use std::fmt::Write as _;
 
         let content = self.rasterize(frame).encode_html();
-        let (background, foreground) = crate::render::card(frame.theme);
+        let (background, foreground) = crate::evcxr::card_colors(frame.theme);
         let mut html = String::with_capacity(content.len() + 320);
         let _ = write!(
             html,
@@ -244,7 +244,7 @@ impl<'a> Plot<'a> {
         let plain = self.render(&terminal);
         println!(
             "{}",
-            crate::render::mime_bundle(&[("text/html", &html), ("text/plain", &plain)])
+            crate::evcxr::mime_bundle(&[("text/html", &html), ("text/plain", &plain)])
         );
     }
 

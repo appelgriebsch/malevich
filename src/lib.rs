@@ -38,7 +38,8 @@
 //!
 //! - `evcxr` — rich HTML display for Evcxr Jupyter notebooks through
 //!   [`Plot::evcxr_display`], plus deterministic [`Plot::to_html`] rendering for
-//!   custom notebook frames.
+//!   custom notebook frames and the [`evcxr`] module, whose stdout protocol and
+//!   card colors let a crate draw its own types on the same background.
 //! - `ndarray` — one-dimensional arrays and views plot directly; contiguous
 //!   storage is zero-copy.
 //! - `pixel` — the plot panel as a real image (sixel, kitty graphics, or iTerm2
@@ -61,6 +62,8 @@ pub mod data;
 #[cfg(feature = "serde")]
 mod document;
 mod error;
+#[cfg(feature = "evcxr")]
+pub mod evcxr;
 pub mod mark;
 #[cfg(feature = "pixel")]
 pub mod pixel;

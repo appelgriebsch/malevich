@@ -22,8 +22,6 @@ pub use charset::Charset;
 pub use color::{Color, ColorMode};
 #[cfg(feature = "pixel")]
 pub(crate) use color::{ansi256_to_rgb, rgb_to_256};
-#[cfg(feature = "evcxr")]
-pub(crate) use html::{card, mime_bundle};
 pub(crate) use limits::{
     MAX_DEVICE_PIXELS, MAX_OUTPUT_BYTES, frame_cells, reserve as reserve_vec, reserve_string,
 };
