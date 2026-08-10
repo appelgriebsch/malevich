@@ -5,6 +5,15 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+## 1.15.0 (The Aviator) — 2026-08-10
+
+A hardening release: the paths that used to trust their inputs now refuse
+impossible geometry instead of reaching for the allocator, validation rejects
+combinations that never meant anything, and Windows joins CI. What opens up
+alongside it is reach — the notebook helpers, the charset policy, and the
+capability query stop being malevich's private business and become things a host
+can drive.
+
 - The `evcxr` feature now exposes a public `evcxr` module: `mime_bundle` writes
   Evcxr's stdout protocol and `card_colors` returns the background and foreground
   a plot card paints itself with. Both were internal, which left a crate rendering
