@@ -116,8 +116,8 @@ iTerm2) on the right, from the same plot values:
 - **A small grammar, not a chart zoo.** Eight marks (line, points, bars, area, cells,
   range, rule, text) × a stats layer × shared scales compose into the whole basic
   chart catalog. Every preset — `line`, `scatter`, `bar`, `hist`, `stairs`, `ecdf`,
-  `heatmap`, `hist2d`, `density`, `box_plot`, `violin`, `error_bars` — is proven
-  bit-identical to its grammar expansion in tests. **Color speaks data**: a
+  `heatmap`, `hist2d`, `density`, `box_plot`, `violin`, `error_bars`, `trend` — is
+  proven bit-identical to its grammar expansion in tests. **Color speaks data**: a
   `color_by` channel colors points, lines, bars, and intervals by category —
   colorblind-safe Okabe–Ito colors, a categorical legend, and portable marker
   shapes (`•`, `+`, `x`, `*`, `o`) that cycle automatically in colorless output so
@@ -130,7 +130,10 @@ iTerm2) on the right, from the same plot values:
   monoid like every other aggregator, so it fits streams and parallel chunks),
   ECDFs with an optional DKW confidence band, symmetric and asymmetric error
   bars, 2D densities (with a colorbar legending the value scale) — the charts
-  science and ML actually need. Defaults stay one-call; checked `_with` variants
+  science and ML actually need. One `Reducer` vocabulary — count, sum, mean,
+  median, min, max, and type-7 percentiles, the same estimator the box plot
+  uses — reduces groups, rolling windows, and histogram bins alike, so a
+  rolling p95 or a binned median is one call. Defaults stay one-call; checked `_with` variants
   expose histogram geometry, KDE/violin resolution, contour levels, and colormaps
   when the data or host needs control. The named colormaps are a curated set that
   stays distinguishable down the whole color ladder — sequential
