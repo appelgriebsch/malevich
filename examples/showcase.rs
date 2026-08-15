@@ -331,6 +331,32 @@ fn main() {
         ))
         .show(&frame)
     );
+    // A Q–Q plot from the grammar: matched type-7 quantiles of two samples
+    // against the identity line — the heavy tail peels off it.
+    let normalish: Vec<f64> = (0..400)
+        .map(|i| (0..6).map(|k| noise(i * 6 + k, 1.0)).sum::<f64>())
+        .collect();
+    let heavy: Vec<f64> = (0..400)
+        .map(|i| {
+            let base = (0..6).map(|k| noise(i * 6 + k, 9.0)).sum::<f64>();
+            if noise(i, 17.0) > 0.6 {
+                base * 2.5
+            } else {
+                base
+            }
+        })
+        .collect();
+    let positions: Vec<f64> = (1..100).map(|p| p as f64 / 100.0).collect();
+    let qx = malevich::stat::quantiles(&normalish, &positions);
+    let qy = malevich::stat::quantiles(&heavy, &positions);
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Line::xy(vec![-4.0, 6.0], vec![-4.0, 6.0]).label("identity"))
+            .layer(Points::xy(qx, qy).label("quantiles"))
+            .title("Q\u{2013}Q: heavy-tailed vs normal-ish (synthetic)")
+            .show(&frame)
+    );
     let blob = |count: usize, cx: f64, cy: f64, spread: f64| -> (Vec<f64>, Vec<f64>) {
         (0..count)
             .map(|i| {
@@ -355,6 +381,87 @@ fn main() {
         Plot::new()
             .layer(Points::xy(&x[..], &y[..]).color_by(colony))
             .title("two colonies, one color_by channel (synthetic)")
+            .show(&frame)
+    );
+    // A volcano plot from the grammar: significance classes through color_by,
+    // thresholds as Rules, grey pinned to the insignificant mass.
+    let class = |fc: f64, p: f64| {
+        if p < 2.0 || fc.abs() < 1.0 {
+            "n.s."
+        } else if fc > 0.0 {
+            "up"
+        } else {
+            "down"
+        }
+    };
+    let genes: Vec<(f64, f64)> = (0..900)
+        .map(|i| {
+            let spread = if i % 7 == 0 { 2.6 } else { 0.7 };
+            let log2fc = noise(i, 1.0) * spread;
+            let lifted = (log2fc.abs() * 1.6 - 0.4 + noise(i, 7.0) * 1.2).max(0.02);
+            (log2fc, lifted)
+        })
+        .collect();
+    // Partitioned so "n.s." appears first: category order is first appearance,
+    // and the palette below pins grey to it.
+    let (mut vx, mut vy, mut classes) = (Vec::new(), Vec::new(), Vec::new());
+    for wanted in ["n.s.", "down", "up"] {
+        for &(fc, p) in &genes {
+            if class(fc, p) == wanted {
+                vx.push(fc);
+                vy.push(p);
+                classes.push(wanted);
+            }
+        }
+    }
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Points::xy(&vx[..], &vy[..]).color_by(classes))
+            .palette(Palette::new(&[
+                Color::BrightBlack,
+                Color::Rgb(0, 114, 178),
+                Color::Rgb(213, 94, 0),
+            ]))
+            .layer(Rule::v(-1.0))
+            .layer(Rule::v(1.0))
+            .layer(Rule::h(2.0))
+            .title("volcano: differential expression (synthetic)")
+            .show(&frame)
+    );
+    // A Manhattan plot from the grammar: chromosomes alternate two shades as
+    // unlabeled layers, the genome-wide threshold is a labeled Rule.
+    let sizes = [180, 160, 150, 130, 120, 110, 95, 85, 75, 70, 60, 55];
+    let hits = [2usize, 6, 9];
+    let (mut even_x, mut even_y) = (Vec::new(), Vec::new());
+    let (mut odd_x, mut odd_y) = (Vec::new(), Vec::new());
+    let mut position = 0usize;
+    for (chromosome, &size) in sizes.iter().enumerate() {
+        for i in 0..size {
+            let mut p = noise(position + i, 1.0).abs() * 2.8;
+            if hits.contains(&chromosome) {
+                let center = (i as f64 - size as f64 / 2.0).abs() / size as f64;
+                let lift = (0.5 - center).max(0.0) * 2.0;
+                p += lift * (6.5 + noise(position + i, 5.0) * 1.5) * lift;
+            }
+            let at = (position + i) as f64;
+            if chromosome % 2 == 0 {
+                even_x.push(at);
+                even_y.push(p);
+            } else {
+                odd_x.push(at);
+                odd_y.push(p);
+            }
+        }
+        position += size;
+    }
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Points::xy(&even_x[..], &even_y[..]).color(Color::Rgb(0, 114, 178)))
+            .layer(Points::xy(&odd_x[..], &odd_y[..]).color(Color::Rgb(86, 180, 233)))
+            .layer(Rule::h(5.0).label("genome-wide"))
+            .title("manhattan: association scan (synthetic)")
             .show(&frame)
     );
     // Candlesticks from the grammar: Range whiskers and bodies, up/down days
