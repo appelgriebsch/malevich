@@ -74,6 +74,17 @@ fn histogram_binning(c: &mut Criterion) {
     });
 }
 
+fn least_squares_fit(c: &mut Criterion) {
+    let x: Vec<f64> = (0..1_000_000).map(|i| i as f64 * 0.001).collect();
+    let y: Vec<f64> = x
+        .iter()
+        .map(|v| 0.8 * v + 4.0 + (v * 7.31).sin() * 2.0)
+        .collect();
+    c.bench_function("stat/fit_1m", |b| {
+        b.iter(|| black_box(malevich::stat::Fit::xy(black_box(&x), black_box(&y))));
+    });
+}
+
 fn heatmap_render(c: &mut Criterion) {
     let grid: Vec<f64> = (0..64 * 48).map(|i| (i as f64 * 0.37).sin()).collect();
     let frame = Frame::plain(80, 24);
@@ -155,6 +166,7 @@ criterion_group!(
     ansi_encoding,
     ten_million_points,
     histogram_binning,
+    least_squares_fit,
     heatmap_render,
     pathological_layout
 );

@@ -115,6 +115,72 @@ impl Default for HeatmapOptions {
     }
 }
 
+/// Configuration for [`trend_with`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub struct TrendOptions {
+    /// Confidence-band half-width, as a multiplier on the standard error of
+    /// the mean response; `None` draws no band. `1.96` approximates a 95%
+    /// band for large samples.
+    pub band: Option<f64>,
+    /// Positions at which the band edges are evaluated (the edges curve —
+    /// they flare away from the mean).
+    pub band_samples: usize,
+}
+
+impl TrendOptions {
+    /// No band, 64 band samples once one is requested.
+    pub const fn new() -> TrendOptions {
+        TrendOptions {
+            band: None,
+            band_samples: 64,
+        }
+    }
+
+    /// Draws the confidence band at `multiplier` standard errors.
+    #[must_use]
+    pub const fn band(mut self, multiplier: f64) -> TrendOptions {
+        self.band = Some(multiplier);
+        self
+    }
+}
+
+impl Default for TrendOptions {
+    fn default() -> TrendOptions {
+        TrendOptions::new()
+    }
+}
+
+/// Configuration for [`ecdf_with`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub struct EcdfOptions {
+    /// Simultaneous confidence level α for the
+    /// Dvoretzky–Kiefer–Wolfowitz band; `None` draws no band. `0.05` gives
+    /// the textbook 95% band.
+    pub band_alpha: Option<f64>,
+}
+
+impl EcdfOptions {
+    /// No band.
+    pub const fn new() -> EcdfOptions {
+        EcdfOptions { band_alpha: None }
+    }
+
+    /// Draws the DKW confidence band at level `alpha` (in `(0, 1)`).
+    #[must_use]
+    pub const fn band(mut self, alpha: f64) -> EcdfOptions {
+        self.band_alpha = Some(alpha);
+        self
+    }
+}
+
+impl Default for EcdfOptions {
+    fn default() -> EcdfOptions {
+        EcdfOptions::new()
+    }
+}
+
 /// Configuration for [`density_with`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -366,10 +432,29 @@ pub fn stairs<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
 /// println!("{}", malevich::ecdf(&samples[..]).render(&malevich::Frame::plain(40, 8)));
 /// ```
 pub fn ecdf<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    ecdf_with(values, EcdfOptions::default()).expect("default ecdf options are valid")
+}
+
+/// An empirical CDF with an optional Dvoretzky–Kiefer–Wolfowitz confidence
+/// band: the finite-sample envelope `F̂ ± √(ln(2/α)/2n)`, clipped to `[0, 1]`,
+/// stepped exactly like the curve and drawn through the existing band mark.
+///
+/// # Errors
+///
+/// Returns an error when the band level is outside `(0, 1)`.
+pub fn ecdf_with<'a>(values: impl IntoSeries<'a>, options: EcdfOptions) -> crate::Result<Plot<'a>> {
+    if let Some(alpha) = options.band_alpha
+        && !(alpha > 0.0 && alpha < 1.0)
+    {
+        return Err(crate::Error::InvalidParameter {
+            detail: "an ecdf band level must be strictly between 0 and 1",
+        });
+    }
     let series = values.into_series();
     let (sorted, fractions) = crate::stat::ecdf(series.as_slice());
-    let mut x = Vec::with_capacity(sorted.len() * 2);
-    let mut y = Vec::with_capacity(sorted.len() * 2);
+    let count = sorted.len();
+    let mut x = Vec::with_capacity(count * 2);
+    let mut y = Vec::with_capacity(count * 2);
     let mut previous = 0.0f64;
     for (value, fraction) in sorted.into_iter().zip(fractions) {
         x.push(value);
@@ -378,7 +463,14 @@ pub fn ecdf<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
         y.push(fraction);
         previous = fraction;
     }
-    Plot::new().layer(Line::xy(x, y))
+    let mut plot = Plot::new();
+    if let (Some(alpha), true) = (options.band_alpha, count > 0) {
+        let epsilon = ((2.0 / alpha).ln() / (2.0 * count as f64)).sqrt();
+        let low: Vec<f64> = y.iter().map(|f| (f - epsilon).max(0.0)).collect();
+        let high: Vec<f64> = y.iter().map(|f| (f + epsilon).min(1.0)).collect();
+        plot = plot.layer(Area::between(x.clone(), low, high));
+    }
+    Ok(plot.layer(Line::xy(x, y)))
 }
 
 /// A heatmap of a row-major grid, `columns` wide: two vertical color samples per
@@ -744,6 +836,131 @@ pub fn error_bars<'a>(
     Plot::new()
         .layer(Range::xy(xs.clone(), low, high))
         .layer(Points::xy(xs, y.as_slice().to_vec()))
+}
+
+/// Error bars with asymmetric intervals: each point reaches down by
+/// `minus[i]` and up by `plus[i]` — the two-sided deviations of matplotlib's
+/// 2×N `yerr`. For absolute interval bounds, use
+/// [`Range::xy`](crate::Range::xy) directly.
+///
+/// ```
+/// let x = [1.0, 2.0, 3.0];
+/// let y = [4.0, 6.0, 5.0];
+/// let minus = [0.5, 1.0, 0.4];
+/// let plus = [1.5, 0.3, 0.9];
+/// let chart = malevich::error_bars_asymmetric(&x[..], &y[..], &minus[..], &plus[..]);
+/// println!("{}", chart.render(&malevich::Frame::plain(40, 10)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if the series have different lengths.
+pub fn error_bars_asymmetric<'a>(
+    x: impl IntoSeries<'a>,
+    y: impl IntoSeries<'a>,
+    minus: impl IntoSeries<'a>,
+    plus: impl IntoSeries<'a>,
+) -> Plot<'a> {
+    let x = x.into_series();
+    let y = y.into_series();
+    let minus = minus.into_series();
+    let plus = plus.into_series();
+    assert!(
+        x.len() == y.len() && y.len() == minus.len() && minus.len() == plus.len(),
+        "error_bars_asymmetric requires series of equal length"
+    );
+    let low: Vec<f64> = y.iter().zip(minus.iter()).map(|(y, e)| y - e).collect();
+    let high: Vec<f64> = y.iter().zip(plus.iter()).map(|(y, e)| y + e).collect();
+    let xs = x.as_slice().to_vec();
+    Plot::new()
+        .layer(Range::xy(xs.clone(), low, high))
+        .layer(Points::xy(xs, y.as_slice().to_vec()))
+}
+
+/// A scatter with its least-squares trend line ([`Fit`](crate::stat::Fit):
+/// slope, intercept, and R² are one call away on the same accumulator).
+/// Degenerate data (fewer than two distinct x) draws the points alone.
+///
+/// ```
+/// let x = [1.0, 2.0, 3.0, 4.0, 5.0];
+/// let y = [1.2, 1.9, 3.2, 3.8, 5.1];
+/// println!("{}", malevich::trend(&x[..], &y[..]).render(&malevich::Frame::plain(40, 10)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if the two series have different lengths.
+pub fn trend<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
+    trend_with(x, y, TrendOptions::default()).expect("default trend options are valid")
+}
+
+/// A scatter with its trend line and an optional confidence band around the
+/// mean response, drawn through the existing band mark
+/// ([`Area::between`](crate::Area::between)).
+///
+/// # Errors
+///
+/// Returns an error when the band multiplier is not finite and positive, or
+/// the band sample count is out of range.
+///
+/// # Panics
+///
+/// Panics if the two series have different lengths.
+pub fn trend_with<'a>(
+    x: impl IntoSeries<'a>,
+    y: impl IntoSeries<'a>,
+    options: TrendOptions,
+) -> crate::Result<Plot<'a>> {
+    if let Some(multiplier) = options.band {
+        if !multiplier.is_finite() || multiplier <= 0.0 {
+            return Err(crate::Error::InvalidParameter {
+                detail: "a trend band multiplier must be finite and positive",
+            });
+        }
+        check_count(
+            options.band_samples,
+            2,
+            "trend band samples",
+            "a trend band needs at least two samples",
+        )?;
+    }
+    let x = x.into_series();
+    let y = y.into_series();
+    assert_eq!(x.len(), y.len(), "trend requires series of equal length");
+    let fit = crate::stat::Fit::xy(x.as_slice(), y.as_slice());
+    let extent = x.iter().filter(|value| value.is_finite()).fold(
+        None,
+        |extent: Option<(f64, f64)>, value| {
+            Some(match extent {
+                Some((low, high)) => (low.min(value), high.max(value)),
+                None => (value, value),
+            })
+        },
+    );
+    let mut plot = Plot::new();
+    if let (Some((x0, x1)), Some(_)) = (extent, fit.slope()) {
+        if let (Some(multiplier), true) = (options.band, x1 > x0) {
+            let samples = options.band_samples;
+            let step = (x1 - x0) / (samples - 1) as f64;
+            let positions: Vec<f64> = (0..samples).map(|i| x0 + i as f64 * step).collect();
+            let band: Option<(Vec<f64>, Vec<f64>)> = positions
+                .iter()
+                .map(|&at| {
+                    let center = fit.predict(at)?;
+                    let error = fit.standard_error(at)?;
+                    Some((center - multiplier * error, center + multiplier * error))
+                })
+                .collect();
+            if let Some((low, high)) = band {
+                plot = plot.layer(Area::between(positions, low, high));
+            }
+        }
+        let fitted = [fit.predict(x0), fit.predict(x1)];
+        if let [Some(y0), Some(y1)] = fitted {
+            plot = plot.layer(Line::xy(vec![x0, x1], vec![y0, y1]));
+        }
+    }
+    Ok(plot.layer(Points::xy(x.as_slice().to_vec(), y.as_slice().to_vec())))
 }
 
 /// A density chart: the Gaussian KDE of `values` as a smooth line.

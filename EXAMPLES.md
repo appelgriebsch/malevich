@@ -197,6 +197,34 @@ e  97.5 ┤                      ⠚⣿⣿⡏⢀⣸⣀⣇⣀       ⣤⣧⣧⣼�
          0          10           20          30           40          50
 ```
 
+## fit
+
+Least squares as a stat: scatter, trend line, and a 95% confidence band from one mergeable Fit accumulator — slope, intercept, and R² included.
+Source: [examples/fit.rs](examples/fit.rs)
+
+```text
+                      y = 0.82x + 3.87   R² = 0.95
+  30 ┤                                                              ⠐
+     │                                                         ⡈⣀⣠ ⣀⠤⠔⠊⠁
+  25 ┤                                                    ⠂⢀⣠⣤⣶⣿⡿⠟⡉⠈   ⠄
+     │                                                ⢂⣈⣥⣶⣿⠿⠟⠫⠉  ⡀
+r    │                                          ⠠ ⣀⣮⣶⣾⠿⠛⠋⠉   ⠄
+e 20 ┤                                     ⠁ ⣐⣤⣶⡾⠿⠛⠉⠁
+s    │                                ⠂ ⣐⣤⣴⡾⠟⠛⠉⠃ ⠐
+p    │                             ⣀⣤⣴⡾⠟⠟⠉⠁
+o 15 ┤                       ⢀⣄⣦⣴⡾⠿⠛⠉⠁
+n    │                ⠂ ⢀⣀⣤⣷⡾⠟⠛⠉     ⠁
+s 10 ┤           ⡀ ⢈⣨⣤⣶⡾⡿⠛⢉⠁⡀⡀
+e    │        ⣀⣠⣴⣶⣿⠿⠛⠉⠁  ⠂
+     │⠄  ⣀⣤⣴⣾⣿⠿⠛⠋⠉⠈
+   5 ┤⣶⣾⣿⠿⠟⠋⠉⠁
+     │⠛⠋   ⠁
+   0 ┤
+     └┬──────────┬──────────┬──────────┬──────────┬─────────┬──────────┬
+      0          5         10         15         20        25         30
+                                     dose
+```
+
 ## waveform
 
 Ten million points through the auto-inserted M4 aggregation — pixel-identical to drawing every point, in tens of milliseconds.

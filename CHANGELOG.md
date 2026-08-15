@@ -5,6 +5,17 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- The line of best fit: `stat::Fit` is streaming ordinary least squares —
+  bivariate Welford accumulation, mergeable like every other aggregator, with
+  slope, intercept, R², prediction, and the standard error of the mean
+  response. The `trend` preset draws a scatter with its fitted line;
+  `trend_with` adds a confidence band around the mean response through the
+  existing band mark, at a caller-chosen standard-error multiplier. Measured:
+  one million pairs fit in ~5 ms single-threaded (BENCHMARKS.md).
+- Interval polish: `error_bars_asymmetric(x, y, minus, plus)` covers two-sided
+  deviations, and `ecdf_with` grows the Dvoretzky–Kiefer–Wolfowitz confidence
+  band as a checked option — both compositions of existing marks, both proven
+  equal to their grammar expansions.
 - Color speaks data: `color_by(categories)` on `Line`, `Points`, `Bars`, and
   `Range` colors a layer by a categorical series. Distinct categories (first
   appearance first) take colors from the new `scale::Palette` — Okabe–Ito by

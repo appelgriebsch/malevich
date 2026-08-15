@@ -51,6 +51,11 @@ const GALLERY: &[(&str, &str)] = &[
          up/down days split by color_by.",
     ),
     (
+        "fit",
+        "Least squares as a stat: scatter, trend line, and a 95% confidence band \
+         from one mergeable Fit accumulator — slope, intercept, and R² included.",
+    ),
+    (
         "waveform",
         "Ten million points through the auto-inserted M4 aggregation — pixel-identical \
          to drawing every point, in tens of milliseconds.",

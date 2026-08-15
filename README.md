@@ -125,7 +125,10 @@ iTerm2) on the right, from the same plot values:
   and candlesticks are a few grammar lines each, never presets
   ([EXAMPLES.md](EXAMPLES.md)).
 - **The statistical set no terminal library has.** Box plots with type-7 quartiles
-  and Tukey whiskers, violins from a real KDE (Silverman bandwidth), ECDFs, error
+  and Tukey whiskers, violins from a real KDE (Silverman bandwidth), least-squares
+  trend lines with R² and a confidence band (`trend`; `stat::Fit` is a mergeable
+  monoid like every other aggregator, so it fits streams and parallel chunks),
+  ECDFs with an optional DKW confidence band, symmetric and asymmetric error
   bars, 2D densities (with a colorbar legending the value scale) — the charts
   science and ML actually need. Defaults stay one-call; checked `_with` variants
   expose histogram geometry, KDE/violin resolution, contour levels, and colormaps

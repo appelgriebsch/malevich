@@ -702,6 +702,135 @@ fn more_categories_than_palette_colors_wrap_without_loss() {
 }
 
 #[test]
+fn the_trend_preset_equals_its_grammar_expansion() {
+    use crate::mark::{Area, Points};
+    use crate::stat::Fit;
+
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0];
+    let y = [1.2, 1.9, 3.2, 3.8, 5.1];
+    let frame = Frame::plain(44, 12);
+
+    let fit = Fit::xy(&x, &y);
+    let expansion = Plot::new()
+        .layer(Line::xy(
+            vec![1.0, 5.0],
+            vec![fit.predict(1.0).unwrap(), fit.predict(5.0).unwrap()],
+        ))
+        .layer(Points::xy(&x[..], &y[..]))
+        .render(&frame);
+    assert_eq!(crate::trend(&x[..], &y[..]).render(&frame), expansion);
+
+    // With a band: the Area::between under line and points.
+    let options = crate::TrendOptions::new().band(1.96);
+    let samples = 64usize;
+    let step = 4.0 / (samples - 1) as f64;
+    let positions: Vec<f64> = (0..samples).map(|i| 1.0 + i as f64 * step).collect();
+    let low: Vec<f64> = positions
+        .iter()
+        .map(|&at| fit.predict(at).unwrap() - 1.96 * fit.standard_error(at).unwrap())
+        .collect();
+    let high: Vec<f64> = positions
+        .iter()
+        .map(|&at| fit.predict(at).unwrap() + 1.96 * fit.standard_error(at).unwrap())
+        .collect();
+    let banded = Plot::new()
+        .layer(Area::between(positions, low, high))
+        .layer(Line::xy(
+            vec![1.0, 5.0],
+            vec![fit.predict(1.0).unwrap(), fit.predict(5.0).unwrap()],
+        ))
+        .layer(Points::xy(&x[..], &y[..]))
+        .render(&frame);
+    assert_eq!(
+        crate::trend_with(&x[..], &y[..], options)
+            .unwrap()
+            .render(&frame),
+        banded
+    );
+}
+
+#[test]
+fn degenerate_trend_data_draws_the_points_alone() {
+    use crate::mark::Points;
+
+    let frame = Frame::plain(40, 10);
+    // No x spread: no line to draw, but the scatter still renders.
+    let vertical = crate::trend(&[2.0, 2.0, 2.0][..], &[1.0, 2.0, 3.0][..]).render(&frame);
+    let points_only = Plot::new()
+        .layer(Points::xy(&[2.0, 2.0, 2.0][..], &[1.0, 2.0, 3.0][..]))
+        .render(&frame);
+    assert_eq!(vertical, points_only);
+
+    let empty = crate::trend(&[][..] as &[f64], &[][..] as &[f64]).render(&frame);
+    assert!(
+        !empty.is_empty(),
+        "an empty trend must still render a frame"
+    );
+}
+
+#[test]
+fn trend_with_rejects_meaningless_bands() {
+    let x = [1.0, 2.0, 3.0];
+    let y = [1.0, 2.0, 3.0];
+    for multiplier in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        assert!(
+            crate::trend_with(&x[..], &y[..], crate::TrendOptions::new().band(multiplier)).is_err(),
+            "band multiplier {multiplier} should be rejected"
+        );
+    }
+    let mut options = crate::TrendOptions::new().band(1.96);
+    options.band_samples = 1;
+    assert!(crate::trend_with(&x[..], &y[..], options).is_err());
+}
+
+#[test]
+fn the_asymmetric_error_bars_preset_equals_its_grammar_expansion() {
+    use crate::mark::{Points, Range};
+
+    let x = [1.0, 2.0, 3.0];
+    let y = [4.0, 6.0, 5.0];
+    let minus = [0.5, 1.0, 0.4];
+    let plus = [1.5, 0.3, 0.9];
+    let frame = Frame::plain(40, 10);
+    let expansion = Plot::new()
+        .layer(Range::xy(
+            &x[..],
+            &[3.5, 5.0, 4.6][..],
+            &[5.5, 6.3, 5.9][..],
+        ))
+        .layer(Points::xy(&x[..], &y[..]))
+        .render(&frame);
+    assert_eq!(
+        crate::error_bars_asymmetric(&x[..], &y[..], &minus[..], &plus[..]).render(&frame),
+        expansion
+    );
+}
+
+#[test]
+fn the_ecdf_band_is_the_dkw_envelope_and_rejects_bad_levels() {
+    let values = [1.0, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 6.0];
+    let frame = Frame::plain(44, 12);
+    let plain = crate::ecdf(&values[..]).render(&frame);
+    let banded = crate::ecdf_with(&values[..], crate::EcdfOptions::new().band(0.05))
+        .unwrap()
+        .render(&frame);
+    assert_ne!(plain, banded, "the band changed nothing");
+    assert_eq!(
+        crate::ecdf_with(&values[..], crate::EcdfOptions::default())
+            .unwrap()
+            .render(&frame),
+        plain,
+        "the default options must be the plain preset"
+    );
+    for alpha in [0.0, 1.0, -0.5, f64::NAN] {
+        assert!(
+            crate::ecdf_with(&values[..], crate::EcdfOptions::new().band(alpha)).is_err(),
+            "alpha {alpha} should be rejected"
+        );
+    }
+}
+
+#[test]
 fn the_heatmap_preset_equals_its_grammar_expansion() {
     use crate::mark::Cells;
     use crate::scale::Colormap;

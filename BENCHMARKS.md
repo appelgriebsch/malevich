@@ -5,6 +5,24 @@ speed promise. Wall-clock results vary with hardware, compiler, power state, and
 background load. This file is the authoritative dated record behind the README's
 “tens of milliseconds” claim.
 
+## 2026-08-14 fit addition
+
+- Revision: `7a667d6` (plus the `stat::Fit` change under measurement)
+- Machine, OS, compiler, profile: as in the 2026-08-07 baseline below
+
+| Measurement | Estimate | 95% interval |
+| --- | ---: | ---: |
+| `stat/fit_1m` | 5.1507 ms | 5.1451–5.1563 ms |
+
+```sh
+cargo bench --bench render -- stat/fit_1m
+```
+
+One million `(x, y)` pairs through the streaming least-squares accumulator
+(`stat::Fit`): bivariate Welford, single-threaded, no allocation in the loop.
+The accumulator merges associatively, so hosts can split this scan across
+chunks and combine.
+
 ## 2026-08-07 baseline
 
 - Revision: `7ff2bc0`

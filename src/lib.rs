@@ -85,10 +85,11 @@ pub use error::{Error, Result};
 pub use mark::{Area, Bars, Cells, Line, LineStyle, Mark, PointStyle, Points, Range, Rule, Text};
 pub use plot::{Frame, Grid, Plot};
 pub use presets::{
-    ContourLevels, ContourOptions, DensityOptions, HeatmapOptions, Histogram2dOptions,
-    HistogramOptions, ViolinOptions, bar, box_plot, contour, contour_with, density, density_with,
-    ecdf, error_bars, heatmap, heatmap_with, hist, hist_with, hist2d, hist2d_with, line, quiver,
-    scatter, stairs, violin, violin_with,
+    ContourLevels, ContourOptions, DensityOptions, EcdfOptions, HeatmapOptions, Histogram2dOptions,
+    HistogramOptions, TrendOptions, ViolinOptions, bar, box_plot, contour, contour_with, density,
+    density_with, ecdf, ecdf_with, error_bars, error_bars_asymmetric, heatmap, heatmap_with, hist,
+    hist_with, hist2d, hist2d_with, line, quiver, scatter, stairs, trend, trend_with, violin,
+    violin_with,
 };
 pub use render::{Charset, Color, ColorMode};
 pub use scale::Scale;
