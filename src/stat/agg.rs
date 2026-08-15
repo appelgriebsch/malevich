@@ -28,7 +28,7 @@ pub struct Agg {
 }
 
 impl Agg {
-    /// Applies any named [`Reducer`] per group — the percentile door:
+    /// Applies any named [`Reducer`](super::Reducer) per group — the percentile door:
     /// `agg.reduce(Reducer::Percentile(0.95))`.
     pub fn reduce(self, reducer: super::Reducer) -> (Vec<String>, Vec<f64>) {
         let values = self

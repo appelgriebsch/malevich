@@ -5,23 +5,32 @@ speed promise. Wall-clock results vary with hardware, compiler, power state, and
 background load. This file is the authoritative dated record behind the README's
 “tens of milliseconds” claim.
 
-## 2026-08-14 fit addition
+## 2026-08-15 baseline (1.16.0)
 
-- Revision: `7a667d6` (plus the `stat::Fit` change under measurement)
+- Revision: `3b17b0d`
 - Machine, OS, compiler, profile: as in the 2026-08-07 baseline below
 
 | Measurement | Estimate | 95% interval |
 | --- | ---: | ---: |
-| `stat/fit_1m` | 5.1507 ms | 5.1451–5.1563 ms |
+| `render/line_10k_80x20` | 66.466 µs | 66.322–66.615 µs |
+| `render/line_10m_80x20` | 33.878 ms | 33.659–34.194 ms |
+| `stat/fit_1m` | 5.2083 ms | 5.2019–5.2149 ms |
 
 ```sh
+cargo bench --bench render -- render/line_10k_80x20
+cargo bench --bench render -- render/line_10m_80x20
 cargo bench --bench render -- stat/fit_1m
 ```
 
-One million `(x, y)` pairs through the streaming least-squares accumulator
-(`stat::Fit`): bivariate Welford, single-threaded, no allocation in the loop.
-The accumulator merges associatively, so hosts can split this scan across
-chunks and combine.
+Rerun for 1.16.0 because resolution changed (the `color_by` layer expansion
+and the shared line-reduction helper): the render rows came out 2.2% and 6.5%
+lower than the 2026-08-07 baseline on the same machine — the categorical
+channel costs the headline path nothing measurable.
+
+`stat/fit_1m` is one million `(x, y)` pairs through the streaming
+least-squares accumulator (`stat::Fit`): bivariate Welford, single-threaded,
+no allocation in the loop. The accumulator merges associatively, so hosts can
+split this scan across chunks and combine.
 
 ## 2026-08-07 baseline
 

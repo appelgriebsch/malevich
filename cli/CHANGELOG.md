@@ -5,6 +5,8 @@ malevich API.
 
 ## Unreleased
 
+## 0.2.0 — 2026-08-15
+
 - `--emit-code` prints the equivalent malevich Rust program instead of the
   plot — same presets and grammar calls, the parsed data inlined as literals,
   a copy-pasteable bridge from an exploratory pipe to a real program. Every

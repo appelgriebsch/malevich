@@ -5,6 +5,14 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+## 1.16.0 (Red Square) — 2026-08-15
+
+Color speaks data. One categorical channel, a curated color vocabulary, a
+least-squares stat, and one shared reducer close the gaps between malevich
+and the charts science asks for first — and the CLI grows a bridge out of
+the shell. Everything is additive, and the re-measured render baseline came
+out slightly faster than 1.15.
+
 - One vocabulary for every aggregation: `stat::Reducer` — `Count`, `Sum`,
   `Mean`, `Median`, `Min`, `Max`, `Percentile(q)` (type-7, exactly the box
   plot's estimator) — is now what `Agg::reduce` and `Window::reduce` take
