@@ -5,6 +5,10 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- The control-character-dropping behavior of the cell grid is now a stated,
+  regression-tested contract: hostile escape bytes in titles, labels, categories,
+  or annotations can never reach ANSI, plain, or HTML output.
+
 ## 1.15.0 (The Aviator) — 2026-08-10
 
 A hardening release: the paths that used to trust their inputs now refuse

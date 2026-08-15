@@ -608,3 +608,80 @@ fn a_colorbar_without_a_cells_layer_changes_nothing() {
         "colorbar reserved space with nothing to show"
     );
 }
+
+/// Every escape in ANSI output must be a complete SGR sequence the encoder
+/// wrote itself; any other control character is an injection leak.
+fn assert_only_sgr_escapes(output: &str) {
+    let mut chars = output.chars();
+    while let Some(glyph) = chars.next() {
+        if glyph == '\u{1b}' {
+            assert_eq!(chars.next(), Some('['), "non-CSI escape in output");
+            loop {
+                let byte = chars.next().expect("unterminated escape sequence");
+                if byte == 'm' {
+                    break;
+                }
+                assert!(
+                    byte.is_ascii_digit() || byte == ';',
+                    "non-SGR escape byte {byte:?} in output"
+                );
+            }
+        } else {
+            assert!(
+                glyph == '\n' || !glyph.is_control(),
+                "control character {glyph:?} leaked into output"
+            );
+        }
+    }
+}
+
+#[test]
+fn hostile_labels_never_leak_control_bytes() {
+    // An OSC title change, a clear-screen CSI, a C1 string terminator, DEL,
+    // a CRLF, and a script tag — every slot that accepts caller text gets all
+    // of them.
+    let hostile = "\u{1b}]0;pwned\u{7}\u{1b}[2Jx\u{9c}\u{7f}\r\n<script>payload";
+
+    // Two data layers so the palette assigns real colors and the ANSI encoder
+    // emits SGR sequences around the hostile text.
+    let numeric = Plot::new()
+        .layer(Line::y(&[1.0, 5.0, 2.0][..]).label(hostile))
+        .layer(Line::y(&[2.0, 1.0, 4.0][..]).label("clean"))
+        .layer(crate::mark::Text::at(1.0, 3.0, hostile))
+        .title(hostile)
+        .x_label(hostile)
+        .y_label(hostile);
+    let bands = Plot::new()
+        .layer(crate::mark::Bars::new([hostile, "ok"], &[3.0, 7.0][..]).color(crate::Color::Red))
+        .title(hostile);
+
+    for plot in [&numeric, &bands] {
+        let plain = plot.render(&Frame::plain(48, 14));
+        assert!(
+            !plain.contains(|c: char| c != '\n' && c.is_control()),
+            "control character leaked into plain output"
+        );
+
+        let mut colored = Frame::plain(48, 14);
+        colored.color = crate::ColorMode::TrueColor;
+        let ansi = plot.render(&colored);
+        assert!(ansi.contains('\u{1b}'), "colored render exercised no SGR");
+        assert_only_sgr_escapes(&ansi);
+
+        // The printable remainder survives; only the control bytes vanish.
+        assert!(plain.contains("payload"), "printable label text was lost");
+
+        #[cfg(feature = "evcxr")]
+        {
+            let html = plot.to_html(&Frame::plain(48, 14));
+            assert!(
+                !html.contains(|c: char| c != '\n' && c.is_control()),
+                "control character leaked into HTML output"
+            );
+            assert!(
+                !html.contains("<script>"),
+                "markup from a label survived HTML escaping"
+            );
+        }
+    }
+}

@@ -113,7 +113,10 @@ The subpixel grid that marks draw on during rasterization, before glyphs exist
 charset codec maps each cell's subpixel pattern to a glyph with independent foreground
 and background colors; heatmap half-blocks use both channels for two vertical samples.
 Text shares the grid and wins over pixels. Drawing is infallible: out-of-surface clips
-and non-finite coordinates draw nothing. Maps to `render::Surface`.
+and non-finite coordinates draw nothing. Control characters are dropped at the cell
+grid — a title, label, or category carrying escape bytes can never smuggle them into
+any encoder's output; the only escapes in ANSI output are the encoder's own SGR
+sequences (a regression test pins this contract). Maps to `render::Surface`.
 
 ## Charset
 
