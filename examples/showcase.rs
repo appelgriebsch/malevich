@@ -8,7 +8,8 @@
 //! deterministic gallery — its output depends on where you run it, which is the
 //! point. For the moving version of this tour, run `cargo run --example live`.
 
-use malevich::{Area, Frame, Grid, Line, LineStyle, Plot, Points, Rule, Text};
+use malevich::scale::Palette;
+use malevich::{Area, Color, Frame, Grid, Line, LineStyle, Plot, Points, Range, Rule, Text};
 
 /// The tour's render: one chart per row, or a cells-versus-pixels comparison
 /// when the terminal offers a pixel protocol.
@@ -297,9 +298,38 @@ fn main() {
     );
     println!(
         "{}\n",
-        malevich::ecdf(&samples[..])
-            .title("ecdf of the histogram sample")
+        malevich::ecdf_with(&samples[..], malevich::EcdfOptions::new().band(0.05))
+            .expect("a valid band level")
+            .title("ecdf of the histogram sample, 95% DKW band")
             .show(&frame)
+    );
+    // A deterministic unit hash for the synthetic panels below.
+    let noise = |i: usize, seed: f64| {
+        let hash = (i as f64 * 12.9898 + seed * 78.233).sin() * 43758.5453;
+        (hash - hash.floor()) * 2.0 - 1.0
+    };
+    // Least squares as a stat: the fitted line, a 95% confidence band around
+    // the mean response, and R² from the same mergeable accumulator.
+    let dose: Vec<f64> = (0..70).map(|i| i as f64 * 0.4).collect();
+    let response: Vec<f64> = dose
+        .iter()
+        .enumerate()
+        .map(|(i, &d)| 0.8 * d + 4.0 + noise(i, 9.0) * 2.4)
+        .collect();
+    let fit = malevich::stat::Fit::xy(&dose, &response);
+    println!(
+        "{}\n",
+        malevich::trend_with(
+            &dose[..],
+            &response[..],
+            malevich::TrendOptions::new().band(1.96),
+        )
+        .expect("a positive band multiplier is valid")
+        .title(format!(
+            "least squares: R\u{b2} = {:.2} (synthetic)",
+            fit.r_squared().unwrap_or(f64::NAN)
+        ))
+        .show(&frame)
     );
     let blob = |count: usize, cx: f64, cy: f64, spread: f64| -> (Vec<f64>, Vec<f64>) {
         (0..count)
@@ -312,14 +342,62 @@ fn main() {
             })
             .unzip()
     };
+    // Two colonies through one color_by channel: palette colors, a categorical
+    // legend, and marker shapes keeping the groups apart when piped.
     let (ax, ay) = blob(80, 3.0, 4.0, 1.6);
     let (bx, by) = blob(80, 7.5, 7.0, 1.9);
+    let mut colony = vec!["colony a"; ax.len()];
+    colony.extend(std::iter::repeat_n("colony b", bx.len()));
+    let x: Vec<f64> = ax.into_iter().chain(bx).collect();
+    let y: Vec<f64> = ay.into_iter().chain(by).collect();
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Points::xy(&x[..], &y[..]).color_by(colony))
+            .title("two colonies, one color_by channel (synthetic)")
+            .show(&frame)
+    );
+    // Candlesticks from the grammar: Range whiskers and bodies, up/down days
+    // split by the same categorical channel.
+    let mut price = 100.0f64;
+    let days = 42usize;
+    let (mut t, mut low, mut high, mut open, mut close, mut day) = (
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    for i in 0..days {
+        let drift = if i == 0 {
+            0.8
+        } else {
+            noise(i, 3.0) * 2.2 + 0.1
+        };
+        let (opened, closed) = (price, price + drift);
+        let wick = 0.4 + noise(i, 11.0).abs() * 1.4;
+        t.push(i as f64);
+        open.push(opened);
+        close.push(closed);
+        low.push(opened.min(closed) - wick);
+        high.push(opened.max(closed) + wick);
+        day.push(if closed >= opened { "up" } else { "down" });
+        price = closed;
+    }
     println!(
         "{}",
         Plot::new()
-            .layer(Points::xy(&ax[..], &ay[..]).label("colony a"))
-            .layer(Points::xy(&bx[..], &by[..]).label("colony b"))
-            .title("two colonies (synthetic)")
+            .layer(
+                Range::xy(&t[..], &low[..], &high[..])
+                    .body(&open[..], &close[..])
+                    .color_by(day),
+            )
+            .palette(Palette::new(&[
+                Color::Rgb(0, 158, 115),
+                Color::Rgb(213, 94, 0),
+            ]))
+            .title("daily candles (synthetic)")
             .show(&frame)
     );
 }
