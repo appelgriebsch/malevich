@@ -504,6 +504,8 @@ impl Canvas for Surface {
             PointShape::Dot => unreachable!(),
             PointShape::Plus => "+",
             PointShape::Cross => "x",
+            PointShape::Asterisk => "*",
+            PointShape::Circle => "o",
         };
         Surface::text(self, column, row, glyph, color);
     }

@@ -193,6 +193,35 @@ fn a_grid_of_plots_round_trips() {
 }
 
 #[test]
+fn color_by_and_the_palette_round_trip_and_stay_out_of_legacy_encodings() {
+    use crate::mark::Points;
+    use crate::scale::Palette;
+
+    let plot = Plot::new()
+        .layer(Points::y(&[1.0, 2.0, 3.0][..]).color_by(["a", "b", "a"]))
+        .palette(Palette::new(&[Color::Red, Color::Blue]));
+    let encoded = serde_json::to_string(&plot).expect("serializes");
+    assert!(encoded.contains("color_by") && encoded.contains("palette"));
+    let decoded: Plot = serde_json::from_str(&encoded).expect("deserializes");
+    assert_eq!(plot.render(&frame()), decoded.render(&frame()));
+
+    // A plot without the channel encodes exactly as before this field existed,
+    // and a ragged deserialized channel is caught at the validation boundary.
+    let legacy = Plot::new().layer(Points::y(&[1.0, 2.0][..]));
+    let legacy_encoded = serde_json::to_string(&legacy).expect("serializes");
+    assert!(!legacy_encoded.contains("color_by") && !legacy_encoded.contains("palette"));
+
+    let ragged: Plot = serde_json::from_str(
+        r#"{"layers":[{"Points":{"x":null,"y":[1.0,2.0,3.0],"color":null,"label":null,"style":"Dot","color_by":["a"]}}],"title":null,"x":"Linear","y":"Linear","x_label":null,"y_label":null,"x_domain":null,"y_domain":null}"#,
+    )
+    .expect("ragged color_by deserializes");
+    assert!(matches!(
+        ragged.validate(),
+        Err(crate::Error::UnequalChannels { .. })
+    ));
+}
+
+#[test]
 fn a_centered_colormap_round_trips_and_legacy_maps_stay_linear() {
     use crate::scale::Colormap;
 

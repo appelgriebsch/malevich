@@ -85,30 +85,116 @@ Source: [examples/languages.rs](examples/languages.rs)
 
 ## clusters
 
-Palmer penguins: bill dimensions separate the species into visible clusters, with portable marker shapes keeping layers distinct without color.
+Palmer penguins through one color_by channel: categories take palette colors, name themselves in the legend, and cycle marker shapes in colorless output.
 Source: [examples/clusters.rs](examples/clusters.rs)
 
 ```text
                         penguin bills by species
-                   •• Adelie  ++ Gentoo  xx Chinstrap
+                   •• Adelie  ++ Chinstrap  xx Gentoo
   21 ┤          ⡀        ⠄⡀   ⢀  ⠄       ⠁
-     │                ⡀   ⠠⠄     ⠠                    x    x
-  20 ┤                 ⠄⠄⠄  ⠠ ⠌ ⠂       ⠁       x x xx  xx
-     │           ⡀  ⢄⢀⢀⠁  ⠂     ⡤    ⠁  x      x x x  xx      x
-  19 ┤       ⠐   ⠠ ⠁⢀ ⠰⡀⠁⢂⡀⡔⠄⡦⠆ ⠐ ⠈⠂   x⠠x      x xxxxx
-d    │         ⠠   ⠂⠠⠃⠐⠍  ⠁⠄⠐⠡⡁⠇⠐⠠⠂⠂     xx x   xx xx
-e 18 ┤         ⠁⠁⠂⠈⠆⠡⠈⠄⢁⠑⡠⠠⠇⠈⠂⡁⠈  ⡀x ⠁ x  x       xx  x            x
-p 17 ┤        ⢀ ⠄ ⢁⡰⡀ ⢀⣂ ⣌⠈⠄⢀⢄⠁  x   +  xx x  x  x +  +       +       +
-t    │            ⠈⠄⠄⢈⠂⢀  ⠐   x  x x   x  xxxx   +  +
-h 16 ┤       ⠂   ⢀⠂⠐   ⠄                  +   ++++ +++       +
-     │    ⠠                          + + +++++ +++++   + + +
-  15 ┤                         +   + + ++++ ++++++++
-     │                            ++ + +++++++++  + +
-  14 ┤                        +  + ++ +++  ++
-  13 ┤                          + ++  +  ++
+     │                ⡀   ⠠⠄     ⠠                    +    +
+  20 ┤                 ⠄⠄⠄  ⠠ ⠌ ⠂       ⠁       + + ++  ++
+     │           ⡀  ⢄⢀⢀⠁  ⠂     ⡤    ⠁  +      + + +  ++      +
+  19 ┤       ⠐   ⠠ ⠁⢀ ⠰⡀⠁⢂⡀⡔⠄⡦⠆ ⠐ ⠈⠂   +⠠+      + +++++
+d    │         ⠠   ⠂⠠⠃⠐⠍  ⠁⠄⠐⠡⡁⠇⠐⠠⠂⠂     ++ +   ++ ++
+e 18 ┤         ⠁⠁⠂⠈⠆⠡⠈⠄⢁⠑⡠⠠⠇⠈⠂⡁⠈  ⡀+ ⠁ +  +       ++  +            +
+p 17 ┤        ⢀ ⠄ ⢁⡰⡀ ⢀⣂ ⣌⠈⠄⢀⢄⠁  +   x  ++ +  +  + x  x       x       x
+t    │            ⠈⠄⠄⢈⠂⢀  ⠐   +  + +   x  ++++   x  x
+h 16 ┤       ⠂   ⢀⠂⠐   ⠄                  x   xxxx xxx       x
+     │    ⠠                          x x xxxxx xxxxx   x x x
+  15 ┤                         x   x x xxxx xxxxxxxx
+     │                            xx x xxxxxxxxx  x x
+  14 ┤                        x  x xx xxx  xx
+  13 ┤                          x xx  x  xx
      └┬──────────┬──────────┬──────────┬─────────┬──────────┬──────────┬
      30         35         40         45        50         55         60
                                 bill length, mm
+```
+
+## volcano
+
+A volcano plot from the grammar, no preset: significance classes via color_by, thresholds as Rules, grey pinned to the insignificant mass.
+Source: [examples/volcano.rs](examples/volcano.rs)
+
+```text
+                  differential expression (synthetic)
+                        •• n.s.  ++ down  xx up
+  5 ┤                      ⡇                     ⢸               x
+    │                      ⡇                     ⢸
+    │                      ⡇                     ⢸             x xx
+  4 ┤       + + +          ⡇                     ⢸           x xx
+-   │          +           ⡇                     ⢸           x
+l   │    +      ++ +       ⡇                     ⢸        xx  x x x
+o 3 ┤            +   +     ⡇                     ⢸       xx
+g   │        ++    +     + ⡇                     ⢸            x
+1   │        +     + +     ⡇                     ⢸  x     x x xx x
+0   │       +       +    + ⡇                   ⢀ ⢸   xx   x    x
+  2 ┤⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠩⠉⠉⠉⡏⠉⡉⠩⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢉⡍⠉⠉⢹⠉⠭⠉⢉⠉⠋⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉
+p   │                ⠂     ⡇⠐ ⢐⣪⠃⡄         ⠠⠦⠚⠆ ⠂⢸  ⡀   ⠠  ⠠
+    │               ⠂    ⠠⠃⡇  ⠈⡫⠶⣷⣤⡄     ⢀⣰⢋⣳⢫⣄  ⢸ ⠂   ⠂⢀
+  1 ┤                ⠐  ⠂  ⡇  ⠐⡒⢔⣧⢬⡺⢲⡀ ⠠⡮⠍⢶⣎⡨⣕   ⢸ ⠂
+    │                   ⠠ ⡀⡇   ⢦⠅⣧⡫⠕⡭⠼⠬⡺⡛⣾⢶⢄⣻⢣⠁  ⢸   ⠠
+    │                     ⠂⡇   ⣣⢝⣝⣃⣽⡁⢗⣳⠿⠾⡳⣏⢠⢊⡟⠂  ⢸
+  0 ┤                     ⠐⡇ ⢀⢀⣓⣴⣰⣬⣜⣟⣹⣻⣺⣿⣭⣯⣣⣰⣢⡄⡀ ⢸
+    └┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬
+    -3         -2         -1          0          1          2          3
+                              log2 fold change
+```
+
+## manhattan
+
+A Manhattan plot from the grammar, no preset: chromosomes alternate two shades as unlabeled layers, the genome-wide threshold is a labeled Rule.
+Source: [examples/manhattan.rs](examples/manhattan.rs)
+
+```text
+                        association scan (synthetic)
+                               ── genome-wide
+  10 ┤                    ⠈
+     │                    ⠈                       ⠘
+     │                    ⢐                       ⠒⡀          ⠈
+-  8 ┤                    ⢡⡄                      ⠱⡀          ⢸
+l    │                    ⡐⣂                      ⠤           ⠠
+o    │                    ⠂⡖                      ⠰⡂          ⢀⡀
+g  6 ┤                   ⠘⡏⠴⡀                     ⠔           ⡒⠃
+1    │⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠴⠥⠦⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢤⠤⢬⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣧⣧⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤
+0    │                  ⢀⡼ ⠈⠅                    ⢠⠃⢀         ⠠⡄⢅
+   4 ┤                  ⢄⠁⡀⠨⠢⡄                   ⡘⠃⡐⡂        ⢨⠃⠨
+p    │⢀⡀⢀⢀⡀ ⣀⣀ ⢀ ⡀⣀⡀⡀ ⢀⡀⢡⢎ ⠈⠖⡢⡀ ⢀⢀⡀⣀⣀⣀⢀ ⡀ ⡀⡀⢀⡀⣀⢀⡀⢨ ⠨⠡  ⣀⣀⡀ ⡀⡀⡠ ⢰ ⡀  ⣀⡀⡀
+   2 ┤ ⡳⡳⡓⢒⠝⡷⠳⣾⠒⢞⠆⠓⣐⢇⢾⢧⢆⡨⠂  ⢴⣈⣇⢦⣑⠆⡡⡃⢖⣩⢁⡸⢞⢳⢚⠟⡕⣉⠏⢕⠈⡡ ⠠⠋⡭⡰⡬⣸⣲⡹⣜⠮⣋ ⢀⢡⡔⡫⡐⣢⢆⠅
+     │⣋⠬⣆⢀⡍⡣⣒⠬⢞⡼⢂⢵⣲⡢⢣⠕⢾⠙⡲   ⠐⠫⢚⢧⢍⠷⡭⡜⡱⠳⢭⡡⣷⢐⡔⢭⣅⡌⢒⠫⡿⠇  ⠵⣽⠘⢡⢢⢍⡆⡕⣈⠡ ⠈⡩⠹⣳⣰⠽⡗⠄
+     │⢡⣡⠤⡥⣪⢴⢚⢤⡀⢏⣁⡀⠉⡚⡸⠫⣔⢛⡅    ⢨⠬⠦⡐⠜⠱⢬⢢⠥⡚⠲⠔⡌⢠⠦⢵⠝⠔⠣⢹⡀  ⠌⠁⡖⢷⡂⢓⡕⠜⠘⢃  ⣖⣑⢦⣘⢱⡉
+   0 ┤⢮⠙⣰⡹⠬⠭⠉⢦⠌⢄⡫⢩⢫⠳⠫⠆⡢⠤     ⠐⢐⡱⡉⡬⠩⡢⠠⡀⣮⡛⠠⠭⡗⡰⠄⡬⠝⠼⠂   ⠙⠃⠼⡐⠧⠣⢪⠭⢧⠓  ⠪⠮⠌⡧⠔⢸⠄
+     └┬─────────┬─────────┬─────────┬────────┬─────────┬─────────┬─────────┬
+      0        200       400       600      800      1000      1200     1400
+                                 genomic position
+```
+
+## candles
+
+Candlesticks from the grammar, no preset: Range whiskers and bodies with up/down days split by color_by.
+Source: [examples/candles.rs](examples/candles.rs)
+
+```text
+                       daily candles (synthetic)
+                             ┃┃ up  ┃┃ down
+  107.5 ┤         ⠠⡤
+        │     ⠠⢤⣄⡤⡤⡧⢤⠄ ⢀⣀
+  105.0 ┤      ⢸⣾⣶⣷⣷⣾⣶⣀⣀⡗⢲⠂
+        │    ⠠⣼⣿⣿⠿⡿⣿⣿⣿⣤⣿⣿⣿⣿⠂
+  102.5 ┤⠠⢤⠄⠒⣖⣿⣿⣿⠒⠓⡧⠼⢿⠿⣿⣟⢻⣿⣶⡤
+p       │⡏⢸⢲⣶⣿⡟⢻  ⠐⠓ ⠉⠓⠓⠈⢹⣿⣿⡇⢀⣀⡀
+r 100.0 ┤⣿⣿⣿⣿⣿⡷⠚⠂        ⠈⢹⣿⣿⡧⢸⢹⠁
+i       │⣇⣸⣹⠉⡏⠁           ⠉⠉⡯⠯⢹⣿⣿⣀                    ⠐⢲⠂  ⢀⣀⣀⡀
+c       │  ⠉⠉⠉             ⠒⠓⠐⠚⢻⣿⣷⡆ ⢹⠓⡖        ⠒⡞⡯⢤⠄ ⣬⣯⣼⣤⡒⡖ ⢸⢸
+e  97.5 ┤                      ⠚⣿⣿⡏⢀⣸⣀⣇⣀       ⣤⣧⣧⣼⣤⠒⣿⣿⣿⣿⣿⣿⣷⣾⣾⣶⡖
+        │                       ⣉⣿⣿⣿⣿⣿⣿⣧⣤⢶⠂⢀⣀ ⢤⣿⣿⣿⣿⣿⣷⣿⣟⢻⠚⠦⠿⠛⢹⣿⣿⣇⡀
+   95.0 ┤                        ⠿⡿⢿⢿⠉⣿⣿⣿⣼⣭⣯⣏⣹⣿⣿⡟⢓⣸⣻⠛⡟⠓⠚⠂  ⠠⠼⢼⣿⣿⡗
+        │                        ⠠⠷⠚⠾⠖⠛⣿⣿⣿⣿⣿⣿⣿⡽⠟⠓  ⠉⠓⠓       ⠚⠿⣿⣷⣶⠂
+   92.5 ┤                             ⠈⠹⢿⢿⠿⠯⡏⠁                 ⡿⣿⣿⣤
+        │                               ⢸⠼⠄⠈⠉                 ⠉⠩⢧⣸⡀
+   90.0 ┤                              ⠈⠉⠁
+        └┬───────────┬────────────┬───────────┬────────────┬───────────┬
+         0          10           20          30           40          50
 ```
 
 ## waveform

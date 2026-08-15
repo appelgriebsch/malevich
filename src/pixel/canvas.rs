@@ -193,6 +193,28 @@ impl Canvas for PixelCanvas {
                     self.set(x + offset, y - offset, color);
                 }
             }
+            PointShape::Asterisk => {
+                for offset in -self.point..=self.point {
+                    self.set(x + offset, y, color);
+                    self.set(x, y + offset, color);
+                    self.set(x + offset, y + offset, color);
+                    self.set(x + offset, y - offset, color);
+                }
+            }
+            PointShape::Circle => {
+                // A one-pixel ring at the marker radius: pixels whose squared
+                // distance lands within half a pixel of the radius.
+                let radius = self.point.max(1);
+                let target = radius * radius;
+                for dy in -radius..=radius {
+                    for dx in -radius..=radius {
+                        let distance = dx * dx + dy * dy;
+                        if distance >= target - radius && distance <= target + radius {
+                            self.set(x + dx, y + dy, color);
+                        }
+                    }
+                }
+            }
         }
     }
 

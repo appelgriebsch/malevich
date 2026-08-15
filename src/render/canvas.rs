@@ -15,6 +15,8 @@ pub(crate) enum PointShape {
     Dot,
     Plus,
     Cross,
+    Asterisk,
+    Circle,
 }
 
 /// The plot rectangle in cell coordinates: where marks may draw, chrome excluded.

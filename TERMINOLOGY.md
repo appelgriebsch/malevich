@@ -37,9 +37,15 @@ family is complete.
 ## Channel
 
 A per-mark visual variable fed from data or set constant: `x`, `y`, `y2`, `color`,
-`label`, …. Follows Vega-Lite/Observable Plot "encoding channel". Channels accept
-anything series-shaped (see Series). Maps to mark constructor arguments and builder
-methods *(planned)*.
+`label`, …. Follows Vega-Lite/Observable Plot "encoding channel". Position channels
+accept anything series-shaped (see Series) through constructor arguments; constant
+channels are builder methods (`color`, `label`, `style`). The data-bound color
+channel is `color_by(categories)` on `Line`, `Points`, `Bars`, and `Range`: distinct
+categories in first-appearance order take colors from the plot's categorical
+Palette, name themselves in the legend, and — in colorless output — cycle the
+default point markers so groups stay separable. It resolves as one masked layer per
+category (the mask is the gap convention), which is what keeps legends, downsampling,
+and honest gaps compositions rather than special cases.
 
 ## Series
 
@@ -90,7 +96,10 @@ configured palettes move into `try_from_stops`, exposing their RGB stops read-on
 through `stops`. A diverging map becomes one by anchoring: `centered_at(mid)` pins a
 data value to the ramp middle and the value range spans the larger side
 symmetrically, so equal magnitudes get equal intensity and the colorbar admits the
-widened span.
+widened span. `scale::Palette` is the categorical color scale `color_by` channels
+draw from — Okabe–Ito (Wong 2011, print-black omitted) by default, replaceable per
+plot with `Plot::palette`; categories past the palette wrap, with marker-shape
+cycling keeping them separable where color cannot.
 
 ## Ticks
 

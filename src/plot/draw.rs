@@ -132,8 +132,8 @@ pub(crate) fn layers<C: Canvas>(
                     x,
                     low,
                     high,
-                    *body,
-                    *marker,
+                    body.as_ref().map(|(lo, hi)| (lo.as_ref(), hi.as_ref())),
+                    marker.as_deref(),
                     *color,
                     x_scale,
                     y_scale,
@@ -257,6 +257,8 @@ fn draw_series<C: Canvas>(
                 PointStyle::Dot => PointShape::Dot,
                 PointStyle::Plus => PointShape::Plus,
                 PointStyle::Cross => PointShape::Cross,
+                PointStyle::Asterisk => PointShape::Asterisk,
+                PointStyle::Circle => PointShape::Circle,
             };
             for (xv, &yv) in x.iter().zip(y.iter()) {
                 if xv.is_finite() && yv.is_finite() {

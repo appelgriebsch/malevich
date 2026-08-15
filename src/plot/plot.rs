@@ -43,6 +43,11 @@ pub struct Plot<'a> {
     y_domain: Option<(f64, f64)>,
     #[cfg_attr(feature = "serde", serde(default))]
     colorbar: bool,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    palette: Option<crate::scale::Palette>,
 }
 
 impl<'a> Plot<'a> {
@@ -58,7 +63,16 @@ impl<'a> Plot<'a> {
             x_domain: None,
             y_domain: None,
             colorbar: false,
+            palette: None,
         }
+    }
+
+    /// Replaces the categorical color scale `color_by` channels draw from;
+    /// [`Palette::OKABE_ITO`](crate::scale::Palette::OKABE_ITO) by default.
+    #[must_use]
+    pub fn palette(mut self, palette: crate::scale::Palette) -> Plot<'a> {
+        self.palette = Some(palette);
+        self
     }
 
     /// Fixes the x axis to `[min, max]` instead of fitting the data — matplotlib's
@@ -191,6 +205,7 @@ impl<'a> Plot<'a> {
             x_domain: self.x_domain,
             y_domain: self.y_domain,
             colorbar: self.colorbar,
+            palette: self.palette,
         }
     }
 
@@ -574,7 +589,15 @@ impl<'a> Plot<'a> {
             x_positive: matches!(&self.x, Scale::Log),
             y_positive: matches!(&self.y, Scale::Log),
         };
-        let probe = super::resolve::resolve(&self.layers, sample_width, palette, extent);
+        let categorical = self.palette.clone().unwrap_or_default();
+        let probe = super::resolve::resolve(
+            &self.layers,
+            sample_width,
+            palette,
+            &categorical,
+            false,
+            extent,
+        );
         let layout = super::layout::Layout::compute(
             frame,
             cell,
@@ -589,7 +612,14 @@ impl<'a> Plot<'a> {
             map: layout.x_scale,
             columns: layout.plot_sub_w,
         };
-        let mut layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
+        let mut layers = super::resolve::resolve(
+            &self.layers,
+            sample_width,
+            palette,
+            &categorical,
+            false,
+            reduce,
+        );
         // Corners is cell-glyph art; at pixel resolution the honest line is the
         // line itself.
         for layer in &mut layers {
@@ -671,8 +701,18 @@ impl<'a> Plot<'a> {
             x_positive: matches!(&self.x, Scale::Log),
             y_positive: matches!(&self.y, Scale::Log),
         };
-        let probe = downsample
-            .then(|| super::resolve::resolve(&self.layers, sample_width, palette, extent));
+        let categorical = self.palette.clone().unwrap_or_default();
+        let cycle_markers = frame.color == crate::render::ColorMode::Plain;
+        let probe = downsample.then(|| {
+            super::resolve::resolve(
+                &self.layers,
+                sample_width,
+                palette,
+                &categorical,
+                cycle_markers,
+                extent,
+            )
+        });
         let probed_layout = probe.as_ref().map(|probe| {
             super::layout::Layout::compute(
                 frame,
@@ -694,7 +734,14 @@ impl<'a> Plot<'a> {
             Reduce::None
         };
 
-        let layers = super::resolve::resolve(&self.layers, sample_width, palette, reduce);
+        let layers = super::resolve::resolve(
+            &self.layers,
+            sample_width,
+            palette,
+            &categorical,
+            cycle_markers,
+            reduce,
+        );
         let layout = probed_layout.unwrap_or_else(|| {
             super::layout::Layout::compute(
                 frame,

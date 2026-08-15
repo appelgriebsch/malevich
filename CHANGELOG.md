@@ -5,6 +5,17 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- Color speaks data: `color_by(categories)` on `Line`, `Points`, `Bars`, and
+  `Range` colors a layer by a categorical series. Distinct categories (first
+  appearance first) take colors from the new `scale::Palette` — Okabe–Ito by
+  default, colorblind-safe, replaceable with `Plot::palette` — and name
+  themselves in the legend. In colorless output the default point markers cycle
+  shapes per category, so groups separate in a pipe as well as a terminal. The
+  channel is proven bit-identical to its masked-layer expansion; grouped
+  scatter, volcano, Manhattan, and candlestick compositions join the gallery.
+- `PointStyle` gains portable `Asterisk` (`*`) and `Circle` (`o`) markers, in
+  cells and as geometric pixel shapes; the ASCII legend swatch for `Dot` is now
+  `..`, freeing `**` for the asterisk.
 - `Colormap` grows a curated named set — sequential `VIRIDIS` (the default,
   now named), `MAGMA`, `CIVIDIS`, `GREYS` and diverging `RED_BLUE`,
   `PURPLE_ORANGE` — selected to stay distinguishable after the 256- and

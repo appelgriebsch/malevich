@@ -117,8 +117,13 @@ iTerm2) on the right, from the same plot values:
   range, rule, text) × a stats layer × shared scales compose into the whole basic
   chart catalog. Every preset — `line`, `scatter`, `bar`, `hist`, `stairs`, `ecdf`,
   `heatmap`, `hist2d`, `density`, `box_plot`, `violin`, `error_bars` — is proven
-  bit-identical to its grammar expansion in tests. Point layers can use compact dots
-  or portable `+`/`x` markers when series must remain distinct without color.
+  bit-identical to its grammar expansion in tests. **Color speaks data**: a
+  `color_by` channel colors points, lines, bars, and intervals by category —
+  colorblind-safe Okabe–Ito colors, a categorical legend, and portable marker
+  shapes (`•`, `+`, `x`, `*`, `o`) that cycle automatically in colorless output so
+  groups never vanish in a pipe. Grouped scatters, volcano plots, Manhattan plots,
+  and candlesticks are a few grammar lines each, never presets
+  ([EXAMPLES.md](EXAMPLES.md)).
 - **The statistical set no terminal library has.** Box plots with type-7 quartiles
   and Tukey whiskers, violins from a real KDE (Silverman bandwidth), ECDFs, error
   bars, 2D densities (with a colorbar legending the value scale) — the charts

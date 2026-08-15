@@ -17,6 +17,11 @@ pub struct Bars<'a> {
     pub(crate) values: Series<'a>,
     pub(crate) color: Option<Color>,
     pub(crate) label: Option<String>,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub(crate) color_by: Option<Vec<String>>,
 }
 
 /// Where bars sit on the x axis: named bands, or contiguous numeric spans.
@@ -49,6 +54,7 @@ impl<'a> Bars<'a> {
             values,
             color: None,
             label: None,
+            color_by: None,
         }
     }
 
@@ -69,6 +75,7 @@ impl<'a> Bars<'a> {
             values: values.into_series(),
             color: None,
             label: None,
+            color_by: None,
         }
     }
 
@@ -87,6 +94,27 @@ impl<'a> Bars<'a> {
         self
     }
 
+    /// Colors each bar by its category: distinct group names (in order of
+    /// first appearance) take colors from the plot's categorical
+    /// [`Palette`](crate::scale::Palette) and appear in the legend. The bands
+    /// on the axis stay the bars' own categories; this channel groups them.
+    /// Replaces the constant color and layer label.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of group names differs from the number of bars.
+    #[must_use]
+    pub fn color_by(mut self, groups: impl IntoIterator<Item = impl Into<String>>) -> Bars<'a> {
+        let groups: Vec<String> = groups.into_iter().map(Into::into).collect();
+        assert_eq!(
+            groups.len(),
+            self.values.len(),
+            "Bars::color_by requires one group per bar"
+        );
+        self.color_by = Some(groups);
+        self
+    }
+
     /// Detaches from any borrowed storage, making the mark `'static`.
     pub fn into_owned(self) -> Bars<'static> {
         Bars {
@@ -94,6 +122,7 @@ impl<'a> Bars<'a> {
             values: self.values.into_owned(),
             color: self.color,
             label: self.label,
+            color_by: self.color_by,
         }
     }
 }

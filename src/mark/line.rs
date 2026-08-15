@@ -30,6 +30,7 @@ pub struct Line<'a> {
     pub(crate) color: Option<Color>,
     pub(crate) label: Option<String>,
     pub(crate) style: LineStyle,
+    pub(crate) color_by: Option<Vec<String>>,
 }
 
 #[derive(Clone)]
@@ -55,6 +56,7 @@ impl<'a> Line<'a> {
             color: None,
             label: None,
             style: LineStyle::Pixels,
+            color_by: None,
         }
     }
 
@@ -72,6 +74,7 @@ impl<'a> Line<'a> {
             color: None,
             label: None,
             style: LineStyle::Pixels,
+            color_by: None,
         }
     }
 
@@ -99,6 +102,7 @@ impl<'a> Line<'a> {
             color: None,
             label: None,
             style: LineStyle::Pixels,
+            color_by: None,
         }
     }
 
@@ -124,6 +128,34 @@ impl<'a> Line<'a> {
         self
     }
 
+    /// Colors the line by per-point categories: each category's run draws in
+    /// its palette color as a separate segment (breaks between categories are
+    /// honest gaps), the legend names the categories, and colorless output
+    /// keeps them apart by segmentation. Replaces the constant color and
+    /// layer label.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of categories differs from the number of points,
+    /// or if the line is function-backed (a sampled function has no
+    /// per-point categories).
+    #[must_use]
+    pub fn color_by(mut self, categories: impl IntoIterator<Item = impl Into<String>>) -> Line<'a> {
+        let categories: Vec<String> = categories.into_iter().map(Into::into).collect();
+        match &self.source {
+            Source::Points { y, .. } => assert_eq!(
+                categories.len(),
+                y.len(),
+                "Line::color_by requires one category per point"
+            ),
+            Source::Function { .. } => {
+                panic!("Line::color_by requires point data, not a sampled function")
+            }
+        }
+        self.color_by = Some(categories);
+        self
+    }
+
     /// Detaches from any borrowed storage, making the mark `'static`.
     pub fn into_owned(self) -> Line<'static> {
         Line {
@@ -137,6 +169,7 @@ impl<'a> Line<'a> {
             color: self.color,
             label: self.label,
             style: self.style,
+            color_by: self.color_by,
         }
     }
 }
@@ -173,6 +206,8 @@ mod serde_impls {
         color: &'s Option<Color>,
         label: &'s Option<String>,
         style: LineStyle,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        color_by: &'s Option<Vec<String>>,
     }
 
     #[derive(serde::Deserialize)]
@@ -182,6 +217,8 @@ mod serde_impls {
         color: Option<Color>,
         label: Option<String>,
         style: LineStyle,
+        #[serde(default)]
+        color_by: Option<Vec<String>>,
     }
 
     impl serde::Serialize for Line<'_> {
@@ -193,6 +230,7 @@ mod serde_impls {
                     color: &self.color,
                     label: &self.label,
                     style: self.style,
+                    color_by: &self.color_by,
                 }
                 .serialize(serializer),
                 Source::Function { .. } => Err(S::Error::custom(
@@ -213,6 +251,7 @@ mod serde_impls {
                 color: repr.color,
                 label: repr.label,
                 style: repr.style,
+                color_by: repr.color_by,
             })
         }
     }

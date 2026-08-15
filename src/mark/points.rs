@@ -19,6 +19,10 @@ pub enum PointStyle {
     Plus,
     /// An `x` marker.
     Cross,
+    /// A `*` marker.
+    Asterisk,
+    /// An `o` marker.
+    Circle,
 }
 
 /// Unconnected markers at data positions; gaps (`NaN`) simply have no marker.
@@ -31,6 +35,11 @@ pub struct Points<'a> {
     pub(crate) label: Option<String>,
     #[cfg_attr(feature = "serde", serde(default))]
     pub(crate) style: PointStyle,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub(crate) color_by: Option<Vec<String>>,
 }
 
 impl<'a> Points<'a> {
@@ -42,6 +51,7 @@ impl<'a> Points<'a> {
             color: None,
             label: None,
             style: PointStyle::Dot,
+            color_by: None,
         }
     }
 
@@ -64,6 +74,7 @@ impl<'a> Points<'a> {
             color: None,
             label: None,
             style: PointStyle::Dot,
+            color_by: None,
         }
     }
 
@@ -89,6 +100,30 @@ impl<'a> Points<'a> {
         self
     }
 
+    /// Colors each point by its category. Distinct categories (in order of
+    /// first appearance) take colors from the plot's categorical
+    /// [`Palette`](crate::scale::Palette) and appear in the legend by name;
+    /// in colorless output the default markers cycle shapes instead, so
+    /// groups stay separable. Replaces the constant color and layer label.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of categories differs from the number of points.
+    #[must_use]
+    pub fn color_by(
+        mut self,
+        categories: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Points<'a> {
+        let categories: Vec<String> = categories.into_iter().map(Into::into).collect();
+        assert_eq!(
+            categories.len(),
+            self.y.len(),
+            "Points::color_by requires one category per point"
+        );
+        self.color_by = Some(categories);
+        self
+    }
+
     /// Detaches from any borrowed storage, making the mark `'static`.
     pub fn into_owned(self) -> Points<'static> {
         Points {
@@ -97,6 +132,7 @@ impl<'a> Points<'a> {
             color: self.color,
             label: self.label,
             style: self.style,
+            color_by: self.color_by,
         }
     }
 }

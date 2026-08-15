@@ -31,8 +31,24 @@ const GALLERY: &[(&str, &str)] = &[
     ),
     (
         "clusters",
-        "Palmer penguins: bill dimensions separate the species into visible \
-         clusters, with portable marker shapes keeping layers distinct without color.",
+        "Palmer penguins through one color_by channel: categories take palette \
+         colors, name themselves in the legend, and cycle marker shapes in \
+         colorless output.",
+    ),
+    (
+        "volcano",
+        "A volcano plot from the grammar, no preset: significance classes via \
+         color_by, thresholds as Rules, grey pinned to the insignificant mass.",
+    ),
+    (
+        "manhattan",
+        "A Manhattan plot from the grammar, no preset: chromosomes alternate two \
+         shades as unlabeled layers, the genome-wide threshold is a labeled Rule.",
+    ),
+    (
+        "candles",
+        "Candlesticks from the grammar, no preset: Range whiskers and bodies with \
+         up/down days split by color_by.",
     ),
     (
         "waveform",

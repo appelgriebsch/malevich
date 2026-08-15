@@ -77,10 +77,17 @@ impl<'a> Mark<'a> {
                 if let Source::Points { x: Some(x), y } = &line.source {
                     pair("Line: x and y", x.len(), y.len())?;
                 }
+                if let (Some(categories), Source::Points { y, .. }) = (&line.color_by, &line.source)
+                {
+                    pair("Line: color_by and y", categories.len(), y.len())?;
+                }
             }
             Mark::Points(points) => {
                 if let Some(x) = &points.x {
                     pair("Points: x and y", x.len(), points.y.len())?;
+                }
+                if let Some(categories) = &points.color_by {
+                    pair("Points: color_by and y", categories.len(), points.y.len())?;
                 }
             }
             Mark::Bars(bars) => {
@@ -90,6 +97,9 @@ impl<'a> Mark<'a> {
                         categories.len(),
                         bars.values.len(),
                     )?;
+                }
+                if let Some(groups) = &bars.color_by {
+                    pair("Bars: color_by and values", groups.len(), bars.values.len())?;
                 }
             }
             Mark::Area(area) => {
@@ -151,6 +161,9 @@ impl<'a> Mark<'a> {
                 }
                 if let Some(marker) = &range.marker {
                     pair("Range: marker and low", marker.len(), n)?;
+                }
+                if let Some(categories) = &range.color_by {
+                    pair("Range: color_by and low", categories.len(), n)?;
                 }
             }
             Mark::Rule(_) | Mark::Text(_) => {}

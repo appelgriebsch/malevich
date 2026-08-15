@@ -599,6 +599,109 @@ fn a_colorbar_legends_the_cells_value_range() {
 }
 
 #[test]
+fn color_by_equals_its_masked_layer_expansion() {
+    use crate::mark::Points;
+    use crate::scale::Palette;
+
+    // The channel is sugar for one masked, palette-colored, labeled layer per
+    // category — proven bit-identical to writing those layers by hand.
+    let x = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+    let y = [2.0, 1.0, 3.0, 2.5, 0.5, 1.5];
+    let species = ["a", "b", "a", "c", "b", "a"];
+    let mut colored = Frame::plain(44, 12);
+    colored.color = crate::ColorMode::TrueColor;
+
+    let channel = Plot::new()
+        .layer(Points::xy(&x[..], &y[..]).color_by(species))
+        .render(&colored);
+
+    let mask = |keep: &str| -> Vec<f64> {
+        y.iter()
+            .zip(species)
+            .map(|(v, s)| if s == keep { *v } else { f64::NAN })
+            .collect()
+    };
+    let by_hand = Plot::new()
+        .layer(
+            Points::xy(&x[..], mask("a"))
+                .color(Palette::OKABE_ITO.colors()[0])
+                .label("a"),
+        )
+        .layer(
+            Points::xy(&x[..], mask("b"))
+                .color(Palette::OKABE_ITO.colors()[1])
+                .label("b"),
+        )
+        .layer(
+            Points::xy(&x[..], mask("c"))
+                .color(Palette::OKABE_ITO.colors()[2])
+                .label("c"),
+        )
+        .render(&colored);
+    assert_eq!(channel, by_hand);
+}
+
+#[test]
+fn color_by_legends_categories_in_first_appearance_order() {
+    use crate::mark::Points;
+
+    let y = [1.0, 2.0, 3.0, 4.0];
+    let text = Plot::new()
+        .layer(Points::y(&y[..]).color_by(["gentoo", "adelie", "gentoo", "chinstrap"]))
+        .render(&Frame::plain(50, 12));
+    let gentoo = text.find("gentoo").expect("first category missing");
+    let adelie = text.find("adelie").expect("second category missing");
+    let chinstrap = text.find("chinstrap").expect("third category missing");
+    assert!(
+        gentoo < adelie && adelie < chinstrap,
+        "legend order broke:\n{text}"
+    );
+}
+
+#[test]
+fn plain_output_cycles_markers_so_categories_stay_separable() {
+    use crate::mark::Points;
+
+    let x = [1.0, 2.0, 3.0];
+    let y = [1.0, 2.0, 3.0];
+    let plot = Plot::new().layer(Points::xy(&x[..], &y[..]).color_by(["a", "b", "c"]));
+
+    // Colorless output: the second and third categories take whole-cell
+    // markers; the legend swatches differ per category.
+    let plain = plot.render(&Frame::plain(40, 10));
+    assert!(
+        plain.contains('+') && plain.contains('x'),
+        "markers did not cycle in plain output:\n{plain}"
+    );
+
+    // Colored output: color separates the categories; the default dot stays.
+    let mut colored = Frame::plain(40, 10);
+    colored.color = crate::ColorMode::TrueColor;
+    let ansi = plot.render(&colored);
+    assert!(
+        !ansi.contains('+') && !ansi.contains('x'),
+        "markers cycled despite color being available:\n{ansi}"
+    );
+}
+
+#[test]
+fn more_categories_than_palette_colors_wrap_without_loss() {
+    use crate::mark::Points;
+
+    let y: Vec<f64> = (0..9).map(f64::from).collect();
+    let names: Vec<String> = (0..9).map(|i| format!("g{i}")).collect();
+    let text = Plot::new()
+        .layer(Points::y(&y[..]).color_by(names))
+        .render(&Frame::plain(70, 14));
+    for i in 0..9 {
+        assert!(
+            text.contains(&format!("g{i}")),
+            "category g{i} vanished:\n{text}"
+        );
+    }
+}
+
+#[test]
 fn the_heatmap_preset_equals_its_grammar_expansion() {
     use crate::mark::Cells;
     use crate::scale::Colormap;

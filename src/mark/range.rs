@@ -20,6 +20,11 @@ pub struct Range<'a> {
     pub(crate) marker: Option<Series<'a>>,
     pub(crate) color: Option<Color>,
     pub(crate) label: Option<String>,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub(crate) color_by: Option<Vec<String>>,
 }
 
 /// Where ranges sit on the x axis.
@@ -58,6 +63,7 @@ impl<'a> Range<'a> {
             marker: None,
             color: None,
             label: None,
+            color_by: None,
         }
     }
 
@@ -82,6 +88,7 @@ impl<'a> Range<'a> {
             marker: None,
             color: None,
             label: None,
+            color_by: None,
         }
     }
 
@@ -111,6 +118,7 @@ impl<'a> Range<'a> {
             marker: None,
             color: None,
             label: None,
+            color_by: None,
         }
     }
 
@@ -162,6 +170,30 @@ impl<'a> Range<'a> {
         self
     }
 
+    /// Colors each interval by its category (up/down candles, condition
+    /// groups): distinct categories in order of first appearance take colors
+    /// from the plot's categorical [`Palette`](crate::scale::Palette) and
+    /// appear in the legend. Replaces the constant color and layer label.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of categories differs from the number of
+    /// intervals.
+    #[must_use]
+    pub fn color_by(
+        mut self,
+        categories: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Range<'a> {
+        let categories: Vec<String> = categories.into_iter().map(Into::into).collect();
+        assert_eq!(
+            categories.len(),
+            self.low.len(),
+            "Range::color_by requires one category per interval"
+        );
+        self.color_by = Some(categories);
+        self
+    }
+
     /// Detaches from any borrowed storage, making the mark `'static`.
     pub fn into_owned(self) -> Range<'static> {
         Range {
@@ -175,6 +207,7 @@ impl<'a> Range<'a> {
                 .body
                 .map(|(low, high)| (low.into_owned(), high.into_owned())),
             marker: self.marker.map(Series::into_owned),
+            color_by: self.color_by,
             color: self.color,
             label: self.label,
         }
