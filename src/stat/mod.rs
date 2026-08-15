@@ -16,6 +16,7 @@ mod kde;
 mod lttb;
 mod m4;
 mod moments;
+mod reducer;
 mod stack;
 mod window;
 
@@ -23,7 +24,7 @@ mod window;
 pub(crate) const MAX_STAT_ELEMENTS: usize = 1_000_000;
 
 pub use agg::Agg;
-pub use bin::{Bins, Histogram2d, bins2, try_bins2};
+pub use bin::{Bins, Histogram2d, binned, bins2, try_bins2};
 pub use box_stats::BoxStats;
 pub use contour::{Contour, contours};
 pub use ecdf::ecdf;
@@ -33,5 +34,6 @@ pub use lttb::lttb;
 pub(crate) use m4::m4_mapped;
 pub use m4::{M4, m4};
 pub use moments::Moments;
+pub use reducer::{Reducer, quantiles};
 pub use stack::stack;
 pub use window::Window;

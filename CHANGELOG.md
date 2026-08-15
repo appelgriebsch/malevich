@@ -5,6 +5,14 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- One vocabulary for every aggregation: `stat::Reducer` — `Count`, `Sum`,
+  `Mean`, `Median`, `Min`, `Max`, `Percentile(q)` (type-7, exactly the box
+  plot's estimator) — is now what `Agg::reduce` and `Window::reduce` take
+  (their named methods are sugar over it), what the new `stat::binned` uses to
+  reduce a paired series per histogram bin, and what `stat::quantiles`
+  evaluates in batch over one sort. Rolling p95s, per-group percentiles,
+  binned medians, and Q–Q plots (see the gallery) all fall out with no new
+  API shapes.
 - The line of best fit: `stat::Fit` is streaming ordinary least squares —
   bivariate Welford accumulation, mergeable like every other aggregator, with
   slope, intercept, R², prediction, and the standard error of the mean

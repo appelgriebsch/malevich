@@ -56,6 +56,11 @@ const GALLERY: &[(&str, &str)] = &[
          from one mergeable Fit accumulator — slope, intercept, and R² included.",
     ),
     (
+        "qq",
+        "A Q\u{2013}Q plot from the grammar, no preset: matched type-7 quantiles of two \
+         samples against the identity line — the heavy tail peels off it.",
+    ),
+    (
         "waveform",
         "Ten million points through the auto-inserted M4 aggregation — pixel-identical \
          to drawing every point, in tens of milliseconds.",

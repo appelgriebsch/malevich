@@ -131,19 +131,29 @@ impl Bins {
 
     /// Counts one value; non-finite and out-of-range values are ignored.
     pub fn add(&mut self, value: f64) {
+        if let Some(index) = self.bucket(value) {
+            self.counts[index] += 1;
+        }
+    }
+
+    /// The bucket a value counts into — the one bucketing rule [`Bins::add`]
+    /// and [`binned`] share: `None` for non-finite or out-of-range values,
+    /// last-edge inclusive.
+    fn bucket(&self, value: f64) -> Option<usize> {
         if !value.is_finite() {
-            return;
+            return None;
         }
         let position = (value - self.start) / self.width;
         if position < 0.0 {
-            return;
+            return None;
         }
         let index = position as usize;
         if index < self.counts.len() {
-            self.counts[index] += 1;
+            Some(index)
         } else if index == self.counts.len() && value <= self.end() {
-            // The last bin's right edge is inclusive.
-            *self.counts.last_mut().expect("at least one bin") += 1;
+            Some(self.counts.len() - 1)
+        } else {
+            None
         }
     }
 
@@ -287,6 +297,38 @@ pub fn try_bins2(
         x: widen(x_extent),
         y: widen(y_extent),
     }))
+}
+
+/// Reduces `y` per bin of its paired `x`, over the bins' geometry — binned
+/// means, medians, percentiles, any [`Reducer`](super::Reducer). One value per
+/// bin, bucketed by the exact rule [`Bins::add`] counts with; a bin that
+/// catches nothing reduces like an empty set (a gap, except `Count` and
+/// `Sum`).
+///
+/// ```
+/// use malevich::stat::{Bins, Reducer, binned};
+///
+/// let x = [0.5, 1.5, 1.6, 2.5];
+/// let y = [10.0, 20.0, 30.0, 40.0];
+/// let bins = Bins::new(0.0, 1.0, 3);
+/// assert_eq!(binned(&x, &y, &bins, Reducer::Mean), [10.0, 25.0, 40.0]);
+/// ```
+///
+/// # Panics
+///
+/// Panics if the two slices have different lengths.
+pub fn binned(x: &[f64], y: &[f64], bins: &Bins, reducer: super::Reducer) -> Vec<f64> {
+    assert_eq!(x.len(), y.len(), "binned requires slices of equal length");
+    let mut buckets: Vec<Vec<f64>> = vec![Vec::new(); bins.counts().len()];
+    for (&position, &value) in x.iter().zip(y) {
+        if let Some(index) = bins.bucket(position) {
+            buckets[index].push(value);
+        }
+    }
+    buckets
+        .iter()
+        .map(|bucket| reducer.reduce(bucket))
+        .collect()
 }
 
 #[cfg(test)]

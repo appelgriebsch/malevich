@@ -225,6 +225,34 @@ e    │        ⣀⣠⣴⣶⣿⠿⠛⠉⠁  ⠂
                                      dose
 ```
 
+## qq
+
+A Q–Q plot from the grammar, no preset: matched type-7 quantiles of two samples against the identity line — the heavy tail peels off it.
+Source: [examples/qq.rs](examples/qq.rs)
+
+```text
+                Q–Q: heavy-tailed vs normal-ish
+                   ── identity  •• quantiles
+   6 ┤                                         ⠠           ⢀⣀⠤⠒⠉
+h    │                                       ⢀         ⣀⠤⠔⠊⠁
+e  4 ┤                                     ⢀⠂     ⢀⡠⠔⠒⠉
+a    │                                   ⢀⡠  ⢀⡠⠤⠒⠉⠁
+v    │                                 ⡠⠠⣂⠤⠒⠊⠁
+y  2 ┤                             ⢀⣀⡴⠝⠊⠉
+-    │                         ⣀⡤⠴⠚⠉
+t  0 ┤                    ⢀⣀⠴⠚⠋⠁
+a    │                ⣀⡠⠖⠋⠉
+i -2 ┤           ⢀⡠⠔⢒⠽⠃
+l    │      ⢀⣀⠤⠒⠉⡁⠄⠊⠁
+e    │  ⣀⠤⠔⠊⠁  ⠈
+d -4 ┤⠒⠉     ⡀⠊
+     │
+  -6 ┤     ⠈
+     └┬──────────┬───────────┬──────────┬───────────┬──────────┬
+     -4         -2           0          2           4          6
+                         normal-ish quantiles
+```
+
 ## waveform
 
 Ten million points through the auto-inserted M4 aggregation — pixel-identical to drawing every point, in tens of milliseconds.

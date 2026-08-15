@@ -73,9 +73,13 @@ and confidence band).
 
 ## Reducer
 
-A named aggregation shared by every aggregating stat: `count`, `sum`, `mean`, `median`,
-`min`, `max`, percentiles. One vocabulary across `Bin`, `Agg`, and `Window` (the
-Observable Plot convention). Maps to `Reducer` *(planned)*.
+A named aggregation shared by every aggregating stat: `Count`, `Sum`, `Mean`,
+`Median`, `Min`, `Max`, `Percentile(q)` (type-7, the same estimator the box plot's
+quartiles use). One vocabulary across bins, groups, and windows (the Observable Plot
+convention): `Agg::reduce` and `Window::reduce` take it directly (their named
+methods are sugar over it), `stat::binned` reduces a paired series per histogram
+bin, and `stat::quantiles` evaluates many percentiles over one sort. Maps to
+`stat::Reducer`.
 
 ## Scale
 

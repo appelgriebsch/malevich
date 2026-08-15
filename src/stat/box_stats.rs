@@ -30,9 +30,9 @@ impl BoxStats {
             return None;
         }
         sorted.sort_by(f64::total_cmp);
-        let q1 = quantile_sorted(&sorted, 0.25);
-        let median = quantile_sorted(&sorted, 0.5);
-        let q3 = quantile_sorted(&sorted, 0.75);
+        let q1 = super::reducer::quantile_sorted(&sorted, 0.25);
+        let median = super::reducer::quantile_sorted(&sorted, 0.5);
+        let q3 = super::reducer::quantile_sorted(&sorted, 0.75);
         let reach = 1.5 * (q3 - q1);
         let (fence_low, fence_high) = (q1 - reach, q3 + reach);
         let whisker_low = sorted
@@ -59,18 +59,6 @@ impl BoxStats {
             whisker_high,
             outliers,
         })
-    }
-}
-
-/// The type-7 quantile of an ascending-sorted, non-empty slice.
-fn quantile_sorted(sorted: &[f64], p: f64) -> f64 {
-    let position = (sorted.len() - 1) as f64 * p;
-    let index = position.floor() as usize;
-    let fraction = position - index as f64;
-    if index + 1 < sorted.len() {
-        sorted[index] + fraction * (sorted[index + 1] - sorted[index])
-    } else {
-        sorted[index]
     }
 }
 
