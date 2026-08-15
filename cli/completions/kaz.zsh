@@ -24,6 +24,9 @@ _kaz() {
     '--bins[histogram bin count]:n:' \
     '--colormap[heatmap/hist2d colors]:map:(viridis magma cividis greys red-blue purple-orange)' \
     '--midpoint[center the colormap on a value]:v:' \
+    '--cols[select and reorder columns]:list:' \
+    '--by[scatter: color by this column]:col:' \
+    '--emit-code[print the equivalent malevich program]' \
     '--color[when to color]:when:(auto always never)' \
     '--charset[glyph tier]:set:(auto ascii half quad sextant braille octant)' \
     '--pixels[pixel image panel]:when:(auto always never)' \

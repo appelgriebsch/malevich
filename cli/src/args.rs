@@ -186,6 +186,15 @@ pub struct Args {
     /// Heatmap/hist2d colormap (`--colormap`, centered by `--midpoint`); the
     /// default map when absent.
     pub colormap: Option<Colormap>,
+    /// Column projection (`--cols`): selectors (header names or 0-based
+    /// indices) applied to the framed table before any chart reads it.
+    pub cols: Option<Vec<String>>,
+    /// Grouping column for scatter (`--by`): a header name or 0-based index
+    /// whose values become the `color_by` categories.
+    pub by: Option<String>,
+    /// Print the equivalent malevich Rust program instead of the plot
+    /// (`--emit-code`).
+    pub emit_code: bool,
     pub color: ColorChoice,
     pub charset: CharsetChoice,
     pub pixels: PixelsChoice,
@@ -230,7 +239,7 @@ pub fn parse() -> Result<Outcome, Fail> {
     parse_from(lexopt::Parser::from_env())
 }
 
-fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
+pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
     let mut command: Option<Command> = None;
     let mut input: Option<PathBuf> = None;
     let mut output = Output::Stderr;
@@ -251,6 +260,9 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
     let mut bins = None;
     let mut colormap = None;
     let mut midpoint = None;
+    let mut cols = None;
+    let mut by = None;
+    let mut emit_code = false;
     let mut color = ColorChoice::Auto;
     let mut charset = CharsetChoice::Auto;
     let mut pixels = PixelsChoice::Auto;
@@ -342,6 +354,21 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
                     MAX_BINS,
                 )?);
             }
+            Long("cols") => {
+                let value = parser.value()?.string()?;
+                let selectors: Vec<String> = value
+                    .split(',')
+                    .map(|selector| selector.trim().to_owned())
+                    .collect();
+                if selectors.iter().any(String::is_empty) {
+                    return Err(Fail(format!(
+                        "--cols wants comma-separated column names or 0-based indices, got `{value}`"
+                    )));
+                }
+                cols = Some(selectors);
+            }
+            Long("by") => by = Some(parser.value()?.string()?),
+            Long("emit-code") => emit_code = true,
             Long("colormap") => {
                 let value = parser.value()?.string()?;
                 colormap = Some(Colormap::named(&value).ok_or_else(|| {
@@ -497,6 +524,17 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             command.name()
         )));
     }
+    if by.is_some() && command != Command::Scatter {
+        return Err(Fail(format!(
+            "--by only applies to scatter, not `{}`",
+            command.name()
+        )));
+    }
+    if live && (cols.is_some() || by.is_some() || emit_code) {
+        return Err(Fail(
+            "--cols, --by, and --emit-code do not apply to --live".into(),
+        ));
+    }
     // One resolved value for the chart builders: a bare --midpoint centers the
     // default map.
     let colormap = match (colormap, midpoint) {
@@ -524,6 +562,9 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
         time_x,
         bins,
         colormap,
+        cols,
+        by,
+        emit_code,
         color,
         charset,
         pixels,

@@ -10,7 +10,8 @@ _kaz() {
 
     local subcommands="line scatter bar hist count density ecdf box violin hist2d heatmap"
     local flags="-o -O -d -H --fmt -w -h -t --xlabel --ylabel --xlim --ylim \
-        --log-x --log-y --time-x --bins --colormap --midpoint --color --charset --pixels -q \
+        --log-x --log-y --time-x --bins --colormap --midpoint --cols --by --emit-code \
+        --color --charset --pixels -q \
         --live --window --fps --rate --version --help"
 
     case "$prev" in

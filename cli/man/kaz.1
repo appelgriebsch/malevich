@@ -104,6 +104,19 @@ Read the x column as time: unix epoch, or an ISO\-8601 subset.
 .BI \-\-bins " N"
 Histogram bin count (1..1000000; default: automatic).
 .TP
+.BI \-\-cols " LIST"
+Select and reorder columns before any chart reads them: comma\-separated header
+names (with \fB\-H\fR) or 0\-based indices.
+.TP
+.BI \-\-by " COL"
+Scatter only: pull one column out as categories \(em each group gets a palette
+color and a legend entry \(em and plot the remaining columns as x and y.
+.TP
+.B \-\-emit\-code
+Print the equivalent malevich Rust program, with the parsed data inlined,
+instead of the plot. A copy\-pasteable starting point for graduating a piped
+chart into a program.
+.TP
 .BI \-\-colormap " MAP"
 Heatmap/hist2d colors: \fBviridis\fR (default), \fBmagma\fR, \fBcividis\fR,
 \fBgreys\fR, \fBred\-blue\fR, or \fBpurple\-orange\fR.

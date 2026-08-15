@@ -5,6 +5,16 @@ malevich API.
 
 ## Unreleased
 
+- `--emit-code` prints the equivalent malevich Rust program instead of the
+  plot — same presets and grammar calls, the parsed data inlined as literals,
+  a copy-pasteable bridge from an exploratory pipe to a real program. Every
+  emission shape is compile-tested in CI.
+- `--cols LIST` selects and reorders columns before any chart reads them, by
+  header name (with `-H`) or 0-based index; unknown names fail with the
+  available header listed.
+- `--by COL` on `scatter` pulls one column out as categories: each group takes
+  a palette color and a legend entry through the library's `color_by` channel,
+  with marker shapes keeping groups apart in piped plain output.
 - `--colormap` picks the colors for `heatmap` and `hist2d` from the named set
   (`viridis`, `magma`, `cividis`, `greys`, `red-blue`, `purple-orange`), and
   `--midpoint V` centers the map on a data value — signed grids (correlations,

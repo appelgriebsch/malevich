@@ -254,6 +254,7 @@ cat loss.tsv | kaz line -t training
 awk '{print $5}' access.log | kaz hist
 cut -f2 species.tsv | kaz count
 cat data.tsv | kaz line -O | next-tool   # plot on stderr, data flows on
+kaz scatter penguins.tsv -H --by species --emit-code   # the equivalent Rust program
 ```
 
 It contains zero rendering logic — argument parsing, stdin framing, and calls

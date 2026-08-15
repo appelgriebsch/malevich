@@ -13,9 +13,21 @@ pub struct Built {
     pub unparsed: usize,
 }
 
-/// Builds the plot for `args` over `table`.
-pub fn build(args: &Args, table: &Table) -> Built {
-    let (plot, unparsed) = match args.command {
+/// Builds the plot for `args` over `table`. With `categories` (`--by`), the
+/// scatter takes them as its `color_by` channel.
+pub fn build(args: &Args, table: &Table, categories: Option<&[String]>) -> Built {
+    let (plot, unparsed) = match (args.command, categories) {
+        (Command::Scatter, Some(groups)) => scatter_by(args, table, groups),
+        (command, _) => plain_build(command, args, table),
+    };
+    Built {
+        plot: furniture(plot, args),
+        unparsed,
+    }
+}
+
+fn plain_build(command: Command, args: &Args, table: &Table) -> (Plot<'static>, usize) {
+    match command {
         Command::Line => value_plot(args, table, Kind::Line),
         Command::Scatter => value_plot(args, table, Kind::Scatter),
         Command::Hist => hist_plot(table, args.bins),
@@ -27,11 +39,16 @@ pub fn build(args: &Args, table: &Table) -> Built {
         Command::Violin => violin_plot(table),
         Command::Hist2d => hist2d_plot(args, table),
         Command::Heatmap => heatmap_plot(args, table),
-    };
-    Built {
-        plot: furniture(plot, args),
-        unparsed,
     }
+}
+
+/// Scatter grouped by `--by`: the first two remaining columns as x and y, the
+/// extracted column as the categorical color channel.
+fn scatter_by(args: &Args, table: &Table, categories: &[String]) -> (Plot<'static>, usize) {
+    let (x, y, unparsed) = series::xy(table, args.time_x);
+    let groups: Vec<String> = categories.to_vec();
+    let plot = Plot::new().layer(Points::xy(x, y).color_by(groups));
+    (plot, unparsed)
 }
 
 #[derive(Clone, Copy)]

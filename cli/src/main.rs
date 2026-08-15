@@ -7,6 +7,7 @@
 
 mod args;
 mod chart;
+mod emit;
 mod help;
 mod input;
 mod live;
@@ -18,6 +19,17 @@ use std::io::{self, BufRead, Read, Write};
 use std::process::ExitCode;
 
 use args::{Args, Fail, Outcome};
+
+/// The widest row — the column count `--by` filters against.
+fn width(table: &input::Table) -> usize {
+    table
+        .rows
+        .iter()
+        .map(Vec::len)
+        .max()
+        .or(table.header.as_ref().map(Vec::len))
+        .unwrap_or(0)
+}
 
 fn main() -> ExitCode {
     match run() {
@@ -55,8 +67,29 @@ fn execute(args: &Args) -> Result<i32, Fail> {
     }
 
     let raw = read_input(args)?;
-    let table = input::frame(&raw, args.delimiter, args.header);
-    let built = chart::build(args, &table);
+    let mut table = input::frame(&raw, args.delimiter, args.header);
+    if let Some(selectors) = &args.cols {
+        table = input::select(&table, selectors).map_err(Fail)?;
+    }
+    // `--by` pulls its column out of the table: the remaining columns are the
+    // chart's data, the extracted one is the categorical channel.
+    let mut categories = None;
+    if let Some(selector) = &args.by {
+        let index = input::column_index(&table, selector).map_err(Fail)?;
+        categories = Some(input::string_column(&table, index));
+        let keep: Vec<String> = (0..width(&table))
+            .filter(|&column| column != index)
+            .map(|column| column.to_string())
+            .collect();
+        table = input::select(&table, &keep).map_err(Fail)?;
+    }
+    let built = chart::build(args, &table, categories.as_deref());
+
+    if args.emit_code {
+        let program = emit::program(args, &table, categories.as_deref());
+        print!("{program}");
+        return Ok(0);
+    }
 
     match output::emit(args, &built) {
         Ok(code) => Ok(code),

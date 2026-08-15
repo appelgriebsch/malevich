@@ -57,6 +57,11 @@ Options:
   -d CHAR        field separator (default: any run of whitespace)
   -H             first row is a header; its names label the series
   --fmt FMT      column mapping: y | xy | xyy | xyxy | yx
+  --cols LIST    select and reorder columns first: comma-separated header names
+                 (with -H) or 0-based indices, e.g. --cols time,loss or --cols 2,0
+  --by COL       scatter: color points by this column's categories (name or index)
+  --emit-code    print the equivalent malevich Rust program, data inlined,
+                 instead of the plot — the pipe-to-program bridge
   -w N, -h N     frame width and height in cells (0..4096; default: detected)
   -t TITLE       plot title
   --xlabel TEXT  x-axis title
@@ -147,10 +152,16 @@ Columns (--fmt):
   xyy    first column x, every remaining column a series
   y      a single column against its row index
 
+Grouping: --by COL pulls one column out as categories — each group gets a
+palette color and a legend entry (portable marker shapes when piped), and the
+remaining columns are x and y. Name the column (with -H) or give its 0-based
+index.
+
 Examples:
   paste heights weights | kaz scatter -t growth
   awk '{print $3, $4}' points.tsv | kaz scatter
   kaz scatter samples.tsv -H --xlabel dose --ylabel response
+  kaz scatter penguins.tsv -H --by species
 
 Shared options: kaz --help
 ";

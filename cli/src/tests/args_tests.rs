@@ -73,6 +73,28 @@ fn colormap_resolves_names_and_centers_on_the_midpoint() {
 }
 
 #[test]
+fn cols_by_and_emit_code_parse_with_their_boundaries() {
+    assert_eq!(
+        run(&["line", "--cols", "time, loss"]).cols,
+        Some(vec!["time".to_string(), "loss".to_string()])
+    );
+    assert!(
+        parse(&["line", "--cols", "a,,b"]).is_err(),
+        "empty selector"
+    );
+    assert_eq!(
+        run(&["scatter", "--by", "species"]).by.as_deref(),
+        Some("species")
+    );
+    assert!(run(&["hist", "--emit-code"]).emit_code);
+
+    // --by is scatter's; nothing survives into --live.
+    assert!(parse(&["line", "--by", "species"]).is_err());
+    assert!(parse(&["line", "--live", "--cols", "0"]).is_err());
+    assert!(parse(&["line", "--live", "--emit-code"]).is_err());
+}
+
+#[test]
 fn time_x_is_a_flag() {
     assert!(run(&["line", "--time-x"]).time_x);
     assert!(!run(&["line"]).time_x);

@@ -119,6 +119,11 @@ the data upstream (`xsv select …`, `mlr --c2t …`) and pipe the result in.
 --log-x  --log-y
 --time-x       read the x column as time (unix seconds or ISO 8601)
 --bins N       histogram bin count (hist; 1..1000000; default: automatic)
+--cols LIST    select/reorder columns: header names (with -H) or 0-based indices
+--by COL       scatter: color points by this column's categories
+--colormap M   heatmap/hist2d: viridis | magma | cividis | greys | red-blue | purple-orange
+--midpoint V   center the colormap on a value (signed data)
+--emit-code    print the equivalent malevich Rust program, data inlined
 --color WHEN   auto | always | never
 --charset SET  auto | ascii | half | quad | sextant | braille | octant
 --pixels WHEN  auto | always | never   — sixel/kitty/iTerm2 image panel from a pipe
@@ -131,6 +136,14 @@ quadrants in UTF-8 (ASCII for a non-UTF-8 locale); use `--charset` or
 `MALEVICH_CHARSET` to opt into a denser tier your font supports. Where the terminal
 speaks a pixel protocol the plot panel upgrades to a real image — even
 mid-pipeline. `-h` is height; help is `--help` only.
+
+`--emit-code` is the bridge out of the shell: once the piped chart looks right,
+it prints the equivalent malevich Rust program — same calls, your parsed data
+inlined as literals — ready to paste into a project:
+
+```sh
+kaz scatter penguins.tsv -H --by species --emit-code > plot.rs
+```
 
 ## Live
 
