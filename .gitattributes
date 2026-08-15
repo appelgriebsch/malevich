@@ -1,0 +1,5 @@
+# Golden fixtures compare byte-for-byte against renderer output; a checkout
+# must never rewrite their line endings. Windows runners install Git with
+# autocrlf on, which converted these to CRLF and broke every CLI golden test.
+cli/tests/golden/*.txt text eol=lf
+tests/fixtures/** text eol=lf
