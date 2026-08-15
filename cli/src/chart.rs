@@ -26,7 +26,7 @@ pub fn build(args: &Args, table: &Table) -> Built {
         Command::Box => box_plot(table),
         Command::Violin => violin_plot(table),
         Command::Hist2d => hist2d_plot(args, table),
-        Command::Heatmap => heatmap_plot(table),
+        Command::Heatmap => heatmap_plot(args, table),
     };
     Built {
         plot: furniture(plot, args),
@@ -132,16 +132,30 @@ fn violin_plot(table: &Table) -> (Plot<'static>, usize) {
 /// 2D histogram: the first two columns as x and y (x is time under `--time-x`).
 fn hist2d_plot(args: &Args, table: &Table) -> (Plot<'static>, usize) {
     let (x, y, unparsed) = series::xy(table, args.time_x);
-    (malevich::hist2d(x, y), unparsed)
+    let plot = match &args.colormap {
+        Some(map) => {
+            let options = malevich::Histogram2dOptions::default().colormap(map.clone());
+            malevich::hist2d_with(x, y, options).expect("a parsed colormap is valid")
+        }
+        None => malevich::hist2d(x, y),
+    };
+    (plot, unparsed)
 }
 
 /// Heatmap: the rows as a row-major grid (first line on top).
-fn heatmap_plot(table: &Table) -> (Plot<'static>, usize) {
+fn heatmap_plot(args: &Args, table: &Table) -> (Plot<'static>, usize) {
     let (columns, values, unparsed) = series::matrix(table);
     if columns == 0 {
         return (Plot::new(), unparsed);
     }
-    (malevich::heatmap(columns, values), unparsed)
+    let plot = match &args.colormap {
+        Some(map) => {
+            let options = malevich::HeatmapOptions::new().colormap(map.clone());
+            malevich::heatmap_with(columns, values, options).expect("a parsed colormap is valid")
+        }
+        None => malevich::heatmap(columns, values),
+    };
+    (plot, unparsed)
 }
 
 /// Bar: `label value` rows straight into the `bar` preset.

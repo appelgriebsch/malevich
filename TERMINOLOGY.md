@@ -82,9 +82,15 @@ specification is `scale::Scale` (`Linear | Log | Time | Bands`) set via
 `Plot::x_label`/`y_label` (x centered below, y vertical along the left edge), and
 log/time axes are also
 enabled per plot with `Plot::log_x`/`Plot::log_y`/`Plot::time_x`.
-`scale::Colormap` covers the sequential color scale: static palettes use `new`, while
-runtime-generated or configured palettes move into `try_from_stops` and expose their
-RGB stops read-only through `stops`.
+`scale::Colormap` covers the sequential and diverging color scales: the curated named
+constants (`VIRIDIS`, `MAGMA`, `CIVIDIS`, `GREYS`; diverging `RED_BLUE`,
+`PURPLE_ORANGE` — resolvable by name through `Colormap::named`) stay distinguishable
+down the whole color ladder, static palettes use `new`, and runtime-generated or
+configured palettes move into `try_from_stops`, exposing their RGB stops read-only
+through `stops`. A diverging map becomes one by anchoring: `centered_at(mid)` pins a
+data value to the ramp middle and the value range spans the larger side
+symmetrically, so equal magnitudes get equal intensity and the colorbar admits the
+widened span.
 
 ## Ticks
 

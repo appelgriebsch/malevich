@@ -66,6 +66,7 @@ fn args_with(f: impl FnOnce(&mut crate::args::Args)) -> crate::args::Args {
         log_y: false,
         time_x: false,
         bins: None,
+        colormap: None,
         color: crate::args::ColorChoice::Auto,
         charset: crate::args::CharsetChoice::Auto,
         pixels: crate::args::PixelsChoice::Auto,

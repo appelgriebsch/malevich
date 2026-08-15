@@ -599,6 +599,63 @@ fn a_colorbar_legends_the_cells_value_range() {
 }
 
 #[test]
+fn the_heatmap_preset_equals_its_grammar_expansion() {
+    use crate::mark::Cells;
+    use crate::scale::Colormap;
+
+    let values: Vec<f64> = (0..12).map(|i| (i as f64).sin()).collect();
+    let frame = Frame::plain(30, 9);
+    assert_eq!(
+        crate::heatmap(4, &values[..]).render(&frame),
+        Plot::new()
+            .layer(Cells::matrix(4, &values[..]))
+            .colorbar()
+            .render(&frame),
+    );
+    let options = crate::HeatmapOptions::new()
+        .colormap(Colormap::RED_BLUE.centered_at(0.0))
+        .colorbar(false);
+    assert_eq!(
+        crate::heatmap_with(4, &values[..], options)
+            .unwrap()
+            .render(&frame),
+        Plot::new()
+            .layer(Cells::matrix(4, &values[..]).colormap(Colormap::RED_BLUE.centered_at(0.0)))
+            .render(&frame),
+    );
+}
+
+#[test]
+fn a_centered_colormap_legends_the_symmetric_range() {
+    use crate::mark::Cells;
+    use crate::scale::Colormap;
+
+    // Correlations on [-1, 0.5]: a linear bar labels the observed range, a
+    // centered one widens to the symmetric [-1, 1] so the neutral middle sits
+    // at the midpoint and the labels admit the widened span.
+    let values = [-1.0, -0.5, 0.25, 0.5];
+    let frame = Frame::plain(34, 8);
+    let linear = Plot::new()
+        .layer(Cells::matrix(2, &values[..]).colormap(Colormap::RED_BLUE))
+        .colorbar()
+        .render(&frame);
+    let centered = Plot::new()
+        .layer(Cells::matrix(2, &values[..]).colormap(Colormap::RED_BLUE.centered_at(0.0)))
+        .colorbar()
+        .render(&frame);
+
+    assert_ne!(linear, centered, "centering changed nothing");
+    assert!(
+        centered.contains("-1"),
+        "low end label missing:\n{centered}"
+    );
+    assert!(
+        linear.contains("0.5") && !centered.contains("0.5"),
+        "the centered bar should span [-1, 1], not the observed 0.5:\nlinear:\n{linear}\ncentered:\n{centered}"
+    );
+}
+
+#[test]
 fn a_colorbar_without_a_cells_layer_changes_nothing() {
     let frame = Frame::plain(40, 10);
     let bare = crate::line(&[1.0, 2.0, 3.0][..]);

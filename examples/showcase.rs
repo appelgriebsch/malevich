@@ -170,13 +170,16 @@ fn main() {
             if row == column {
                 1.0
             } else {
-                ((row - column).abs() * -0.4).exp()
+                ((row - column).abs() * -0.35).exp() * ((row + column) * 0.55).cos()
             }
         })
         .collect();
+    let correlation_options = malevich::HeatmapOptions::new()
+        .colormap(malevich::scale::Colormap::RED_BLUE.centered_at(0.0));
     println!(
         "{}\n",
-        malevich::heatmap(size, &grid[..])
+        malevich::heatmap_with(size, &grid[..], correlation_options)
+            .expect("a named colormap is valid")
             .title("correlation matrix (synthetic)")
             .show(&frame)
     );

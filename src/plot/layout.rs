@@ -29,6 +29,9 @@ fn cells_colorbar(
         _ => None,
     })?;
     let (low, high) = extent(values)?;
+    // The colorbar must label the same value range the cells were colored
+    // by — for a centered map, the symmetric span around its midpoint.
+    let (low, high) = colormap.display_domain(low, high);
     let ticks = Ticks::linear(low, high, (plot_rows / 2).clamp(2, 5));
     let label_width = ticks
         .iter()

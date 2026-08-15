@@ -1,7 +1,9 @@
-//! A heatmap via the Cells mark: values render as a shade ramp colored by the
-//! default colormap — readable at every color tier, including plain text.
+//! A correlation heatmap: signed data on a diverging colormap centered at zero,
+//! so anti-correlation and correlation read as opposite colors of equal weight —
+//! and the colorbar spans symmetrically. Readable at every color tier.
 
 use malevich::Frame;
+use malevich::scale::Colormap;
 
 fn main() {
     let n = 8usize;
@@ -11,10 +13,15 @@ fn main() {
             if row == column {
                 1.0
             } else {
-                ((row - column).abs() * -0.4).exp() * (1.0 + (row * column * 0.3).sin() * 0.1)
+                // Symmetric, decaying with distance, alternating in sign — the
+                // shape of a real feature-correlation matrix.
+                ((row - column).abs() * -0.35).exp() * ((row + column) * 0.55).cos()
             }
         })
         .collect();
-    let chart = malevich::heatmap(n, &grid[..]).title("correlation matrix (synthetic)");
+    let options = malevich::HeatmapOptions::new().colormap(Colormap::RED_BLUE.centered_at(0.0));
+    let chart = malevich::heatmap_with(n, &grid[..], options)
+        .expect("a named colormap is valid")
+        .title("correlation matrix (synthetic)");
     println!("{}", chart.render_best(&Frame::plain(46, 14)));
 }

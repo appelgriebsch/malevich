@@ -75,6 +75,46 @@ impl Default for Histogram2dOptions {
     }
 }
 
+/// Configuration for [`heatmap_with`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct HeatmapOptions {
+    /// Colors used for finite cells.
+    pub colormap: Colormap,
+    /// Whether to reserve and draw the value colorbar.
+    pub colorbar: bool,
+}
+
+impl HeatmapOptions {
+    /// Uses the default colormap with a colorbar.
+    pub const fn new() -> HeatmapOptions {
+        HeatmapOptions {
+            colormap: Colormap::DEFAULT,
+            colorbar: true,
+        }
+    }
+
+    /// Replaces the default colormap.
+    #[must_use]
+    pub fn colormap(mut self, colormap: Colormap) -> HeatmapOptions {
+        self.colormap = colormap;
+        self
+    }
+
+    /// Shows or suppresses the value colorbar.
+    #[must_use]
+    pub const fn colorbar(mut self, visible: bool) -> HeatmapOptions {
+        self.colorbar = visible;
+        self
+    }
+}
+
+impl Default for HeatmapOptions {
+    fn default() -> HeatmapOptions {
+        HeatmapOptions::new()
+    }
+}
+
 /// Configuration for [`density_with`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -193,6 +233,11 @@ fn check_colormap(colormap: &Colormap) -> crate::Result<()> {
     if colormap.stops().len() < 2 {
         return Err(crate::Error::EmptyDimension {
             what: "Colormap stops",
+        });
+    }
+    if !colormap.midpoint_is_valid() {
+        return Err(crate::Error::InvalidParameter {
+            detail: "a colormap midpoint must be finite",
         });
     }
     Ok(())
@@ -346,7 +391,35 @@ pub fn ecdf<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
 /// println!("{}", malevich::heatmap(3, &grid[..]).render(&malevich::Frame::plain(30, 8)));
 /// ```
 pub fn heatmap<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
-    Plot::new().layer(Cells::matrix(columns, values)).colorbar()
+    heatmap_with(columns, values, HeatmapOptions::default())
+        .expect("default heatmap options are valid")
+}
+
+/// A heatmap with a caller-selected color presentation — a named or custom
+/// [`Colormap`], optionally [centered](Colormap::centered_at) for signed data.
+///
+/// ```
+/// use malevich::scale::Colormap;
+/// let correlations = [1.0, -0.4, -0.4, 1.0];
+/// let options = malevich::HeatmapOptions::new().colormap(Colormap::RED_BLUE.centered_at(0.0));
+/// let chart = malevich::heatmap_with(2, &correlations[..], options).unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns an error for an invalid colormap.
+pub fn heatmap_with<'a>(
+    columns: usize,
+    values: impl IntoSeries<'a>,
+    options: HeatmapOptions,
+) -> crate::Result<Plot<'a>> {
+    check_colormap(&options.colormap)?;
+    let plot = Plot::new().layer(Cells::matrix(columns, values).colormap(options.colormap));
+    Ok(if options.colorbar {
+        plot.colorbar()
+    } else {
+        plot
+    })
 }
 
 /// A 2D histogram: point density on a uniform grid over the data's extent, with a
@@ -516,9 +589,11 @@ pub fn contour_with<'a>(
             .zip(crate::stat::contours(series.as_slice(), columns, &values))
     {
         plot = plot.layer(
-            Line::xy(line.x, line.y)
-                .label(label)
-                .color(options.colormap.color((level - min) / (max - min))),
+            Line::xy(line.x, line.y).label(label).color(
+                options
+                    .colormap
+                    .color(options.colormap.position_in(level, min, max)),
+            ),
         );
     }
     Ok(plot)

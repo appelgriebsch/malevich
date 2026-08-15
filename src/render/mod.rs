@@ -8,7 +8,8 @@
 
 mod canvas;
 mod charset;
-mod color;
+// Visible to the crate so tests elsewhere can drive the quantizers directly.
+pub(crate) mod color;
 #[cfg(feature = "evcxr")]
 mod html;
 mod limits;

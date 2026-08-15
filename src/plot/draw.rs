@@ -500,6 +500,9 @@ fn draw_cells<C: Canvas>(
     let Some((low, high)) = extent(values) else {
         return;
     };
+    // A centered map widens the range symmetrically around its midpoint; a
+    // linear map displays the observed range as-is.
+    let (low, high) = colormap.display_domain(low, high);
     let spread = if high > low { high - low } else { 1.0 };
     let ((x0, x1), (y0, y1)) = extents.unwrap_or(((0.0, columns as f64), (0.0, rows as f64)));
     let (samples_x, samples_y) = surface.patch_density();

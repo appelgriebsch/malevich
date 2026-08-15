@@ -57,7 +57,7 @@ const GALLERY: &[(&str, &str)] = &[
     ),
     (
         "correlation",
-        "A heatmap via the Cells mark: shade ramp plus colormap, readable at every          color tier.",
+        "Signed data on a diverging colormap centered at zero: correlation and anti-correlation read as opposite colors, and the colorbar spans symmetrically.",
     ),
     (
         "density2d",

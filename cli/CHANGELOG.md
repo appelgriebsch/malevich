@@ -3,6 +3,13 @@
 Versioned on its own semver (flags, not marks). Built entirely on the public
 malevich API.
 
+## Unreleased
+
+- `--colormap` picks the colors for `heatmap` and `hist2d` from the named set
+  (`viridis`, `magma`, `cividis`, `greys`, `red-blue`, `purple-orange`), and
+  `--midpoint V` centers the map on a data value — signed grids (correlations,
+  differences) get opposite signs in opposite colors and a symmetric colorbar.
+
 ## 0.1.0 — 2026-08-04
 
 First release: the full surface of the CLI plan (private/CLI.md), M-C1 through

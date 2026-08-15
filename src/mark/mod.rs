@@ -117,6 +117,11 @@ impl<'a> Mark<'a> {
                         what: "Colormap stops",
                     });
                 }
+                if !cells.colormap.midpoint_is_valid() {
+                    return Err(crate::Error::InvalidParameter {
+                        detail: "a colormap midpoint must be finite",
+                    });
+                }
                 if let Some((x, y)) = cells.extents {
                     if !(x.0.is_finite() && x.1.is_finite() && y.0.is_finite() && y.1.is_finite()) {
                         return Err(crate::Error::InvalidParameter {

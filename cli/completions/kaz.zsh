@@ -22,6 +22,8 @@ _kaz() {
     '--log-y[log-scale y]' \
     '--time-x[read x as time]' \
     '--bins[histogram bin count]:n:' \
+    '--colormap[heatmap/hist2d colors]:map:(viridis magma cividis greys red-blue purple-orange)' \
+    '--midpoint[center the colormap on a value]:v:' \
     '--color[when to color]:when:(auto always never)' \
     '--charset[glyph tier]:set:(auto ascii half quad sextant braille octant)' \
     '--pixels[pixel image panel]:when:(auto always never)' \

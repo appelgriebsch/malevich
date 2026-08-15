@@ -43,6 +43,36 @@ fn bins_takes_a_positive_count() {
 }
 
 #[test]
+fn colormap_resolves_names_and_centers_on_the_midpoint() {
+    use malevich::scale::Colormap;
+
+    assert_eq!(run(&["heatmap"]).colormap, None);
+    assert_eq!(
+        run(&["heatmap", "--colormap", "magma"]).colormap,
+        Some(Colormap::MAGMA)
+    );
+    assert_eq!(
+        run(&["hist2d", "--colormap", "red-blue", "--midpoint", "0"]).colormap,
+        Some(Colormap::RED_BLUE.centered_at(0.0))
+    );
+    // A bare --midpoint centers the default map.
+    assert_eq!(
+        run(&["heatmap", "--midpoint", "1"]).colormap,
+        Some(Colormap::DEFAULT.centered_at(1.0))
+    );
+
+    assert!(
+        parse(&["heatmap", "--colormap", "jet"]).is_err(),
+        "no rainbow maps"
+    );
+    assert!(parse(&["heatmap", "--midpoint", "nan"]).is_err());
+    assert!(parse(&["heatmap", "--midpoint", "much"]).is_err());
+    // The flags mean nothing without a gridded chart.
+    assert!(parse(&["line", "--colormap", "magma"]).is_err());
+    assert!(parse(&["line", "--midpoint", "0"]).is_err());
+}
+
+#[test]
 fn time_x_is_a_flag() {
     assert!(run(&["line", "--time-x"]).time_x);
     assert!(!run(&["line"]).time_x);

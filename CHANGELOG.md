@@ -5,6 +5,17 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Colormap` grows a curated named set — sequential `VIRIDIS` (the default,
+  now named), `MAGMA`, `CIVIDIS`, `GREYS` and diverging `RED_BLUE`,
+  `PURPLE_ORANGE` — selected to stay distinguishable after the 256- and
+  16-color quantizers, with `Colormap::named` resolving the canonical names
+  for CLIs and configuration.
+- `Colormap::centered_at(mid)` anchors a map to a data midpoint: signed and
+  centered data (correlations, log fold changes) renders with the neutral
+  color at the midpoint and the value range spanned symmetrically, and the
+  colorbar labels the symmetric span. `heatmap_with` joins the checked `_with`
+  presets so heatmaps take a colormap without abandoning the one-call default;
+  the correlation example now demonstrates the honest encoding.
 - The control-character-dropping behavior of the cell grid is now a stated,
   regression-tested contract: hostile escape bytes in titles, labels, categories,
   or annotations can never reach ANSI, plain, or HTML output.

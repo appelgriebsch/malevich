@@ -123,8 +123,13 @@ iTerm2) on the right, from the same plot values:
   and Tukey whiskers, violins from a real KDE (Silverman bandwidth), ECDFs, error
   bars, 2D densities (with a colorbar legending the value scale) — the charts
   science and ML actually need. Defaults stay one-call; checked `_with` variants
-  expose histogram geometry, KDE/violin resolution, and contour levels when the
-  data or host needs control.
+  expose histogram geometry, KDE/violin resolution, contour levels, and colormaps
+  when the data or host needs control. The named colormaps are a curated set that
+  stays distinguishable down the whole color ladder — sequential
+  (`Colormap::VIRIDIS`, `MAGMA`, `CIVIDIS`, `GREYS`) and diverging
+  (`RED_BLUE`, `PURPLE_ORANGE`): center one on a data value
+  (`Colormap::RED_BLUE.centered_at(0.0)`) and correlation or log-fold-change
+  renders honestly, opposite signs in opposite colors and a symmetric colorbar.
 - **Millions of points, measured.** Large line layers are aggregated by M4 —
   min/max/first/last per raster column, bucketed by the column each point renders
   into, so the reduction is *pixel-identical* to drawing every point. Ten million

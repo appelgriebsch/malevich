@@ -104,6 +104,14 @@ Read the x column as time: unix epoch, or an ISO\-8601 subset.
 .BI \-\-bins " N"
 Histogram bin count (1..1000000; default: automatic).
 .TP
+.BI \-\-colormap " MAP"
+Heatmap/hist2d colors: \fBviridis\fR (default), \fBmagma\fR, \fBcividis\fR,
+\fBgreys\fR, \fBred\-blue\fR, or \fBpurple\-orange\fR.
+.TP
+.BI \-\-midpoint " V"
+Center the colormap on value \fIV\fR, spanning the colorbar symmetrically \(em
+the honest encoding for signed data (heatmap/hist2d).
+.TP
 .BI \-\-color " WHEN"
 \fBauto\fR (default), \fBalways\fR, or \fBnever\fR.
 .TP

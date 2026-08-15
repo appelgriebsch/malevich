@@ -67,6 +67,9 @@ Options:
   --log-y        log-scale the y axis
   --time-x       read the x column as time (unix seconds or ISO 8601)
   --bins N       histogram bin count (hist; 1..1000000; default: automatic)
+  --colormap M   heatmap/hist2d colors: viridis (default) | magma | cividis |
+                 greys | red-blue | purple-orange
+  --midpoint V   center the colormap on value V (for signed data; heatmap/hist2d)
   --color WHEN   auto (default) | always | never
   --charset SET  auto (default) | ascii | half | quad | sextant | braille | octant
   --pixels WHEN  auto (default) | always | never   — sixel/kitty/iTerm2 image panel
@@ -274,6 +277,7 @@ count, with a colorbar. Empty cells stay blank — no data is never a little dat
 Examples:
   awk '{print $1, $2}' points.tsv | kaz hist2d
   kaz hist2d samples.tsv --time-x
+  kaz hist2d samples.tsv --colormap magma
 
 Shared options: kaz --help
 ";
@@ -288,9 +292,15 @@ Usage:
 Input: each row of numbers is a row of the grid (first line on top), shaded by
 value with a colorbar. Missing cells stay blank.
 
+Pick colors with --colormap (viridis, magma, cividis, greys, red-blue,
+purple-orange); for signed data, --midpoint V centers the map on V so the
+colorbar spans symmetrically — the honest encoding for correlations and
+differences.
+
 Examples:
   kaz heatmap confusion.tsv
   awk '{print $2, $3, $4, $5}' grid.tsv | kaz heatmap
+  kaz heatmap correlations.tsv --colormap red-blue --midpoint 0
 
 Shared options: kaz --help
 ";

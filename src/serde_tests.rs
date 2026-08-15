@@ -193,6 +193,26 @@ fn a_grid_of_plots_round_trips() {
 }
 
 #[test]
+fn a_centered_colormap_round_trips_and_legacy_maps_stay_linear() {
+    use crate::scale::Colormap;
+
+    let centered = Colormap::RED_BLUE.centered_at(0.0);
+    let encoded = serde_json::to_string(&centered).expect("serializes");
+    assert!(encoded.contains("midpoint"), "midpoint missing: {encoded}");
+    let decoded: Colormap = serde_json::from_str(&encoded).expect("deserializes");
+    assert_eq!(decoded, centered);
+
+    // A map without a midpoint serializes exactly as it always has, and the
+    // legacy encoding decodes to the linear behavior.
+    let linear = serde_json::to_string(&Colormap::GREYS).expect("serializes");
+    assert!(!linear.contains("midpoint"), "spurious field: {linear}");
+    let legacy: Colormap =
+        serde_json::from_str(r#"{"stops":[[0,0,0],[255,255,255]]}"#).expect("deserializes");
+    assert_eq!(legacy.midpoint(), None);
+    assert_eq!(legacy.position_in(1.0, 0.0, 4.0), 0.25);
+}
+
+#[test]
 fn malformed_payloads_render_without_panicking() {
     // Deserialization can produce states the constructors forbid; rendering must
     // shed them, never panic (COR-04).

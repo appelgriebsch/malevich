@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use lexopt::prelude::*;
 use malevich::Charset;
+use malevich::scale::Colormap;
 
 const MAX_FRAME_DIMENSION: usize = 4096;
 const MAX_FRAME_CELLS: usize = 4 * 1024 * 1024;
@@ -182,6 +183,9 @@ pub struct Args {
     pub time_x: bool,
     /// Explicit histogram bin count (`--bins`); auto when absent.
     pub bins: Option<usize>,
+    /// Heatmap/hist2d colormap (`--colormap`, centered by `--midpoint`); the
+    /// default map when absent.
+    pub colormap: Option<Colormap>,
     pub color: ColorChoice,
     pub charset: CharsetChoice,
     pub pixels: PixelsChoice,
@@ -245,6 +249,8 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
     let mut log_y = false;
     let mut time_x = false;
     let mut bins = None;
+    let mut colormap = None;
+    let mut midpoint = None;
     let mut color = ColorChoice::Auto;
     let mut charset = CharsetChoice::Auto;
     let mut pixels = PixelsChoice::Auto;
@@ -335,6 +341,26 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
                     1,
                     MAX_BINS,
                 )?);
+            }
+            Long("colormap") => {
+                let value = parser.value()?.string()?;
+                colormap = Some(Colormap::named(&value).ok_or_else(|| {
+                    Fail(format!(
+                        "--colormap is one of {}, got `{value}`",
+                        Colormap::NAMES.join("|")
+                    ))
+                })?);
+            }
+            Long("midpoint") => {
+                let value = parser.value()?.string()?;
+                let center: f64 = value
+                    .parse()
+                    .ok()
+                    .filter(|center: &f64| center.is_finite())
+                    .ok_or_else(|| {
+                        Fail(format!("--midpoint needs a finite number, got `{value}`"))
+                    })?;
+                midpoint = Some(center);
             }
             Long("color") => {
                 let value = parser.value()?.string()?;
@@ -463,6 +489,20 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             "--width × --height must not exceed {MAX_FRAME_CELLS} cells"
         )));
     }
+    if (colormap.is_some() || midpoint.is_some())
+        && !matches!(command, Command::Heatmap | Command::Hist2d)
+    {
+        return Err(Fail(format!(
+            "--colormap and --midpoint only apply to heatmap and hist2d, not `{}`",
+            command.name()
+        )));
+    }
+    // One resolved value for the chart builders: a bare --midpoint centers the
+    // default map.
+    let colormap = match (colormap, midpoint) {
+        (map, Some(center)) => Some(map.unwrap_or_default().centered_at(center)),
+        (map, None) => map,
+    };
 
     Ok(Outcome::Run(Box::new(Args {
         command,
@@ -483,6 +523,7 @@ fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
         log_y,
         time_x,
         bins,
+        colormap,
         color,
         charset,
         pixels,
