@@ -12,6 +12,21 @@ use crate::theme::Theme;
 /// many frames. Rendering is deterministic: the same plot and the same frame always
 /// produce the same string. [`Frame::detect`] is the single place environment
 /// inspection happens.
+///
+/// The fields are public, so a detected frame at an explicit size — the
+/// terminal's charset, color tier, and theme, your dimensions — is struct update
+/// syntax, not a builder:
+///
+/// ```
+/// use malevich::Frame;
+///
+/// let frame = Frame {
+///     width: 100,
+///     height: 30,
+///     ..Frame::detect()
+/// };
+/// assert_eq!((frame.width, frame.height), (100, 30));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Frame {

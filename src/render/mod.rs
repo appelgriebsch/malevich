@@ -2,7 +2,8 @@
 //!
 //! Marks draw on a [`Surface`] in subpixel coordinates (raster convention: origin
 //! top-left, y grows downward); a [`Charset`] codec maps each cell's subpixel pattern
-//! to one glyph; encoders turn the cell grid into a plain or ANSI string. Nothing in
+//! to one glyph; encoders turn the cell grid into a plain or ANSI string, an HTML
+//! card, or an SVG card — one grid, one encoder per kind of terminal. Nothing in
 //! this module touches a terminal, and nothing in it panics: drawing outside the
 //! surface clips, non-finite coordinates draw nothing.
 
@@ -10,11 +11,11 @@ mod canvas;
 mod charset;
 // Visible to the crate so tests elsewhere can drive the quantizers directly.
 pub(crate) mod color;
-#[cfg(feature = "evcxr")]
 mod html;
 mod limits;
 mod raster;
 mod surface;
+mod svg;
 mod width;
 
 pub(crate) use canvas::{Anchor, Canvas, PlotRect, PointShape};

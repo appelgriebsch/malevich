@@ -77,10 +77,7 @@ impl Mapping {
         } else {
             AxisKind::of(y_spec)
         };
-        let y_categories = match y_spec {
-            Scale::Bands(categories) if layout.y_band.is_some() => Some(categories.clone()),
-            _ => None,
-        };
+        let y_categories = layout.y_categories.map(<[String]>::to_vec);
         Mapping {
             left: layout.gutter,
             top: layout.plot_top,

@@ -30,7 +30,7 @@ pub enum Charset {
 /// The octant glyph for every 2×4 bit pattern (row-major bits, top-left first).
 /// Patterns that predate Unicode 16 keep their legacy glyphs (`▘`, `▌`, `▄`, …);
 /// the table matches the mapping shipped by tui-big-text and foot.
-const OCTANTS: [char; 256] = [
+pub(super) const OCTANTS: [char; 256] = [
     ' ', '𜺨', '𜺫', '🮂', '𜴀', '▘', '𜴁', '𜴂', '𜴃', '𜴄', '▝', '𜴅', '𜴆', '𜴇', '𜴈', '▀', '𜴉', '𜴊', '𜴋',
     '𜴌', '🯦', '𜴍', '𜴎', '𜴏', '𜴐', '𜴑', '𜴒', '𜴓', '𜴔', '𜴕', '𜴖', '𜴗', '𜴘', '𜴙', '𜴚', '𜴛', '𜴜', '𜴝',
     '𜴞', '𜴟', '🯧', '𜴠', '𜴡', '𜴢', '𜴣', '𜴤', '𜴥', '𜴦', '𜴧', '𜴨', '𜴩', '𜴪', '𜴫', '𜴬', '𜴭', '𜴮', '𜴯',
@@ -49,7 +49,7 @@ const OCTANTS: [char; 256] = [
 
 /// Quadrant glyphs indexed by bit pattern: bit 0 top-left, bit 1 top-right,
 /// bit 2 bottom-left, bit 3 bottom-right.
-const QUADRANTS: [char; 16] = [
+pub(super) const QUADRANTS: [char; 16] = [
     ' ', '\u{2598}', '\u{259D}', '\u{2580}', '\u{2596}', '\u{258C}', '\u{259E}', '\u{259B}',
     '\u{2597}', '\u{259A}', '\u{2590}', '\u{259C}', '\u{2584}', '\u{2599}', '\u{259F}', '\u{2588}',
 ];
@@ -90,6 +90,19 @@ impl Charset {
             Charset::Ascii => &['#'],
             _ => &[
                 '\u{2581}', '\u{2582}', '\u{2583}', '\u{2584}', '\u{2585}', '\u{2586}', '\u{2587}',
+                '\u{2588}',
+            ],
+        }
+    }
+
+    /// The left-anchored fill ramp used by horizontal bars: `ramp[k]` covers
+    /// `(k + 1) / len` of a cell from the left edge. ASCII has a single full-cell
+    /// glyph; everything richer gets the eight left eighth-blocks.
+    pub(crate) fn fill_ramp_left(self) -> &'static [char] {
+        match self {
+            Charset::Ascii => &['#'],
+            _ => &[
+                '\u{258F}', '\u{258E}', '\u{258D}', '\u{258C}', '\u{258B}', '\u{258A}', '\u{2589}',
                 '\u{2588}',
             ],
         }

@@ -38,7 +38,10 @@ everything after it is a stage reading the same spec:
 - Rasterization draws marks onto a subpixel surface — or onto real pixels
   where the terminal speaks them. The same mark code serves both fidelities.
 - Encoding writes the surface as a `String`: glyphs and SGR for a terminal,
-  spans for a notebook card, cells for a TUI buffer.
+  spans for a notebook card, rectangles and text runs for a host that draws
+  with SVG, cells for a TUI buffer. The terminal is a category, not a
+  device: every host that draws the cell grid is one, and the encoder is the
+  only thing that differs.
 
 Adoption may follow; it is never chased. No chart-type races, no config
 surface for its own sake, no dependency bazaar.

@@ -49,6 +49,17 @@ impl Theme {
             .is_some_and(|background| background == "7" || background == "15");
         if light { Theme::LIGHT } else { Theme::DARK }
     }
+
+    /// The card background and foreground the HTML and SVG encoders paint
+    /// with, as CSS color literals. Only [`Theme::LIGHT`] selects the light
+    /// card; every other theme takes the dark one.
+    pub(crate) fn card_colors(self) -> (&'static str, &'static str) {
+        if self == Theme::LIGHT {
+            ("#ffffff", "#1f2328")
+        } else {
+            ("#0d1117", "#e6edf3")
+        }
+    }
 }
 
 impl Default for Theme {

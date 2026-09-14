@@ -58,3 +58,17 @@ fn debug_stays_curated() {
     let based = Bars::new(["a"], &[1.0][..]).base(&[2.0][..]);
     assert!(format!("{based:?}").contains("based: true"));
 }
+
+#[test]
+fn horizontal_is_a_channel_on_every_placement() {
+    let bands = Bars::new(["a"], &[1.0][..]).horizontal();
+    let spans = Bars::spans(0.0, 1.0, &[1.0][..]).horizontal();
+    let at = Bars::at(&[0.0][..], 0.5, &[1.0][..]).horizontal();
+    for bars in [bands, spans, at] {
+        assert!(bars.horizontal);
+        assert!(bars.validate().is_ok());
+        assert!(format!("{bars:?}").contains("horizontal: true"));
+        assert!(bars.into_owned().horizontal);
+    }
+    assert!(!Bars::new(["a"], &[1.0][..]).horizontal);
+}

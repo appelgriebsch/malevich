@@ -493,69 +493,6 @@ impl Surface {
         Ok(out)
     }
 
-    /// Encodes the cell grid as HTML element content with concrete-RGB span runs.
-    ///
-    /// Default-colored glyphs inherit from their enclosing element. Rows are
-    /// newline-joined with trailing spaces trimmed, just like [`Surface::encode`].
-    #[cfg(feature = "evcxr")]
-    pub(crate) fn encode_html(&self) -> String {
-        use std::fmt::Write as _;
-
-        let mut out = String::with_capacity((self.width + 32) * self.height);
-        for row in 0..self.height {
-            if row > 0 {
-                out.push('\n');
-            }
-            let mut current = (None, None);
-            let mut kept = out.len();
-            let mut kept_style = (None, None);
-            for (glyph, _, foreground, background) in self.row(row) {
-                let foreground = match foreground {
-                    Color::Default => None,
-                    color => Some(color.to_rgb()),
-                };
-                let background = match background {
-                    Color::Default => None,
-                    color => Some(color.to_rgb()),
-                };
-                // Foreground is immaterial on a space, but its background is not.
-                let next = (
-                    if glyph == ' ' { current.0 } else { foreground },
-                    background,
-                );
-                if next != current {
-                    if current != (None, None) {
-                        out.push_str("</span>");
-                    }
-                    if next != (None, None) {
-                        out.push_str("<span style=\"");
-                        if let Some((r, g, b)) = next.0 {
-                            let _ = write!(out, "color:#{r:02x}{g:02x}{b:02x}");
-                            if next.1.is_some() {
-                                out.push(';');
-                            }
-                        }
-                        if let Some((r, g, b)) = next.1 {
-                            let _ = write!(out, "background-color:#{r:02x}{g:02x}{b:02x}");
-                        }
-                        out.push_str("\">");
-                    }
-                    current = next;
-                }
-                super::html::escape(glyph, &mut out);
-                if glyph != ' ' || background.is_some() {
-                    kept = out.len();
-                    kept_style = current;
-                }
-            }
-            out.truncate(kept);
-            if kept_style != (None, None) {
-                out.push_str("</span>");
-            }
-        }
-        out
-    }
-
     /// Every printable cell as `(column, row, glyph, foreground, background)`,
     /// skipping wide-glyph continuations (the glyph to their left covers them).
     /// For adapters that write into cell buffers instead of strings.
@@ -741,6 +678,101 @@ impl Canvas for Surface {
                         );
                     }
                     row += 1.0;
+                }
+            }
+        }
+    }
+
+    fn bar_horizontal(
+        &mut self,
+        span: (f64, f64),
+        end: f64,
+        baseline: f64,
+        positive: bool,
+        rect: PlotRect,
+        color: Color,
+    ) {
+        let (px, py) = (self.columns, self.rows);
+        let ramp = self.charset.fill_ramp_left();
+        let eighths = ramp.len() == 8;
+        let mut buffer = [0u8; 4];
+        let baseline = baseline / px as f64;
+        let end = end / px as f64;
+        // A bar fills the rows whose centers fall inside its span, plus the row
+        // chrome gives the span's center (the subpixel rounded, then its cell) —
+        // the band label's row. Whenever a band is at least one cell tall the
+        // label row is among the sampled rows already; when it is thinner, the
+        // bar still lands on its label. Sampling by row centers keeps adjacent
+        // bands on distinct rows, which rounding both edges does not. Clamp
+        // before iterating, as the vertical fill does.
+        let half = (py as f64 - 1.0) / 2.0;
+        let center = (span.0 + span.1) / 2.0;
+        let center_row = (center.round() as i64).div_euclid(py as i64);
+        let first = ((span.0 - half) / py as f64).ceil() as i64;
+        let last = ((span.1 - half) / py as f64).ceil() as i64 - 1;
+        let (mut top, mut bottom) = (center_row, center_row + 1);
+        if first <= last {
+            top = top.min(first);
+            bottom = bottom.max(last + 1);
+        }
+        let top = top.clamp(0, rect.rows as i64);
+        let bottom = bottom.clamp(0, rect.rows as i64);
+
+        for row in top..bottom {
+            let cell_row = rect.top as i64 + row;
+            if positive {
+                // Rightward: full cells from the (snapped-left) baseline, a
+                // left-anchored partial at the end.
+                let left = baseline.floor().max(0.0);
+                let right = end.min(rect.columns as f64);
+                let mut column = left;
+                while column < right.ceil() {
+                    let coverage = ((right - column).min(1.0) * 8.0).round() as usize;
+                    let glyph: Option<char> = if eighths {
+                        (coverage >= 1).then(|| ramp[coverage.min(8) - 1])
+                    } else {
+                        (coverage >= 4).then(|| ramp[0])
+                    };
+                    if let Some(glyph) = glyph {
+                        Surface::text(
+                            self,
+                            rect.gutter as i64 + column as i64,
+                            cell_row,
+                            glyph.encode_utf8(&mut buffer),
+                            color,
+                        );
+                    }
+                    column += 1.0;
+                }
+            } else {
+                // Leftward: full cells from the (snapped-right) baseline, a coarse
+                // right-anchored partial at the end — Unicode has no right eighths.
+                let right = baseline.ceil().min(rect.columns as f64);
+                let left = end.max(0.0);
+                let mut column = left.floor();
+                while column < right {
+                    let coverage = (column + 1.0 - left).min(1.0);
+                    let glyph: Option<char> = if !eighths {
+                        (coverage >= 0.5).then(|| ramp[0])
+                    } else if coverage >= 7.0 / 8.0 {
+                        Some('\u{2588}')
+                    } else if coverage >= 0.5 {
+                        Some('\u{2590}')
+                    } else if coverage >= 1.0 / 8.0 {
+                        Some('\u{2595}')
+                    } else {
+                        None
+                    };
+                    if let Some(glyph) = glyph {
+                        Surface::text(
+                            self,
+                            rect.gutter as i64 + column as i64,
+                            cell_row,
+                            glyph.encode_utf8(&mut buffer),
+                            color,
+                        );
+                    }
+                    column += 1.0;
                 }
             }
         }

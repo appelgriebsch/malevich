@@ -530,3 +530,20 @@ fn a_viewport_persists_its_windows_and_nothing_derived() {
     assert_eq!(decoded.x(), seeded.x());
     assert_eq!(decoded.y(), seeded.y());
 }
+
+#[test]
+fn horizontal_bars_round_trip_and_stay_out_of_vertical_encodings() {
+    let plot = Plot::new().layer(Bars::new(["a", "b"], &[1.0, 2.0][..]).horizontal());
+    let document = Document::plot(plot.clone()).expect("a horizontal bars plot is valid");
+    let json = serde_json::to_string(&document).expect("serializes");
+    assert!(json.contains("\"horizontal\":true"), "{json}");
+    let decoded: Document = serde_json::from_str(&json).expect("decodes");
+    assert_eq!(
+        decoded.try_render(&frame()).expect("renders"),
+        plot.render(&frame())
+    );
+    // The wire format of every existing vertical spec is untouched.
+    let vertical =
+        serde_json::to_string(&Document::plot(crate::bar(["a"], &[1.0][..])).unwrap()).unwrap();
+    assert!(!vertical.contains("horizontal"), "{vertical}");
+}

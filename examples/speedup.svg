@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="593.6" height="376" viewBox="0 0 593.6 376" font-family="ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace" font-size="13" fill="#e6edf3" shape-rendering="crispEdges">
+<rect width="593.6" height="376" rx="8" fill="#0d1117"/>
+<text x="148.6" y="24.5" textLength="288.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">speedup over Range&lt;usize&gt; (synthetic)</text>
+<rect x="133" y="28" width="15.6" height="16" fill="#00cdcd"/>
+<rect x="250" y="28" width="15.6" height="16" fill="#cdcd00"/>
+<text x="156.4" y="40.5" textLength="78" lengthAdjust="spacingAndGlyphs" xml:space="preserve">packed u64</text>
+<text x="273.4" y="40.5" textLength="179.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">packed u32  ── baseline</text>
+<rect x="351.4" y="44" width="3.9" height="16" fill="#e6edf3"/>
+<text x="195.4" y="56.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="60" width="148.2" height="16" fill="#00cdcd"/>
+<rect x="351.4" y="60" width="2.925" height="16" fill="#e6edf3"/>
+<text x="78.4" y="72.5" textLength="124.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">slice a buffer ┤</text>
+<rect x="203.2" y="76" width="148.2" height="16" fill="#cdcd00"/>
+<rect x="351.4" y="76" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="76" width="31.2" height="16" fill="#cdcd00"/>
+<rect x="390.4" y="76" width="6.825" height="16" fill="#cdcd00"/>
+<text x="195.4" y="88.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="351.4" y="92" width="3.9" height="16" fill="#e6edf3"/>
+<text x="195.4" y="104.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="108" width="148.2" height="16" fill="#00cdcd"/>
+<rect x="351.4" y="108" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="108" width="46.8" height="16" fill="#00cdcd"/>
+<rect x="406" y="108" width="1.95" height="16" fill="#00cdcd"/>
+<text x="70.6" y="120.5" textLength="132.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">iterate indices ┤</text>
+<rect x="203.2" y="124" width="148.2" height="16" fill="#cdcd00"/>
+<rect x="351.4" y="124" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="124" width="5.85" height="16" fill="#cdcd00"/>
+<text x="195.4" y="136.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="140" width="148.2" height="16" fill="#00cdcd"/>
+<rect x="351.4" y="140" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="140" width="156" height="16" fill="#00cdcd"/>
+<rect x="515.2" y="140" width="0.975" height="16" fill="#00cdcd"/>
+<text x="195.4" y="152.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="156" width="148.2" height="16" fill="#cdcd00"/>
+<rect x="351.4" y="156" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="156" width="93.6" height="16" fill="#cdcd00"/>
+<rect x="452.8" y="156" width="4.875" height="16" fill="#cdcd00"/>
+<text x="16" y="168.5" textLength="187.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve">walk an adjacency list ┤</text>
+<rect x="351.4" y="172" width="3.9" height="16" fill="#e6edf3"/>
+<text x="195.4" y="184.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="188" width="132.6" height="16" fill="#00cdcd"/>
+<rect x="335.8" y="188" width="1.95" height="16" fill="#00cdcd"/>
+<rect x="351.4" y="188" width="3.9" height="16" fill="#e6edf3"/>
+<text x="101.8" y="200.5" textLength="101.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">memo lookup ┤</text>
+<rect x="203.2" y="204" width="148.2" height="16" fill="#cdcd00"/>
+<rect x="351.4" y="204" width="7.8" height="16" fill="#e6edf3"/>
+<text x="195.4" y="216.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="220" width="148.2" height="16" fill="#00cdcd"/>
+<rect x="351.4" y="220" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="220" width="85.8" height="16" fill="#00cdcd"/>
+<text x="195.4" y="232.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="236" width="148.2" height="16" fill="#cdcd00"/>
+<rect x="351.4" y="236" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="236" width="202.8" height="16" fill="#cdcd00"/>
+<text x="86.2" y="248.5" textLength="117" lengthAdjust="spacingAndGlyphs" xml:space="preserve">random access ┤</text>
+<rect x="351.4" y="252" width="3.9" height="16" fill="#e6edf3"/>
+<text x="195.4" y="264.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="268" width="148.2" height="16" fill="#00cdcd"/>
+<rect x="351.4" y="268" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="268" width="23.4" height="16" fill="#00cdcd"/>
+<rect x="382.6" y="268" width="3.9" height="16" fill="#00cdcd"/>
+<text x="195.4" y="280.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<rect x="203.2" y="284" width="148.2" height="16" fill="#cdcd00"/>
+<rect x="351.4" y="284" width="7.8" height="16" fill="#e6edf3"/>
+<rect x="359.2" y="284" width="70.2" height="16" fill="#cdcd00"/>
+<rect x="429.4" y="284" width="6.825" height="16" fill="#cdcd00"/>
+<text x="101.8" y="296.5" textLength="101.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">sort ranges ┤</text>
+<rect x="351.4" y="300" width="3.9" height="16" fill="#e6edf3"/>
+<text x="195.4" y="312.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<text x="195.4" y="328.5" textLength="382.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve">└┬────────┬─────────┬────────┬─────────┬────────┬</text>
+<text x="195.4" y="344.5" textLength="382.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve">0.0      0.5       1.0      1.5       2.0     2.5</text>
+<text x="390.4" y="360.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">×</text>
+</svg>

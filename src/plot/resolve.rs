@@ -243,6 +243,7 @@ pub(crate) enum ResolvedLayer<'p> {
         values: Cow<'p, [f64]>,
         base: Option<&'p [f64]>,
         color: ColorChannel<'p>,
+        horizontal: bool,
     },
     Area {
         x: Coordinates<'p>,
@@ -289,20 +290,24 @@ pub(crate) enum ResolvedLayer<'p> {
 
 impl ResolvedLayer<'_> {
     /// The finite x extent this layer contributes to the shared domain.
-    /// Bars contribute none — their axis is the band scale.
+    /// Band-placed bars contribute none on their placement axis — that axis is
+    /// the band scale.
     pub(crate) fn x_extent(&self) -> Option<(f64, f64)> {
         match self {
             ResolvedLayer::Series { x, .. } => x.extent(),
             ResolvedLayer::Bars {
-                placement: Placement::Spans { start, width },
+                placement,
                 values,
+                base,
+                horizontal,
                 ..
-            } => Some((*start, width.mul_add(values.len() as f64, *start))),
-            ResolvedLayer::Bars {
-                placement: Placement::At { x, width },
-                ..
-            } => extent(x.as_slice()).map(|(lo, hi)| (lo - width / 2.0, hi + width / 2.0)),
-            ResolvedLayer::Bars { .. } => None,
+            } => {
+                if *horizontal {
+                    bars_value_extent(values, *base, false)
+                } else {
+                    bars_placement_extent(placement, values.len())
+                }
+            }
             ResolvedLayer::Area {
                 x,
                 low,
@@ -342,13 +347,19 @@ impl ResolvedLayer<'_> {
     pub(crate) fn y_extent(&self) -> Option<(f64, f64)> {
         match self {
             ResolvedLayer::Series { y, .. } => extent(y),
-            // A based bar covers base..base+value, so both edge sets bound it.
             ResolvedLayer::Bars {
+                placement,
                 values,
-                base: Some(base),
+                base,
+                horizontal,
                 ..
-            } => union([extent(base), shifted_extent(base, values, false)].into_iter()),
-            ResolvedLayer::Bars { values, .. } => extent(values),
+            } => {
+                if *horizontal {
+                    bars_placement_extent(placement, values.len())
+                } else {
+                    bars_value_extent(values, *base, false)
+                }
+            }
             ResolvedLayer::Area {
                 x,
                 low,
@@ -417,6 +428,12 @@ impl ResolvedLayer<'_> {
     pub(crate) fn x_extent_positive(&self) -> Option<(f64, f64)> {
         match self {
             ResolvedLayer::Series { x, .. } => x.extent_positive(),
+            ResolvedLayer::Bars {
+                values,
+                base,
+                horizontal: true,
+                ..
+            } => bars_value_extent(values, *base, true),
             ResolvedLayer::Area {
                 x,
                 low,
@@ -447,10 +464,10 @@ impl ResolvedLayer<'_> {
             ResolvedLayer::Series { y, .. } => extent_positive(y),
             ResolvedLayer::Bars {
                 values,
-                base: Some(base),
+                base,
+                horizontal: false,
                 ..
-            } => union([extent_positive(base), shifted_extent(base, values, true)].into_iter()),
-            ResolvedLayer::Bars { values, .. } => extent_positive(values),
+            } => bars_value_extent(values, *base, true),
             ResolvedLayer::Area {
                 x,
                 low,
@@ -737,6 +754,7 @@ pub(crate) fn resolve<'p>(
                 values: Cow::Borrowed(bars.values.as_slice()),
                 base: bars.base.as_ref().map(crate::data::Series::as_slice),
                 color: colors.channel(bars.color_by.as_ref(), bars.color, bars.label.as_deref()),
+                horizontal: bars.horizontal,
             },
             Mark::Area(area) => ResolvedLayer::Area {
                 x: coordinates(area.x.as_ref(), area.high.len()),
@@ -852,6 +870,39 @@ const MARKER_CYCLE: [PointStyle; 5] = [
     PointStyle::Asterisk,
     PointStyle::Circle,
 ];
+
+/// The extent of a bars layer along its value axis: a based bar covers
+/// `base..base+value`, so both edge sets bound it; `positive` restricts to the
+/// strictly positive values a log axis can place.
+fn bars_value_extent(values: &[f64], base: Option<&[f64]>, positive: bool) -> Option<(f64, f64)> {
+    match base {
+        Some(base) => union(
+            [
+                if positive {
+                    extent_positive(base)
+                } else {
+                    extent(base)
+                },
+                shifted_extent(base, values, positive),
+            ]
+            .into_iter(),
+        ),
+        None if positive => extent_positive(values),
+        None => extent(values),
+    }
+}
+
+/// The extent of a bars layer along its placement axis: none for bands (that
+/// axis is the band scale), the covered span for numeric spans and positions.
+fn bars_placement_extent(placement: &Placement<'_>, count: usize) -> Option<(f64, f64)> {
+    match placement {
+        Placement::Bands(_) => None,
+        Placement::Spans { start, width } => Some((*start, width.mul_add(count as f64, *start))),
+        Placement::At { x, width } => {
+            extent(x.as_slice()).map(|(lo, hi)| (lo - width / 2.0, hi + width / 2.0))
+        }
+    }
+}
 
 /// Applies the layer reduction to one line series, returning owned reduced
 /// coordinates when a reduction applies.

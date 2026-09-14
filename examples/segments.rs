@@ -1,8 +1,9 @@
 //! Stacked and grouped bars, composed from the grammar — never a preset: a
 //! `base` channel stacks each layer on the running total of the ones below
 //! (the low half of `stat::stack`), and positioned bars (`Bars::at`) sit side
-//! by side within their bands. In color modes the stack's segments read by
-//! palette; plain output shows the envelope. Synthetic data.
+//! by side within their bands at the offsets `stat::dodge` computes. In color
+//! modes the stack's segments read by palette; plain output shows the
+//! envelope. Synthetic data.
 
 use malevich::{Bars, Frame, Plot, Scale};
 
@@ -26,14 +27,15 @@ fn main() {
     println!("{}", stacked.render_best(&Frame::plain(56, 16)));
     println!();
 
-    // Grouped: one positioned layer per year, offset around the band centers.
+    // Grouped: one positioned layer per year, dodged around the band centers —
+    // positions 0.4 apart, bars 0.32 wide, so a gap keeps the years apart even
+    // without color.
     let last_year = [3.6, 4.1, 4.4, 5.0];
-    let left: Vec<f64> = (0..quarters.len()).map(|i| i as f64 - 0.2).collect();
-    let right: Vec<f64> = (0..quarters.len()).map(|i| i as f64 + 0.2).collect();
+    let positions = malevich::stat::dodge(&[&last_year, &platform], 0.4);
     let grouped = Plot::new()
         .x_scale(Scale::bands(quarters))
-        .layer(Bars::at(&left[..], 0.32, &last_year[..]).label("2025"))
-        .layer(Bars::at(&right[..], 0.32, &platform[..]).label("2026"))
+        .layer(Bars::at(&positions[0][..], 0.32, &last_year[..]).label("2025"))
+        .layer(Bars::at(&positions[1][..], 0.32, &platform[..]).label("2026"))
         .title("platform revenue, year over year ($B, synthetic)");
     println!("{}", grouped.render_best(&Frame::plain(60, 14)));
 }

@@ -7,6 +7,8 @@
 //! - Any markdown file may embed `<!-- generated:NAME -->` … `<!-- /generated -->`;
 //!   the block between the markers is replaced with the stdout of
 //!   `cargo run --example NAME` in a `text` fence.
+//! - `FILES` names whole files an example writes through stdout — the SVG cards
+//!   a README embeds as images — with the arguments that select that output.
 //!
 //! CI runs this with `--check` and fails on any stale file. Examples used here must
 //! render fixed `Frame::plain` or `Frame::portable` frames so their output is
@@ -262,7 +264,15 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                 "segments",
                 "Stacked and grouped bars, composed — never a preset: a base channel \
                  stacks each layer on the running total (the low half of stat::stack), \
-                 and positioned bars sit side by side within their bands.",
+                 and positioned bars sit side by side within their bands at the \
+                 positions stat::dodge computes.",
+            ),
+            (
+                "speedup",
+                "Horizontal grouped bars: the bands run down the y axis, so long \
+                 workload names take the measured label gutter; dodged positions per \
+                 series, a vertical Rule at the 1.0× baseline. Rendered again as the \
+                 README's SVG card by the same example.",
             ),
             (
                 "multiples",
@@ -296,6 +306,11 @@ const SPLICED: &[&str] = &[
     "docs/principles/axes-are-the-product.md",
     "docs/principles/degradation-is-the-contract.md",
 ];
+
+/// Files produced whole from an example's stdout: `(example, arguments, path)`.
+/// Checked for staleness like every spliced block, so a figure in the README is
+/// program output, regenerated and diffed.
+const FILES: &[(&str, &[&str], &str)] = &[("speedup", &["--svg"], "examples/speedup.svg")];
 
 /// Examples that are deliberately not in the gallery: infrastructure, the colored
 /// tour (environment-dependent), interactive demos, README splice sources, the
@@ -354,6 +369,10 @@ fn main() {
         apply(path, splice(&content), check, &mut stale);
     }
 
+    for (name, arguments, path) in FILES {
+        apply(path, output_of_with(name, arguments), check, &mut stale);
+    }
+
     if check {
         if stale.is_empty() {
             println!("All generated docs are current.");
@@ -369,9 +388,15 @@ fn main() {
 
 /// Runs one example and returns its stdout with the trailing newline trimmed.
 fn output_of(name: &str) -> String {
+    output_of_with(name, &[]).trim_end_matches('\n').to_string()
+}
+
+/// Runs one example with `arguments` and returns its stdout whole.
+fn output_of_with(name: &str, arguments: &[&str]) -> String {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let output = Command::new(cargo)
-        .args(["run", "--quiet", "--example", name])
+        .args(["run", "--quiet", "--example", name, "--"])
+        .args(arguments)
         .output()
         .expect("failed to run cargo");
     assert!(
@@ -379,10 +404,7 @@ fn output_of(name: &str) -> String {
         "example {name} failed:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    String::from_utf8(output.stdout)
-        .expect("example output is not UTF-8")
-        .trim_end_matches('\n')
-        .to_string()
+    String::from_utf8(output.stdout).expect("example output is not UTF-8")
 }
 
 fn gallery_content() -> String {

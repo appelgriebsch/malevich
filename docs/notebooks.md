@@ -30,11 +30,15 @@ grid malevich would print to a terminal, as a `<pre>` with colored spans.
 Quadrants and box-drawing stay crisp, mark colors become RGB spans, chrome
 follows the card foreground, and plot text is HTML-escaped. The default
 frame is 100×26 quadrants on the dark card; `Theme::LIGHT` selects the
-light card.
+light card. The same card travels as `image/svg+xml` in the bundle, so an
+export that cannot carry HTML — nbconvert to PDF — still shows the chart;
+JupyterLab itself prefers the HTML.
 
 HTML rather than an image is a design consequence, not a shortcut: malevich
 owns no font rasterizer, so it hands text drawing to the browser — the same
-offload it makes to the terminal. The adapter adds no dependency.
+offload it makes to the terminal. The SVG card keeps that rule: block glyphs
+become the rectangles they denote, everything else is text the host's font
+draws. The adapter adds no dependency.
 
 Quadrants are the default for the same reason they are the terminal
 default: a notebook's monospace font is a gamble, and 2×2 blocks plus
@@ -42,15 +46,20 @@ box-drawing are in virtually every one. Denser tiers are one frame away.
 
 ## Custom frames
 
-`Plot::to_html(&frame)` is the pure, deterministic path — snapshot-testable
-like every render path:
+`Plot::to_html(&frame)` and `Plot::to_svg(&frame)` are the pure,
+deterministic paths — snapshot-testable like every render path, and needing
+no feature at all, because a notebook (or a README, or a static page) is one
+more terminal:
 
 ```rust
 plot.to_html(&Frame::portable(120, 30))
+plot.to_svg(&Frame::portable(120, 30))
 ```
 
-Redirect `cargo run --example evcxr --features evcxr > plot.html` for a
-standalone fragment you can inspect in a browser.
+Redirect `cargo run --example evcxr > plot.html` for a standalone fragment
+you can inspect in a browser, or `cargo run --example speedup -- --svg >
+plot.svg` for the SVG card — the one the README embeds as an image, because
+GitHub strips the HTML card's styles.
 
 ## The terminal REPL
 

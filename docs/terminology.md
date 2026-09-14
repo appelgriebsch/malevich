@@ -30,7 +30,9 @@ and "geom" (ggplot jargon). Eight marks, joined under the closed `mark::Mark`
 enum: `Line` (points, paired series, or a sampled function), `Points`,
 `Bars` (bands, contiguous numeric spans, or free positions; rising from the
 zero baseline, or from a per-bar `base` — the y2-style channel that makes
-stacked bars, grouped bars, and waterfalls plain compositions), `Area`
+stacked bars, grouped bars, and waterfalls plain compositions; `horizontal`
+turns any placement sideways, the bands down the y axis in reading order and
+the values along x — the `barh` of the catalog), `Area`
 (baseline fills and bands), `Cells` (value grids, rgb images, or categorical
 class regions),
 `Range` (intervals with optional body and marker channels), `Rule`
@@ -72,10 +74,12 @@ seaborn.objects (`Stat`) and ggplot (`stat_*`). It is the module-level
 umbrella, not one execution algebra: a stat may be an online accumulator, a
 reducer, keyed orchestration, or a batch transform. Maps to the `stat`
 module — `M4`, `Bins`/`bins2`, `Agg`, `BoxStats`, `kde`, `Window`, `ecdf`,
-`roc`/`auc`, `ewma`, `stack`, `lttb`, `Moments`, `Fit` (streaming least
-squares behind the `trend` preset), and `nearest` (the crosshair-snapping
-lookup: the index of the closest finite value, so cursor readouts show a
-datum that exists rather than an interpolation).
+`roc`/`auc`, `ewma`, `stack`, `dodge` (side-by-side positions for grouped
+bars, one series per value series, fed to `Bars::at` — stack's sibling for
+bars beside each other), `lttb`, `Moments`, `Fit` (streaming least squares
+behind the `trend` preset), and `nearest` (the crosshair-snapping lookup: the
+index of the closest finite value, so cursor readouts show a datum that
+exists rather than an interpolation).
 
 ## Online accumulator
 
@@ -227,11 +231,27 @@ each cell to a glyph; a Raster is that snapshot. TUI hosts (ratatui, Ink)
 paint it into their own buffer instead of decoding an ANSI string — ANSI
 round-trip loses cell identity (wide glyphs, independent fg/bg, the
 continuation cell). `Plot::render` is rasterize-then-encode; `Plot::raster`
-stops after rasterize; `Raster::encode` is the second half, so a string and
-a cell-buffer host share one grid. Continuation cells (`columns == 0`) sit
-to the right of a wide glyph; encoders skip them. Maps to `render::Raster`.
-The membership test: a second host demanded cells, and no composition of
-the public string renderer reproduces per-cell style.
+stops after rasterize; the encoders are the second half — `Raster::encode`
+(glyphs and SGR for a tty), `to_plain`, `to_html` (the card a notebook
+draws), `to_svg` (the card an SVG host draws) — so every kind of terminal
+shares one grid. Continuation cells (`columns == 0`) sit to the right of a
+wide glyph; encoders skip them. Maps to `render::Raster`. The membership
+test: a second host demanded cells, and no composition of the public string
+renderer reproduces per-cell style.
+
+## Card
+
+The cell grid encoded for a host that draws with markup rather than escape
+codes: the HTML card (`Plot::to_html`, a `<pre>` of colored spans) and the
+SVG card (`Plot::to_svg`, rectangles for block glyphs, text runs for
+everything else). A card is a picture of the raster and nothing more — the
+same grid a tty would print, with mark colors resolved to concrete RGB and
+default-colored chrome taking the card's foreground, on the card background
+the theme selects. Text is never rasterized: the host's font draws it, the
+offload the string render makes to the terminal. Both cards need no feature;
+the `evcxr` feature adds only the notebook protocol around them. A card that
+drew something the terminal would not draw would be a figure, and a figure
+is a different product.
 
 ## Charset
 

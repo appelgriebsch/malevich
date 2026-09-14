@@ -120,6 +120,7 @@ pub(crate) struct Layout<'p> {
     pub band: Option<Band>,
     pub y_band: Option<Band>,
     pub categories: Option<&'p [String]>,
+    pub y_categories: Option<&'p [String]>,
     pub colorbar: Option<Colorbar>,
 }
 
@@ -134,7 +135,7 @@ impl<'p> Layout<'p> {
         density: (usize, usize),
         layers: &[ResolvedLayer<'p>],
         has_title: bool,
-        scales: (&'p Scale, &Scale),
+        scales: (&'p Scale, &'p Scale),
         axis_labels: (Option<&str>, Option<&str>),
         domains: Domains,
         colorbar_requested: bool,
@@ -151,6 +152,7 @@ impl<'p> Layout<'p> {
             Scale::Auto => layers.iter().find_map(|layer| match layer {
                 ResolvedLayer::Bars {
                     placement: crate::mark::Placement::Bands(categories),
+                    horizontal: false,
                     ..
                 } if !categories.is_empty() => Some(categories.as_slice()),
                 ResolvedLayer::Range {
@@ -161,16 +163,41 @@ impl<'p> Layout<'p> {
             }),
             _ => None,
         };
-        // Only bars rising from the zero baseline pin zero into the y domain;
-        // a based bar encodes its length from its own base, not from zero.
-        let has_zero_based_bars = layers
-            .iter()
-            .any(|layer| matches!(layer, ResolvedLayer::Bars { base: None, .. }));
-        // The y axis takes bands only explicitly — no mark implies them, because
-        // no bar-family mark places itself on y. Band 0 is the top band, so a
-        // Cells matrix reads like the printed matrix.
+        // Only bars rising from the zero baseline pin zero into their value
+        // domain; a based bar encodes its length from its own base, not from zero.
+        let has_zero_based_bars = layers.iter().any(|layer| {
+            matches!(
+                layer,
+                ResolvedLayer::Bars {
+                    base: None,
+                    horizontal: false,
+                    ..
+                }
+            )
+        });
+        let has_zero_based_horizontal_bars = layers.iter().any(|layer| {
+            matches!(
+                layer,
+                ResolvedLayer::Bars {
+                    base: None,
+                    horizontal: true,
+                    ..
+                }
+            )
+        });
+        // The y axis takes bands explicitly, or from a horizontal bands layer —
+        // the twin of the x rule. Band 0 is the top band, so a Cells matrix reads
+        // like the printed matrix and horizontal bars list in reading order.
         let y_categories: Option<&[String]> = match y_spec {
             Scale::Bands(categories) if !categories.is_empty() => Some(categories.as_slice()),
+            Scale::Auto => layers.iter().find_map(|layer| match layer {
+                ResolvedLayer::Bars {
+                    placement: crate::mark::Placement::Bands(categories),
+                    horizontal: true,
+                    ..
+                } if !categories.is_empty() => Some(categories.as_slice()),
+                _ => None,
+            }),
             _ => None,
         };
 
@@ -188,13 +215,16 @@ impl<'p> Layout<'p> {
                 (hi / 1000.0, hi)
             }
         };
-        let x_data = if let Some(fixed) = domains.0.filter(|_| categories.is_none()) {
+        let mut x_data = if let Some(fixed) = domains.0.filter(|_| categories.is_none()) {
             if log_x { clamp_log(fixed) } else { fixed }
         } else if log_x {
             union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
             union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0))
         };
+        if has_zero_based_horizontal_bars && !log_x && domains.0.is_none() {
+            x_data = (x_data.0.min(0.0), x_data.1.max(0.0));
+        }
         let mut y_data = if let Some(fixed) = domains.1.filter(|_| y_categories.is_none()) {
             if log_y { clamp_log(fixed) } else { fixed }
         } else if log_y {
@@ -352,6 +382,7 @@ impl<'p> Layout<'p> {
             band,
             y_band,
             categories,
+            y_categories,
             colorbar,
         }
     }

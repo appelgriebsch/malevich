@@ -115,6 +115,20 @@ pub(crate) trait Canvas {
         color: Color,
     );
 
+    /// Fills one horizontal bar covering `span` in plot-local subpixel rows,
+    /// from the baseline to the value end (both plot-local subpixel columns),
+    /// at the target's precision. `positive` anchors the partial fill:
+    /// left-to-right past the baseline, right-to-left before it.
+    fn bar_horizontal(
+        &mut self,
+        span: (f64, f64),
+        end: f64,
+        baseline: f64,
+        positive: bool,
+        rect: PlotRect,
+        color: Color,
+    );
+
     /// Draws the range marker crossbar centered on `sx` with `half_width` reach at
     /// subpixel row `sy` (frame-absolute), such that it reads over a fill of the
     /// same color.

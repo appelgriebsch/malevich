@@ -179,7 +179,8 @@ impl Raster {
         Ok(out)
     }
 
-    fn row(&self, row: usize) -> impl Iterator<Item = RasterCell> + '_ {
+    /// The printable cells of one row, continuations skipped.
+    pub(crate) fn row(&self, row: usize) -> impl Iterator<Item = RasterCell> + '_ {
         let start = row * self.width;
         self.cells[start..start + self.width]
             .iter()

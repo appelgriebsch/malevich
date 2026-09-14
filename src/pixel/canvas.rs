@@ -552,6 +552,36 @@ impl Canvas for PixelCanvas {
         }
     }
 
+    fn bar_horizontal(
+        &mut self,
+        span: (f64, f64),
+        end: f64,
+        baseline: f64,
+        positive: bool,
+        rect: PlotRect,
+        color: Color,
+    ) {
+        if !(span.0.is_finite() && span.1.is_finite() && end.is_finite() && baseline.is_finite()) {
+            return;
+        }
+        let x0 = (rect.gutter * self.cell.0) as i64;
+        let y0 = (rect.top * self.cell.1) as i64;
+        let top = y0 + span.0.round() as i64;
+        let bottom = (y0 + span.1.round() as i64).max(top + 1);
+        let (left, right) = if positive {
+            (baseline, end)
+        } else {
+            (end, baseline)
+        };
+        let left = x0 + left.round() as i64;
+        let right = (x0 + right.round() as i64).max(left + 1);
+        for y in top..bottom {
+            for x in left..right {
+                self.set(x, y, color);
+            }
+        }
+    }
+
     /// The marker crossbar reads by *clearing*: a thin band of terminal
     /// background across the fill — a gap, so contrast is guaranteed against any
     /// fill color, which a same-color stroke could not be.

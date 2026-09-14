@@ -492,7 +492,6 @@ fn a_small_heatmap_matches_its_plain_snapshot() {
     assert_eq!(text, SMALL_HEATMAP);
 }
 
-#[cfg(feature = "evcxr")]
 const HTML_GRID: &str = r#"    a &lt; b &amp; c
 3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
   │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
@@ -500,7 +499,6 @@ const HTML_GRID: &str = r#"    a &lt; b &amp; c
   └┬─────────────┬
    0             2"#;
 
-#[cfg(feature = "evcxr")]
 const DARK_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0;background-color:#0d1117;color:#e6edf3">    a &lt; b &amp; c
 3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
   │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
@@ -508,7 +506,6 @@ const DARK_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;bord
   └┬─────────────┬
    0             2</pre>"##;
 
-#[cfg(feature = "evcxr")]
 const LIGHT_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0;background-color:#ffffff;color:#1f2328">    a &lt; b &amp; c
 3 ┤     <span style="color:#00cdcd">⢀⠔⠊⠑⠢⢄⣀</span>
   │  <span style="color:#00cdcd">⢀⡠⠊⠁      ⠉⠒⠤</span>
@@ -516,24 +513,18 @@ const LIGHT_HTML: &str = r##"<pre style="margin:0;padding:12px 16px;border:0;bor
   └┬─────────────┬
    0             2</pre>"##;
 
-#[cfg(feature = "evcxr")]
 fn html_snapshot_plot() -> Plot<'static> {
     Plot::new()
         .layer(Line::y(vec![1.0, 3.0, 2.0]).color(crate::Color::Cyan))
         .title("a < b & c")
 }
 
-#[cfg(feature = "evcxr")]
 #[test]
 fn the_html_cell_grid_matches_its_snapshot() {
     let plot = html_snapshot_plot();
-    assert_eq!(
-        plot.rasterize(&Frame::plain(18, 6)).encode_html(),
-        HTML_GRID
-    );
+    assert_eq!(plot.raster(&Frame::plain(18, 6)).encode_html(), HTML_GRID);
 }
 
-#[cfg(feature = "evcxr")]
 #[test]
 fn html_cards_match_their_dark_and_light_snapshots() {
     let plot = html_snapshot_plot();
@@ -1283,18 +1274,24 @@ fn hostile_labels_never_leak_control_bytes() {
         // The printable remainder survives; only the control bytes vanish.
         assert!(plain.contains("payload"), "printable label text was lost");
 
-        #[cfg(feature = "evcxr")]
-        {
-            let html = plot.to_html(&Frame::plain(48, 14));
-            assert!(
-                !html.contains(|c: char| c != '\n' && c.is_control()),
-                "control character leaked into HTML output"
-            );
-            assert!(
-                !html.contains("<script>"),
-                "markup from a label survived HTML escaping"
-            );
-        }
+        let html = plot.to_html(&Frame::plain(48, 14));
+        assert!(
+            !html.contains(|c: char| c != '\n' && c.is_control()),
+            "control character leaked into HTML output"
+        );
+        assert!(
+            !html.contains("<script>"),
+            "markup from a label survived HTML escaping"
+        );
+        let svg = plot.to_svg(&Frame::plain(48, 14));
+        assert!(
+            !svg.contains(|c: char| c != '\n' && c.is_control()),
+            "control character leaked into SVG output"
+        );
+        assert!(
+            !svg.contains("<script>"),
+            "markup from a label survived SVG escaping"
+        );
     }
 }
 
@@ -1675,5 +1672,287 @@ fn annotations_keep_the_field_they_land_on() {
         label.4,
         crate::Color::Default,
         "chrome keeps the default background"
+    );
+}
+
+const SVG_CARD: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="172.4" height="120" viewBox="0 0 172.4 120" font-family="ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace" font-size="13" fill="#e6edf3" shape-rendering="crispEdges">
+<rect width="172.4" height="120" rx="8" fill="#0d1117"/>
+<text x="47.2" y="24.5" textLength="70.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve">a &lt; b &amp; c</text>
+<text x="16" y="40.5" textLength="23.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">3 ┤</text>
+<text x="78.4" y="40.5" fill="#00cdcd" textLength="54.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">⢀⠔⠊⠑⠢⢄⣀</text>
+<text x="31.6" y="56.5" textLength="7.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">│</text>
+<text x="55" y="56.5" fill="#00cdcd" textLength="101.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">⢀⡠⠊⠁      ⠉⠒⠤</text>
+<text x="16" y="72.5" textLength="23.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">1 ┤</text>
+<text x="39.4" y="72.5" fill="#00cdcd" textLength="23.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">⡠⠔⠁</text>
+<text x="31.6" y="88.5" textLength="124.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">└┬─────────────┬</text>
+<text x="39.4" y="104.5" textLength="117" lengthAdjust="spacingAndGlyphs" xml:space="preserve">0             2</text>
+</svg>
+"##;
+
+#[test]
+fn the_svg_card_matches_its_snapshot_and_shares_the_html_cards_grid() {
+    let plot = html_snapshot_plot();
+    let frame = Frame::plain(18, 6);
+    assert_eq!(plot.to_svg(&frame), SVG_CARD);
+    // One raster behind every card: the encoders are the only difference.
+    let raster = plot.raster(&frame);
+    assert_eq!(raster.to_svg(crate::Theme::DARK), SVG_CARD);
+    assert_eq!(raster.to_html(crate::Theme::DARK), DARK_HTML);
+    assert_eq!(plot.to_html(&frame), DARK_HTML);
+}
+
+#[test]
+fn the_svg_card_draws_block_glyphs_as_rectangles_and_chrome_as_text() {
+    let plot = crate::bar(["ab", "cd"], &[2.0, 3.0][..]);
+    let frame = Frame::portable(24, 8);
+    let dark = plot.to_svg(&frame);
+    let light = plot.to_svg(&Frame {
+        theme: crate::Theme::LIGHT,
+        ..frame
+    });
+    // The card colors follow the theme, and default-colored ink takes the
+    // card foreground rather than a frozen gray.
+    assert!(dark.contains("fill=\"#0d1117\"") && dark.contains("fill=\"#e6edf3\""));
+    assert!(light.contains("fill=\"#ffffff\"") && light.contains("fill=\"#1f2328\""));
+    assert!(!dark.contains("#808080"));
+    // Bars are rectangles, never text; the band labels are one text run the
+    // host's font draws, interior spaces preserved.
+    assert!(
+        !dark.contains('\u{2588}'),
+        "a full block leaked into text: {dark}"
+    );
+    assert!(dark.matches("<rect").count() >= 3, "{dark}");
+    assert!(
+        dark.contains("xml:space=\"preserve\">ab"),
+        "band labels must be text: {dark}"
+    );
+    // Wide glyphs count two columns in the pinned run length.
+    let wide = Plot::new()
+        .layer(Line::y(vec![1.0, 2.0]))
+        .title("日本")
+        .to_svg(&Frame::plain(16, 7));
+    assert!(wide.contains("textLength=\"31.2\""), "{wide}");
+}
+
+const SIDEWAYS: &str = r"            sideways
+      │
+alpha ┤        ██████▊
+      │        ████████████████▌
+ beta ┤        ████████████████▌
+gamma ┤   ▐█████
+      │
+      └┬───────┬───────┬───────┬
+     -2.5     0.0     2.5    5.0";
+
+const SIDEWAYS_ASCII: &str = r"            sideways
+      |
+alpha +        ######
+      |        ################
+ beta +        ################
+gamma +   #####
+      |
+      ++-------+-------+-------+
+     -2.5     0.0     2.5    5.0";
+
+fn sideways_plot() -> Plot<'static> {
+    use crate::mark::Bars;
+    Plot::new()
+        .layer(Bars::new(["alpha", "beta", "gamma"], &[2.0, 5.0, -1.5][..]).horizontal())
+        .title("sideways")
+}
+
+#[test]
+fn horizontal_bars_match_their_snapshots_on_every_tier() {
+    // Bands run down the y axis in reading order, zero is pinned into x, a
+    // negative bar extends left with the coarse right-anchored blocks, and each
+    // bar covers its own label row at every cell density.
+    assert_eq!(sideways_plot().render(&Frame::portable(32, 9)), SIDEWAYS);
+    assert_eq!(sideways_plot().render(&Frame::plain(32, 9)), SIDEWAYS);
+    let ascii = Frame {
+        charset: crate::Charset::Ascii,
+        ..Frame::plain(32, 9)
+    };
+    assert_eq!(sideways_plot().render(&ascii), SIDEWAYS_ASCII);
+}
+
+#[test]
+fn horizontal_bars_put_their_bands_on_y_and_pin_zero_into_x() {
+    use crate::mark::Bars;
+    let mapping = sideways_plot().mapping(&Frame::plain(40, 10));
+    assert_eq!(
+        mapping.y_categories(),
+        Some(&["alpha".to_string(), "beta".to_string(), "gamma".to_string()][..])
+    );
+    assert_eq!(mapping.x_categories(), None);
+    let (low, high) = mapping.x_domain();
+    assert!(
+        low <= -1.5 && high >= 5.0,
+        "the bars must fit the x domain: {low}..{high}"
+    );
+    // Every layer based: no zero pinned, the far edges fit.
+    let floating = Plot::new().layer(
+        Bars::new(["a", "b"], &[2.0, 3.0][..])
+            .horizontal()
+            .base(&[10.0, 12.0][..]),
+    );
+    let (low, high) = floating.mapping(&Frame::plain(40, 10)).x_domain();
+    assert!(
+        low >= 5.0,
+        "zero was pinned into a floating horizontal-bar domain: {low}"
+    );
+    assert!(high >= 15.0, "the far edge base+value must fit: {high}");
+    // Other layers position their y against the implied band indices.
+    let annotated = sideways_plot().layer(crate::mark::Rule::h(1.0));
+    assert!(annotated.validate().is_ok());
+    assert_eq!(
+        annotated
+            .mapping(&Frame::plain(40, 10))
+            .y_categories()
+            .map(<[String]>::len),
+        Some(3)
+    );
+}
+
+const SIDEWAYS_GROUPED: &str = r"    │
+    │███████████▌
+mon ┤███████████████████▏
+    │███████████████████▏
+    │
+    │██████████████████████████▊
+tue ┤███████████████▎
+    │
+    │███████████████████▏
+wed ┤███████████████████▏
+    │██████████████████████▉
+    │
+    └┬──────────────┬──────────────┬
+     0              4              8";
+
+#[test]
+fn horizontal_grouped_bars_dodge_within_their_bands() {
+    use crate::mark::Bars;
+    use crate::scale::Scale;
+    let a = [3.0, 7.0, 5.0];
+    let b = [5.0, 4.0, 6.0];
+    let positions = crate::stat::dodge(&[&a, &b], 0.35);
+    let plot = Plot::new()
+        .y_scale(Scale::bands(["mon", "tue", "wed"]))
+        .layer(Bars::at(&positions[0][..], 0.35, &a[..]).horizontal())
+        .layer(Bars::at(&positions[1][..], 0.35, &b[..]).horizontal());
+    assert!(plot.validate().is_ok());
+    assert_eq!(plot.render(&Frame::portable(36, 14)), SIDEWAYS_GROUPED);
+}
+
+#[test]
+fn dodged_bars_render_like_hand_offset_layers() {
+    use crate::mark::Bars;
+    use crate::scale::Scale;
+    // `stat::dodge` packages the grouped-bars offset arithmetic; the
+    // composition must be the one the gallery has always drawn by hand.
+    let a = [3.0, 7.0, 5.0];
+    let b = [5.0, 4.0, 6.0];
+    let positions = crate::stat::dodge(&[&a, &b], 0.35);
+    let left: Vec<f64> = (0..3).map(|i| i as f64 - 0.175).collect();
+    let right: Vec<f64> = (0..3).map(|i| i as f64 + 0.175).collect();
+    let frame = Frame::plain(44, 14);
+    let dodged = Plot::new()
+        .x_scale(Scale::bands(["mon", "tue", "wed"]))
+        .layer(Bars::at(&positions[0][..], 0.35, &a[..]))
+        .layer(Bars::at(&positions[1][..], 0.35, &b[..]));
+    let manual = Plot::new()
+        .x_scale(Scale::bands(["mon", "tue", "wed"]))
+        .layer(Bars::at(&left[..], 0.35, &a[..]))
+        .layer(Bars::at(&right[..], 0.35, &b[..]));
+    assert_eq!(dodged.render(&frame), manual.render(&frame));
+}
+
+#[test]
+fn horizontal_bars_reject_the_wrong_axes() {
+    use crate::mark::Bars;
+    use crate::scale::Scale;
+    let bars = || Bars::new(["a", "b"], &[1.0, 2.0][..]).horizontal();
+    let rejects = |plot: Plot<'_>, why: &str| {
+        assert!(plot.validate().is_err(), "{why}");
+        assert!(plot.try_render(&Frame::plain(30, 8)).is_err(), "{why}");
+    };
+    rejects(
+        Plot::new().layer(bars()).x_scale(Scale::Log),
+        "a length cannot use a log x axis",
+    );
+    rejects(
+        Plot::new().layer(bars()).x_scale(Scale::bands(["a", "b"])),
+        "a length cannot use a Bands x axis",
+    );
+    rejects(
+        Plot::new().layer(bars()).y_scale(Scale::Linear),
+        "an explicit numeric y scale is a conflict, not an override",
+    );
+    rejects(
+        Plot::new().layer(bars()).y_scale(Scale::bands(["a", "c"])),
+        "categorical layers must agree on their bands",
+    );
+    rejects(
+        Plot::new()
+            .layer(bars())
+            .layer(Bars::new(["a", "b"], &[1.0, 2.0][..])),
+        "vertical bars cannot share the categorical y axis horizontal bars imply",
+    );
+    rejects(
+        Plot::new()
+            .layer(Bars::spans(0.0, 1.0, &[1.0, 2.0][..]).horizontal())
+            .y_scale(Scale::bands(["a", "b"])),
+        "numeric spans need a continuous placement axis",
+    );
+    assert!(
+        Plot::new()
+            .layer(bars())
+            .y_scale(Scale::bands(["a", "b"]))
+            .validate()
+            .is_ok()
+    );
+    assert!(
+        Plot::new()
+            .layer(Bars::spans(0.0, 1.0, &[1.0, 2.0][..]).horizontal())
+            .validate()
+            .is_ok()
+    );
+    // Sideways bars never pin zero into y or imply x bands; the vertical
+    // catalog is untouched.
+    let mixed = Plot::new()
+        .layer(bars())
+        .layer(Line::xy(&[0.0, 1.0][..], &[0.0, 1.0][..]));
+    assert!(mixed.validate().is_ok());
+}
+
+#[test]
+fn horizontal_bars_render_gaps_and_bases_like_vertical_ones() {
+    use crate::mark::Bars;
+    // Stacked segments tile the total bar exactly, sideways.
+    let lower = [1.0, 3.0, 2.0];
+    let upper = [2.0, 1.0, 2.5];
+    let totals: Vec<f64> = lower.iter().zip(&upper).map(|(a, b)| a + b).collect();
+    let categories = ["a", "b", "c"];
+    let frame = Frame::plain(30, 12);
+    let stacked = Plot::new()
+        .layer(Bars::new(categories, &lower[..]).horizontal())
+        .layer(
+            Bars::new(categories, &upper[..])
+                .horizontal()
+                .base(&lower[..]),
+        );
+    let single = Plot::new().layer(Bars::new(categories, &totals[..]).horizontal());
+    assert_eq!(stacked.render(&frame), single.render(&frame));
+    // A gap in the values skips the bar, sideways too.
+    let with_gap = Plot::new()
+        .layer(Bars::new(categories, &[1.0, f64::NAN, 2.0][..]).horizontal())
+        .x_domain(0.0, 3.0);
+    let rendered = with_gap.render(&frame);
+    let b_row = rendered
+        .lines()
+        .find(|line| line.starts_with("b "))
+        .expect("the b label row exists");
+    assert!(
+        !b_row.contains('\u{2588}'),
+        "a NaN value must be a gap: {rendered}"
     );
 }

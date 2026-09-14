@@ -26,7 +26,7 @@ use crate::Theme;
 /// CSS color literals.
 ///
 /// These are the exact colors [`Plot::to_html`](crate::Plot::to_html)
-/// paints its own card with. A crate rendering its own HTML beside a
+/// and [`Plot::to_svg`](crate::Plot::to_svg) paint their own cards with. A crate rendering its own HTML beside a
 /// malevich chart should draw from this rather than hardcode a pair,
 /// so one notebook cell does not show two different backgrounds.
 ///
@@ -43,11 +43,7 @@ use crate::Theme;
 /// assert_eq!(card_colors(Theme::DARK), ("#0d1117", "#e6edf3"));
 /// ```
 pub fn card_colors(theme: Theme) -> (&'static str, &'static str) {
-    if theme == Theme::LIGHT {
-        ("#ffffff", "#1f2328")
-    } else {
-        ("#0d1117", "#e6edf3")
-    }
+    theme.card_colors()
 }
 
 /// Wraps mime-typed fragments in Evcxr's stdout protocol as

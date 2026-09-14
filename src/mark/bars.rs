@@ -15,8 +15,10 @@ use crate::render::Color;
 /// position their x values against category indices: `0.0` is the center of the
 /// first band, `1.0` the second, and so on. [`Bars::spans`] covers contiguous
 /// numeric spans (the histogram shape). [`Bars::at`] centers each bar at a free
-/// numeric position — side-by-side grouped bars within bands, bars over a time
-/// axis.
+/// numeric position — side-by-side grouped bars within bands (positions from
+/// [`dodge`](crate::stat::dodge)), bars over a time axis. [`Bars::horizontal`]
+/// turns any of the three sideways: the placement runs down the y axis and the
+/// values extend along x.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bars<'a> {
@@ -35,10 +37,17 @@ pub struct Bars<'a> {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub(crate) color_by: Option<Categories>,
+    /// Sideways: the placement on y, values along x. Absent means vertical;
+    /// wire documents omit it then.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "std::ops::Not::not")
+    )]
+    pub(crate) horizontal: bool,
 }
 
-/// Where bars sit on the x axis: named bands, contiguous numeric spans, or
-/// free numeric centers.
+/// Where bars sit on the placement axis — x, or y for horizontal bars: named
+/// bands, contiguous numeric spans, or free numeric centers.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum Placement<'a> {
@@ -66,6 +75,7 @@ impl<'a> Bars<'a> {
             color: None,
             label: None,
             color_by: None,
+            horizontal: false,
         };
         bars.validate()
             .expect("Bars::new requires one category per value");
@@ -87,6 +97,7 @@ impl<'a> Bars<'a> {
             color: None,
             label: None,
             color_by: None,
+            horizontal: false,
         };
         bars.validate()
             .expect("Bars::spans requires a finite start and a positive width");
@@ -115,6 +126,7 @@ impl<'a> Bars<'a> {
             color: None,
             label: None,
             color_by: None,
+            horizontal: false,
         };
         bars.validate()
             .expect("Bars::at requires one position per value and a finite positive width");
@@ -137,6 +149,21 @@ impl<'a> Bars<'a> {
         self.base = Some(base.into_series());
         self.validate()
             .expect("Bars::base requires one base per value");
+        self
+    }
+
+    /// Turns the bars sideways: the placement — named bands, spans, or free
+    /// positions — runs down the y axis, band `0` at the top in reading order,
+    /// and each value extends along x from the zero baseline or its own
+    /// [`base`](Bars::base). Long category names then get the measured label
+    /// gutter instead of a band's width. Everything else is unchanged: `base`
+    /// stacks, `color_by` groups, spans make a horizontal histogram, positions
+    /// make grouped bars within their bands. Under an automatic y scale a
+    /// horizontal bands layer makes the y axis categorical; other layers then
+    /// position their y values against band indices.
+    #[must_use]
+    pub fn horizontal(mut self) -> Bars<'a> {
+        self.horizontal = true;
         self
     }
 
@@ -224,6 +251,7 @@ impl<'a> Bars<'a> {
             color: self.color,
             label: self.label,
             color_by: self.color_by,
+            horizontal: self.horizontal,
         }
     }
 }
@@ -233,6 +261,7 @@ impl std::fmt::Debug for Bars<'_> {
         f.debug_struct("Bars")
             .field("bars", &self.values.len())
             .field("based", &self.base.is_some())
+            .field("horizontal", &self.horizontal)
             .field("color", &self.color)
             .finish()
     }

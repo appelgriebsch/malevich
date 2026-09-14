@@ -991,7 +991,7 @@ Small multiples, fixed axes, and the glyph ladder.
 
 ### segments
 
-Stacked and grouped bars, composed — never a preset: a base channel stacks each layer on the running total (the low half of stat::stack), and positioned bars sit side by side within their bands.
+Stacked and grouped bars, composed — never a preset: a base channel stacks each layer on the running total (the low half of stat::stack), and positioned bars sit side by side within their bands at the positions stat::dodge computes.
 Source: [examples/segments.rs](examples/segments.rs)
 
 ```text
@@ -1026,6 +1026,36 @@ Source: [examples/segments.rs](examples/segments.rs)
 0 ┤    ████ ████    ████ ████    ████ █████   █████ ████
   └─────────────────────────────────────────────────────────
           Q1            Q2           Q3           Q4
+```
+
+### speedup
+
+Horizontal grouped bars: the bands run down the y axis, so long workload names take the measured label gutter; dodged positions per series, a vertical Rule at the 1.0× baseline. Rendered again as the README's SVG card by the same example.
+Source: [examples/speedup.rs](examples/speedup.rs)
+
+```text
+                 speedup over Range<usize> (synthetic)
+               ██ packed u64  ██ packed u32  ── baseline
+                       │                   ⡇
+        slice a buffer ┤███████████████████▍
+                       │████████████████████████▉
+                       │██████████████████████████▎
+       iterate indices ┤████████████████████▊
+                       │                   ⡇
+                       │████████████████████████████████████████▏
+walk an adjacency list ┤████████████████████████████████▋
+                       │                   ⡇
+           memo lookup ┤█████████████████▎ ⡇
+                       │████████████████████
+                       │                   ⡇
+         random access ┤███████████████████████████████
+                       │██████████████████████████████████████████████
+                       │███████████████████████▌
+           sort ranges ┤█████████████████████████████▉
+                       │                   ⡇
+                       └┬────────┬─────────┬────────┬─────────┬────────┬
+                       0.0      0.5       1.0      1.5       2.0     2.5
+                                                ×
 ```
 
 ### multiples

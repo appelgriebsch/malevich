@@ -244,6 +244,68 @@ pub(crate) fn layers<C: Canvas>(
                 values,
                 base,
                 color,
+                horizontal: true,
+            } => match placement {
+                Placement::Bands(_) => {
+                    if let Some(y_band) = &layout.y_band {
+                        draw_bars_horizontal(
+                            surface,
+                            &|index| {
+                                (
+                                    y_band.position(index),
+                                    y_band.position(index) + y_band.bandwidth(),
+                                )
+                            },
+                            x_scale,
+                            values,
+                            *base,
+                            color,
+                            rect,
+                        );
+                    }
+                }
+                Placement::Spans { start, width } => {
+                    draw_bars_horizontal(
+                        surface,
+                        &|index| {
+                            // The numeric y scale runs upward, so the span's
+                            // ends arrive reversed in raster rows.
+                            let a = y_scale.map(width.mul_add(index as f64, *start));
+                            let b = y_scale.map(width.mul_add((index + 1) as f64, *start));
+                            (a.min(b), a.max(b))
+                        },
+                        x_scale,
+                        values,
+                        *base,
+                        color,
+                        rect,
+                    );
+                }
+                Placement::At { x, width } => {
+                    let positions = x.as_slice();
+                    let half = width / 2.0;
+                    draw_bars_horizontal(
+                        surface,
+                        &|index| {
+                            let center = positions.get(index).copied().unwrap_or(f64::NAN);
+                            let a = y_scale.map(center - half);
+                            let b = y_scale.map(center + half);
+                            (a.min(b), a.max(b))
+                        },
+                        x_scale,
+                        values,
+                        *base,
+                        color,
+                        rect,
+                    );
+                }
+            },
+            ResolvedLayer::Bars {
+                placement,
+                values,
+                base,
+                color,
+                horizontal: false,
             } => match placement {
                 Placement::Bands(_) => {
                     if let Some(band) = &band {
@@ -604,6 +666,50 @@ fn draw_bars<C: Canvas>(
         surface.bar(
             (left_sub, right_sub),
             y_scale.map(start + value),
+            baseline,
+            value > 0.0,
+            rect,
+            color.color(index),
+        );
+    }
+}
+
+/// Draws one horizontal bars layer: the same contract as [`draw_bars`] with the
+/// axes swapped — `span` answers plot-local subpixel rows, the fill runs along x
+/// from the baseline (zero, or the bar's own base) to the value end.
+fn draw_bars_horizontal<C: Canvas>(
+    surface: &mut C,
+    span: &dyn Fn(usize) -> (f64, f64),
+    x_scale: &Map,
+    values: &[f64],
+    base: Option<&[f64]>,
+    color: &ColorChannel<'_>,
+    rect: PlotRect,
+) {
+    let zero = x_scale.map(0.0);
+    for (index, &value) in values.iter().enumerate() {
+        if !value.is_finite() || value == 0.0 {
+            continue;
+        }
+        let start = match base {
+            Some(base) => match base.get(index) {
+                Some(&start) if start.is_finite() => start,
+                _ => continue,
+            },
+            None => 0.0,
+        };
+        let (top_sub, bottom_sub) = span(index);
+        if !top_sub.is_finite() || !bottom_sub.is_finite() {
+            continue;
+        }
+        let baseline = if start == 0.0 {
+            zero
+        } else {
+            x_scale.map(start)
+        };
+        surface.bar_horizontal(
+            (top_sub, bottom_sub),
+            x_scale.map(start + value),
             baseline,
             value > 0.0,
             rect,

@@ -471,3 +471,29 @@ fn anchored_notes_shift_by_their_own_ink_width() {
     );
     assert!(end_max < 32, "ends before the anchor: {end_max}");
 }
+
+#[test]
+fn a_horizontal_bar_fills_its_exact_rectangle_from_the_baseline() {
+    let mut canvas = PixelCanvas::new(4, 4, (8, 8));
+    // Plot-local: a bar over rows y ∈ [4, 12), from the baseline at x=8 to the
+    // value end at x=24.
+    canvas.bar_horizontal((4.0, 12.0), 24.0, 8.0, true, rect(), RED);
+    for y in 4..12 {
+        for x in 8..24 {
+            assert_eq!(canvas.get(x, y), Some(RED), "({x}, {y})");
+        }
+    }
+    assert_eq!(canvas.get(7, 4), None);
+    assert_eq!(canvas.get(24, 4), None);
+    assert_eq!(canvas.get(8, 3), None);
+    assert_eq!(canvas.get(8, 12), None);
+
+    // Leftward from the baseline: the value end is left of it.
+    let mut canvas = PixelCanvas::new(4, 4, (8, 8));
+    canvas.bar_horizontal((0.0, 4.0), 8.0, 24.0, false, rect(), RED);
+    assert_eq!(canvas.get(8, 0), Some(RED));
+    assert_eq!(canvas.get(23, 3), Some(RED));
+    assert_eq!(canvas.get(24, 0), None);
+    assert_eq!(canvas.get(7, 0), None);
+    assert_eq!(canvas.get(8, 4), None);
+}

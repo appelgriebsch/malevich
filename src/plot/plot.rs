@@ -334,41 +334,58 @@ impl<'a> Plot<'a> {
         Ok(self.try_rasterize(frame)?.to_raster())
     }
 
-    /// Renders the complete plot as a self-contained HTML terminal card.
+    /// Renders the complete plot as a self-contained HTML terminal card —
+    /// [`Raster::to_html`] of [`Plot::raster`].
     ///
     /// The cell grid is placed in a styled `<pre>` element: default-colored
     /// chrome inherits the card foreground, while mark colors become concrete RGB
     /// spans. The frame's color mode is ignored because HTML always carries RGB;
     /// its size, charset, and theme still apply. Rendering is pure and deterministic
-    /// for a given plot and frame.
-    #[cfg(feature = "evcxr")]
+    /// for a given plot and frame. Needs no feature: a notebook is one more
+    /// terminal, and this is how it draws cells.
     pub fn to_html(&self, frame: &Frame) -> String {
-        use std::fmt::Write as _;
+        self.raster(frame).to_html(frame.theme)
+    }
 
-        let content = self.rasterize(frame).encode_html();
-        let (background, foreground) = crate::evcxr::card_colors(frame.theme);
-        let mut html = String::with_capacity(content.len() + 320);
-        let _ = write!(
-            html,
-            "<pre style=\"margin:0;padding:12px 16px;border:0;border-radius:8px;box-sizing:border-box;display:inline-block;max-width:100%;overflow-x:auto;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.1;font-variant-ligatures:none;font-feature-settings:\"liga\" 0,\"calt\" 0;background-color:{background};color:{foreground}\">{content}</pre>"
-        );
-        html
+    /// Renders the complete plot as a self-contained SVG terminal card —
+    /// [`Raster::to_svg`] of [`Plot::raster`].
+    ///
+    /// The picture of the cell grid for hosts that draw with SVG: a README on
+    /// GitHub (which strips the HTML card's styles), a notebook export, a static
+    /// page. Block glyphs become crisp rectangles; braille, box drawing, and
+    /// labels are text the host's font draws, pinned to the cell grid. Colors
+    /// resolve as in the HTML card; the frame's color mode is ignored, its size,
+    /// charset, and theme apply. Pure and deterministic; no dependency.
+    ///
+    /// ```
+    /// use malevich::Frame;
+    ///
+    /// let svg = malevich::bar(["a", "b"], &[2.0, 3.0][..]).to_svg(&Frame::portable(30, 8));
+    /// assert!(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\""));
+    /// assert!(svg.ends_with("</svg>\n"));
+    /// ```
+    pub fn to_svg(&self, frame: &Frame) -> String {
+        self.raster(frame).to_svg(frame.theme)
     }
 
     /// Displays this plot when it is the last expression in an Evcxr cell.
     ///
-    /// Emits two representations and lets the frontend pick the richest it can
-    /// draw: an HTML card (100×26 quadrants, dark theme) for Jupyter, and a terminal
-    /// plot (80×24) for the terminal REPL, which cannot render HTML and would
-    /// otherwise show nothing. With the `pixel` feature also enabled, the terminal
-    /// block becomes a real sixel/kitty/iTerm2 image in a graphics-capable terminal
-    /// (detected explicitly for Evcxr's stdout destination; its pipe prevents an
-    /// active tty probe, so environment sniffing supplies the fallback) and stays
-    /// cells everywhere else. Use [`Plot::to_html`] with a custom [`Frame`] for
+    /// Emits three representations and lets the frontend pick the richest it
+    /// can draw: an HTML card (100×26 quadrants, dark theme) for Jupyter, the
+    /// same card as SVG for exporters that cannot carry HTML (nbconvert to
+    /// PDF), and a terminal plot (80×24) for the terminal REPL, which cannot
+    /// render either and would otherwise show nothing. With the `pixel` feature
+    /// also enabled, the terminal block becomes a real sixel/kitty/iTerm2 image
+    /// in a graphics-capable terminal (detected explicitly for Evcxr's stdout
+    /// destination; its pipe prevents an active tty probe, so environment
+    /// sniffing supplies the fallback) and stays cells everywhere else. Use
+    /// [`Plot::to_html`] or [`Plot::to_svg`] with a custom [`Frame`] for
     /// explicit size, charset, or theme control.
     #[cfg(feature = "evcxr")]
     pub fn evcxr_display(&self) {
-        let html = self.to_html(&Frame::portable(100, 26));
+        let card = self.raster(&Frame::portable(100, 26));
+        let html = card.to_html(crate::Theme::DARK);
+        let svg = card.to_svg(crate::Theme::DARK);
         let terminal = Frame::portable(80, 24);
         #[cfg(feature = "pixel")]
         let plain = self.render_with_capabilities(
@@ -379,7 +396,11 @@ impl<'a> Plot<'a> {
         let plain = self.render(&terminal);
         println!(
             "{}",
-            crate::evcxr::mime_bundle(&[("text/html", &html), ("text/plain", &plain)])
+            crate::evcxr::mime_bundle(&[
+                ("text/html", &html),
+                ("image/svg+xml", &svg),
+                ("text/plain", &plain),
+            ])
         );
     }
 
@@ -413,40 +434,58 @@ impl<'a> Plot<'a> {
                 });
             }
         }
-        // Categorical layers must agree on one ordered set of bands, and a numeric x
-        // scale cannot host them — `Auto` adapts, but an explicit numeric choice is a
-        // conflict, not an override.
+        // Categorical layers must agree on one ordered set of bands per axis, and a
+        // numeric scale cannot host them — `Auto` adapts, but an explicit numeric
+        // choice is a conflict, not an override. Vertical bars and band ranges
+        // place on x; horizontal bars place on y.
         let mut bands: Option<&[String]> = match &self.x {
             Scale::Bands(bands) => Some(bands.as_slice()),
             _ => None,
         };
+        let mut y_bands: Option<&[String]> = match &self.y {
+            Scale::Bands(bands) => Some(bands.as_slice()),
+            _ => None,
+        };
         for layer in &self.layers {
-            let layer_bands = match layer {
+            let (layer_bands, on_y) = match layer {
                 Mark::Bars(bars) => match &bars.placement {
-                    crate::mark::Placement::Bands(bands) => Some(bands.as_slice()),
-                    _ => None,
+                    crate::mark::Placement::Bands(bands) => {
+                        (Some(bands.as_slice()), bars.horizontal)
+                    }
+                    _ => (None, false),
                 },
                 Mark::Range(range) => match &range.placement {
-                    crate::mark::RangePlacement::Bands(bands) => Some(bands.as_slice()),
-                    _ => None,
+                    crate::mark::RangePlacement::Bands(bands) => (Some(bands.as_slice()), false),
+                    _ => (None, false),
                 },
-                _ => None,
+                _ => (None, false),
             };
             let Some(layer_bands) = layer_bands else {
                 continue;
             };
-            if matches!(self.x, Scale::Linear | Scale::Log | Scale::Time) {
-                return Err(crate::Error::IncompatibleScale {
-                    detail: "a categorical layer needs an Auto or Bands x scale",
-                });
+            let (scale, existing, detail) = if on_y {
+                (
+                    &self.y,
+                    &mut y_bands,
+                    "a horizontal categorical layer needs an Auto or Bands y scale",
+                )
+            } else {
+                (
+                    &self.x,
+                    &mut bands,
+                    "a categorical layer needs an Auto or Bands x scale",
+                )
+            };
+            if matches!(scale, Scale::Linear | Scale::Log | Scale::Time) {
+                return Err(crate::Error::IncompatibleScale { detail });
             }
-            match bands {
-                Some(existing) if existing != layer_bands => {
+            match existing {
+                Some(existing) if *existing != layer_bands => {
                     return Err(crate::Error::IncompatibleScale {
                         detail: "categorical layers disagree on their bands",
                     });
                 }
-                _ => bands = Some(layer_bands),
+                _ => *existing = Some(layer_bands),
             }
         }
         let categorical_x = match &self.x {
@@ -454,15 +493,39 @@ impl<'a> Plot<'a> {
             Scale::Auto => bands.is_some_and(|categories| !categories.is_empty()),
             _ => false,
         };
+        let categorical_y = match &self.y {
+            Scale::Bands(_) => true,
+            Scale::Auto => y_bands.is_some_and(|categories| !categories.is_empty()),
+            _ => false,
+        };
         for layer in &self.layers {
             match layer {
+                Mark::Bars(bars) if bars.horizontal => {
+                    if matches!(self.x, Scale::Log) {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "horizontal Bars encode a length and cannot use a log x axis",
+                        });
+                    }
+                    if categorical_x {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "horizontal Bars encode a numeric length and cannot use a Bands x axis",
+                        });
+                    }
+                    if categorical_y
+                        && matches!(bars.placement, crate::mark::Placement::Spans { .. })
+                    {
+                        return Err(crate::Error::IncompatibleScale {
+                            detail: "numeric-span horizontal Bars needs a continuous y scale",
+                        });
+                    }
+                }
                 Mark::Bars(bars) => {
                     if matches!(self.y, Scale::Log) {
                         return Err(crate::Error::IncompatibleScale {
                             detail: "Bars encode a length and cannot use a log y axis",
                         });
                     }
-                    if matches!(self.y, Scale::Bands(_)) {
+                    if categorical_y {
                         return Err(crate::Error::IncompatibleScale {
                             detail: "Bars encode a numeric length and cannot use a Bands y axis",
                         });
@@ -867,11 +930,7 @@ impl<'a> Plot<'a> {
         Ok((surface, canvas, rect, mapping))
     }
 
-    #[cfg_attr(
-        not(any(test, feature = "evcxr", feature = "ratatui")),
-        allow(dead_code)
-    )]
-    #[cfg(any(feature = "evcxr", feature = "ratatui"))]
+    #[cfg(feature = "ratatui")]
     pub(crate) fn rasterize(&self, frame: &Frame) -> Surface {
         self.try_rasterize(frame)
             .unwrap_or_else(|_| Surface::new(0, 0, frame.charset))

@@ -1,7 +1,8 @@
-//! Evcxr/Jupyter HTML output as an inspectable file.
+//! The HTML terminal card as an inspectable file — what an Evcxr/Jupyter cell
+//! shows, needing no feature: a notebook is one more terminal.
 //!
 //! ```sh
-//! cargo run --example evcxr --features evcxr > plot.html
+//! cargo run --example evcxr > plot.html
 //! ```
 
 use malevich::{Frame, Line, Plot, Points, Rule};

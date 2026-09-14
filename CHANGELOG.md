@@ -5,6 +5,53 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+The terminal is a category, not a device: any host that draws a cell grid is
+one. This release adds the encoder for hosts that draw with SVG, turns bars
+sideways, and packages the grouped-bar arithmetic as a stat.
+
+- `Plot::to_svg(&frame)` and `Raster::to_svg(theme)` render the cell grid as
+  a self-contained SVG terminal card — the picture a README on GitHub (which
+  strips the HTML card's styles), a notebook export, or a static page draws.
+  Block glyphs (Block Elements, sextants, octants) become crisp rectangles
+  from their defined geometry; braille, box drawing, and labels stay text the
+  host's font draws, pinned to the cell grid with `textLength` so the layout
+  survives any font. Colors resolve exactly as in the HTML card; the card's
+  background and foreground follow the theme. No dependency, no feature, no
+  rasterized text: nothing is drawn that a glyph terminal would not draw.
+- `Plot::to_html` needs no feature any more, and `Raster::to_html(theme)` is
+  its raster half — one grid, one encoder per kind of terminal (`encode`,
+  `to_plain`, `to_html`, `to_svg`). The `evcxr` feature keeps only what names
+  the frontend: `evcxr_display`, `mime_bundle`, `card_colors`.
+  `evcxr_display` now bundles `image/svg+xml` after `text/html`, so nbconvert
+  to PDF gets the card too; JupyterLab still shows the HTML.
+- `Bars::horizontal()` turns any bars layer sideways: named bands (or spans,
+  or free positions) run down the y axis, band 0 at the top in reading order,
+  values extend along x from the zero baseline or the per-bar `base`, and
+  long category names take the measured label gutter instead of a band's
+  width. Under an automatic y scale a horizontal bands layer makes the y axis
+  categorical, the twin of the x rule; explicit numeric or bands scales on the
+  wrong axis are rejected as conflicts, as they are for vertical bars. Cell
+  fills use the left-anchored eighth blocks rightward and the coarse
+  right-anchored blocks leftward, mirroring the vertical ramp's asymmetry;
+  pixel targets fill exact rectangles. This closes the `barh` row of the
+  catalog. The wire format is byte-stable for existing specs: `horizontal`
+  serializes only when set.
+- `stat::dodge(series, step)` returns one position series per value series —
+  each series' indices shifted by `(k − (n − 1) / 2) · step` — for
+  `Bars::at`, one layer per series: the sibling of `stat::stack` for bars
+  beside each other. A bar width below the step leaves a gap that keeps the
+  series apart without color. Grouped bars remain a composition; the
+  arithmetic now lives in one place, and the `segments` example composes
+  through it.
+- `Mapping::y_categories` answers for a y axis made categorical by a
+  horizontal bands layer, not only by an explicit `Scale::Bands`.
+- The doc generator writes whole files from an example's stdout
+  (`examples/regen_docs.rs`, `FILES`), checked for staleness like every
+  spliced block. The README's first colored chart, `examples/speedup.svg`, is
+  program output regenerated in CI — the `speedup` gallery example drawn as
+  an SVG card.
+- `Frame`'s rustdoc shows sizing a detected frame with struct update syntax;
+  no builder was needed.
 - A GitHub Pages gallery (`gallery/`) runs the wasm in the browser: ascii
   cells beside the pixel panel, Rust and TypeScript listings, and a live M4
   plate that times zooms through a million-point series.

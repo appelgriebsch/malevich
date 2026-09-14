@@ -26,7 +26,9 @@ to a rung that cannot fail. Charsets: octants, sextants, braille, quadrants,
 half blocks, ASCII. Color: truecolor, 256, 16, plain — quantized honestly
 downhill, with marker-shape cycling carrying category identity where color
 cannot. Output: real pixels where the terminal speaks a graphics protocol,
-cells everywhere else. Piped output is clean plain text.
+cells everywhere else — as glyphs and escapes in a tty, as a card of spans
+where the host draws with HTML, as rectangles and text runs where it draws
+with SVG. Piped output is clean plain text.
 
 Detection is two tiers with different licenses. Sniffing reads the
 environment — free, instant, wrong only by omission, so it may run anywhere.
@@ -144,5 +146,6 @@ ASCII — 1x1, the guaranteed fallback
 sniffs (UTF-8 → quadrants, `TERM=dumb` or non-UTF-8 → ASCII) and
 `MALEVICH_CHARSET` overrides. `pixel::Capabilities` holds the two-tier
 answer with its `Source`; the probe preconditions live in
-`Capabilities::detect_for`. Furniture shedding is collision-aware layout in
-resolve. This section may rot; the rest must not.
+`Capabilities::detect_for`. `Raster::to_html` and `Raster::to_svg` are the
+card encoders. Furniture shedding is collision-aware layout in resolve. This
+section may rot; the rest must not.

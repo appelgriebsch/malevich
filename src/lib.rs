@@ -51,10 +51,11 @@
 //!
 //! # Features
 //!
-//! - `evcxr` — rich HTML display for Evcxr Jupyter notebooks through
-//!   [`Plot::evcxr_display`], plus deterministic [`Plot::to_html`] rendering for
-//!   custom notebook frames and the [`evcxr`] module, whose stdout protocol and
-//!   card colors let a crate draw its own types on the same background.
+//! - `evcxr` — rich display for Evcxr Jupyter notebooks through
+//!   [`Plot::evcxr_display`] and the [`evcxr`] module, whose stdout protocol and
+//!   card colors let a crate draw its own types on the same background. The
+//!   cards themselves need no feature: [`Plot::to_html`] and [`Plot::to_svg`]
+//!   render the cell grid for any host that draws with HTML or SVG.
 //! - `ndarray` — one-dimensional arrays and views plot directly; contiguous
 //!   storage is zero-copy.
 //! - `pixel` — the plot panel as a real image (sixel, kitty graphics, or iTerm2
