@@ -12,7 +12,7 @@ evcxr_jupyter --install
 First cell:
 
 ```rust
-:dep malevich = { version = "1.18", features = ["evcxr"] }
+:dep malevich = { version = "1.22", features = ["evcxr"] }
 use malevich::{Line, Plot};
 ```
 

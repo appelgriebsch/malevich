@@ -5,6 +5,8 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+## 1.22.0 (Lady at the Poster Column) — 2026-09-14
+
 The terminal is a category, not a device: any host that draws a cell grid is
 one. This release adds the encoder for hosts that draw with SVG, turns bars
 sideways, and packages the grouped-bar arithmetic as a stat.
