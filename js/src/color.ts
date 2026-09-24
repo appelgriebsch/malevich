@@ -150,11 +150,19 @@ export const Palette = {
   },
 };
 
-/** Wire form of a continuous colormap. */
+/** Wire form of a colormap: stops, and the crate's options when set. */
 export type ColormapJSON = {
   stops: [number, number, number][];
   midpoint?: number;
   log?: boolean;
+  /** A fixed value range instead of the data's extent. */
+  domain?: [number, number];
+  /** Colors disclosed for values below or above the range (crate `Color` wire form). */
+  under?: unknown;
+  over?: unknown;
+  /** Equal bands of a stepped map, or the thresholds a split map's bands meet at. */
+  steps?: number;
+  thresholds?: number[];
 };
 
 export const Colormap = {

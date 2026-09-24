@@ -11,6 +11,8 @@ The renderer underneath is whatever `engineVersion` reports.
   "Density"`) and `cumulative`.
 - `Plot.xMin`, `xMax`, `yMin`, `yMax` fix one end of an axis and fit the
   other; `DomainJSON` names both wire forms.
+- `ColormapJSON` carries the crate's `domain`, `under`, `over`, `steps`, and
+  `thresholds` when set.
 
 ## 0.3.0 — 2026-09-07
 
