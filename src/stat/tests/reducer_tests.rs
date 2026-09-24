@@ -17,6 +17,34 @@ fn every_reducer_answers_the_hand_checked_set() {
 }
 
 #[test]
+fn the_spread_reducers_are_sample_statistics() {
+    let values = [3.0, 1.0, 4.0, 1.0, 5.0];
+    // Deviations from the mean 2.8 square to 12.8; over n − 1 = 4 that is 3.2.
+    assert!((Reducer::Variance.reduce(&values) - 3.2).abs() < 1e-12);
+    assert!((Reducer::Deviation.reduce(&values) - 3.2f64.sqrt()).abs() < 1e-12);
+    assert!((Reducer::StdErr.reduce(&values) - 0.8).abs() < 1e-12);
+    assert_eq!(Reducer::First.reduce(&values), 3.0);
+    assert_eq!(Reducer::Last.reduce(&values), 5.0);
+    // One value has no spread; first and last are that value.
+    assert!(Reducer::Deviation.reduce(&[7.0]).is_nan());
+    assert!(Reducer::StdErr.reduce(&[7.0]).is_nan());
+    assert_eq!(Reducer::First.reduce(&[f64::NAN, 7.0]), 7.0);
+    assert_eq!(Reducer::Last.reduce(&[7.0, f64::NAN]), 7.0);
+    assert!(Reducer::First.reduce(&[]).is_nan());
+    // The same numbers `Moments` reports as its sample statistics.
+    let mut moments = crate::stat::Moments::new();
+    values.iter().for_each(|&value| moments.add(value));
+    assert_eq!(
+        Reducer::Deviation.reduce(&values),
+        moments.sample_standard_deviation().unwrap()
+    );
+    assert_eq!(
+        Reducer::Variance.reduce(&values),
+        moments.sample_variance().unwrap()
+    );
+}
+
+#[test]
 fn percentiles_match_the_box_plot_quartiles() {
     let values: Vec<f64> = (1..=11).map(f64::from).collect();
     let stats = crate::stat::BoxStats::of(&values).unwrap();
@@ -85,6 +113,10 @@ fn the_unified_vocabulary_reaches_windows_and_groups() {
         Agg::by(["a", "a", "b"], &[1.0, 3.0, 10.0][..]).reduce(Reducer::Percentile(0.5));
     assert_eq!(keys, ["a", "b"]);
     assert_eq!(p95, [2.0, 10.0]);
+    // Mean ± se from one group: the error-bar shape, no second vocabulary.
+    let (_, se) = Agg::by(["a", "a", "b"], &[1.0, 3.0, 10.0][..]).reduce(Reducer::StdErr);
+    assert!((se[0] - 1.0).abs() < 1e-12);
+    assert!(se[1].is_nan());
 }
 
 #[test]

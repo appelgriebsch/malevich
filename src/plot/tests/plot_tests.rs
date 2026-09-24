@@ -1547,7 +1547,9 @@ fn the_describe_preset_equals_its_stats_laid_out_by_table() {
         values.extend([
             moments.count() as f64,
             moments.mean().expect("finite samples"),
-            moments.standard_deviation().expect("two or more samples"),
+            moments
+                .sample_standard_deviation()
+                .expect("two or more samples"),
             moments.min().expect("finite samples"),
             stats.q1,
             stats.median,

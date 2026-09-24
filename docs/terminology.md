@@ -95,10 +95,13 @@ bitwise-independent reassociation.
 
 A named aggregation shared by every aggregating stat: `Count`, `Sum`,
 `Mean`, `Median`, `Min`, `Max`, `Percentile(q)` (type-7, the estimator the
-box plot's quartiles use). One vocabulary across bins, groups, and windows —
-the Observable Plot convention — so a rolling p95 or a binned median is one
-call. A reducer promises a result for one collection, not a public merge
-operation. Maps to `stat::Reducer`.
+box plot's quartiles use), `Deviation`, `Variance`, `StdErr` (sample
+statistics, `n − 1`, gaps below two values — the error-band vocabulary of
+Vega-Lite and seaborn's `Est`), `First`, `Last`. One vocabulary across bins,
+groups, and windows — the Observable Plot convention — so a rolling p95, a
+binned median, or a group's mean ± se is one call. A reducer promises a
+result for one collection, not a public merge operation. Maps to
+`stat::Reducer`.
 
 ## Batch transform
 

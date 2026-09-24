@@ -5,6 +5,15 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Reducer` gains `Deviation`, `Variance`, `StdErr` (sample statistics,
+  `n − 1` in the denominator, a gap below two values) and `First`, `Last` —
+  inherited at once by `Window`, `Agg`, `binned`, and `Cells::reduce`, so a
+  Bollinger band is a rolling mean and a rolling deviation, and a group's
+  mean ± se is two reductions in the one vocabulary. `Moments` exposes the
+  same as `sample_variance` and `sample_standard_deviation`.
+- `describe`'s `sd` column is now the sample standard deviation — what
+  pandas and R print — and its rustdoc says so; the population form stays on
+  `Moments::standard_deviation`.
 - `Bins::auto` computes its Freedman–Diaconis quartiles with the crate's one
   type-7 estimator (selected in O(n), not sorted) — raw order statistics
   read the IQR of four values 2.7× too wide — and treats whole-number data

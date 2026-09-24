@@ -192,7 +192,11 @@ impl Bins {
             // on the nice numbers the ticks label, every bin holds `width`
             // consecutive integers, and the maximum never shares the last bin
             // with its neighbor (`1..=50` at width 10 is five bins of ten).
-            start = if min > start { start + 0.5 } else { start - 0.5 };
+            start = if min > start {
+                start + 0.5
+            } else {
+                start - 0.5
+            };
             crate::numeric::span_ratio(start, max, width)
                 .map(|count| count.floor() as usize + 1)
                 .unwrap_or(usize::MAX)

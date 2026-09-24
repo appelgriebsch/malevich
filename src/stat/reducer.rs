@@ -8,7 +8,7 @@
 /// Non-finite values are excluded before reducing (the gap convention). An
 /// empty set reduces to `0` for [`Count`](Reducer::Count) and
 /// [`Sum`](Reducer::Sum) — real answers — and to a gap (`NaN`) for everything
-/// else.
+/// else; the spread reducers need two values before they answer.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -28,6 +28,18 @@ pub enum Reducer {
     /// The type-7 quantile at a position in `[0, 1]` — the same estimator the
     /// box plot's quartiles use (the R default).
     Percentile(f64),
+    /// The sample standard deviation (`n − 1` in the denominator, as pandas and
+    /// R report it); a gap below two values.
+    Deviation,
+    /// The sample variance (`n − 1`); a gap below two values.
+    Variance,
+    /// The standard error of the mean, `Deviation / √n`; a gap below two
+    /// values.
+    StdErr,
+    /// The first finite value, in collection order.
+    First,
+    /// The last finite value, in collection order.
+    Last,
 }
 
 impl Reducer {
@@ -57,10 +69,33 @@ impl Reducer {
 pub(crate) enum ReducerState {
     Count(usize),
     Sum(f64),
-    Mean { count: usize, mean: f64 },
+    Mean {
+        count: usize,
+        mean: f64,
+    },
     Min(Option<f64>),
     Max(Option<f64>),
-    Quantile { position: f64, values: Vec<f64> },
+    Quantile {
+        position: f64,
+        values: Vec<f64>,
+    },
+    /// Welford's running moments for the three spread reducers.
+    Spread {
+        kind: Spread,
+        count: usize,
+        mean: f64,
+        m2: f64,
+    },
+    First(Option<f64>),
+    Last(Option<f64>),
+}
+
+/// Which spread statistic a [`ReducerState::Spread`] finishes as.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Spread {
+    Deviation,
+    Variance,
+    StdErr,
 }
 
 impl ReducerState {
@@ -88,6 +123,18 @@ impl ReducerState {
                     values: Vec::new(),
                 }
             }
+            Reducer::Deviation | Reducer::Variance | Reducer::StdErr => ReducerState::Spread {
+                kind: match reducer {
+                    Reducer::Variance => Spread::Variance,
+                    Reducer::StdErr => Spread::StdErr,
+                    _ => Spread::Deviation,
+                },
+                count: 0,
+                mean: 0.0,
+                m2: 0.0,
+            },
+            Reducer::First => ReducerState::First(None),
+            Reducer::Last => ReducerState::Last(None),
         }
     }
 
@@ -109,6 +156,18 @@ impl ReducerState {
                 *maximum = Some(maximum.map_or(value, |current| current.max(value)));
             }
             ReducerState::Quantile { values, .. } => values.push(value),
+            ReducerState::Spread {
+                count, mean, m2, ..
+            } => {
+                *count += 1;
+                let delta = value - *mean;
+                *mean += delta / *count as f64;
+                *m2 += delta * (value - *mean);
+            }
+            ReducerState::First(first) => {
+                first.get_or_insert(value);
+            }
+            ReducerState::Last(last) => *last = Some(value),
         }
     }
 
@@ -128,6 +187,19 @@ impl ReducerState {
                 values.sort_by(f64::total_cmp);
                 quantile_sorted(&values, position)
             }
+            ReducerState::Spread { count, .. } if count < 2 => f64::NAN,
+            ReducerState::Spread {
+                kind, count, m2, ..
+            } => {
+                let variance = m2 / (count - 1) as f64;
+                match kind {
+                    Spread::Variance => variance,
+                    Spread::Deviation => variance.sqrt(),
+                    Spread::StdErr => (variance / count as f64).sqrt(),
+                }
+            }
+            ReducerState::First(first) => first.unwrap_or(f64::NAN),
+            ReducerState::Last(last) => last.unwrap_or(f64::NAN),
         }
     }
 }

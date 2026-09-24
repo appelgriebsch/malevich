@@ -1246,9 +1246,11 @@ const DESCRIBE_COLUMNS: [&str; 8] = ["count", "mean", "sd", "min", "p25", "p50",
 /// eight fixed columns (`count mean sd min p25 p50 p75 max`).
 ///
 /// Statistics come from [`Moments`](crate::stat::Moments) (non-finite values
-/// ignored; `count` is the finite count) and [`BoxStats`](crate::stat::BoxStats)
-/// (the same type-7 quartiles as [`box_plot`]); a statistic with no answer —
-/// an empty group's mean, a single value's `sd` — renders as the `—` gap. The
+/// ignored; `count` is the finite count; `sd` is the sample standard
+/// deviation, `n − 1` in the denominator, as pandas and R report it) and
+/// [`BoxStats`](crate::stat::BoxStats) (the same type-7 quartiles as
+/// [`box_plot`]); a statistic with no answer — an empty group's mean, a
+/// single value's `sd` — renders as the `—` gap. The
 /// expansion is those statistics laid out by [`table`]. Like any table, it is
 /// tightest when the plot rows equal the group count — a frame height of
 /// `groups + 2`, one more with a title.
@@ -1283,7 +1285,7 @@ pub fn describe<'a>(
         values.extend([
             moments.count() as f64,
             moments.mean().unwrap_or(f64::NAN),
-            moments.standard_deviation().unwrap_or(f64::NAN),
+            moments.sample_standard_deviation().unwrap_or(f64::NAN),
             moments.min().unwrap_or(f64::NAN),
             quartile(&|s| s.q1),
             quartile(&|s| s.median),

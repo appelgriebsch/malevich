@@ -68,7 +68,8 @@ impl Moments {
         (self.count > 0).then_some(self.mean)
     }
 
-    /// The population variance, or `None` before any value.
+    /// The population variance (`n` in the denominator), or `None` before any
+    /// value.
     pub fn variance(&self) -> Option<f64> {
         (self.count > 0).then(|| self.m2 / self.count as f64)
     }
@@ -76,6 +77,18 @@ impl Moments {
     /// The population standard deviation, or `None` before any value.
     pub fn standard_deviation(&self) -> Option<f64> {
         self.variance().map(f64::sqrt)
+    }
+
+    /// The sample variance (`n − 1` in the denominator — the unbiased
+    /// estimate pandas and R report), or `None` below two values.
+    pub fn sample_variance(&self) -> Option<f64> {
+        (self.count > 1).then(|| self.m2 / (self.count - 1) as f64)
+    }
+
+    /// The sample standard deviation, or `None` below two values — what
+    /// [`Reducer::Deviation`](super::Reducer::Deviation) reduces to.
+    pub fn sample_standard_deviation(&self) -> Option<f64> {
+        self.sample_variance().map(f64::sqrt)
     }
 
     /// The smallest value, or `None` before any value.

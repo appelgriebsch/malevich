@@ -43,6 +43,11 @@ impl Window {
                 );
                 self.rolling_quantile(values, position)
             }
+            super::Reducer::Deviation
+            | super::Reducer::Variance
+            | super::Reducer::StdErr
+            | super::Reducer::First
+            | super::Reducer::Last => self.rolling_recompute(values, reducer),
         }
     }
 
@@ -157,6 +162,18 @@ impl Window {
                     .front()
                     .map_or(f64::NAN, |&candidate| values[candidate]),
             );
+        }
+        reduced
+    }
+
+    /// The reducers with no incremental form here reduce each window afresh
+    /// through the shared state — spreads (Welford would drift when values
+    /// leave the window), first, last.
+    fn rolling_recompute(&self, values: &[f64], reducer: super::Reducer) -> Vec<f64> {
+        let mut reduced = Vec::with_capacity(values.len());
+        for end in 0..values.len() {
+            let start = (end + 1).saturating_sub(self.size);
+            reduced.push(reducer.reduce(&values[start..=end]));
         }
         reduced
     }

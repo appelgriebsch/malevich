@@ -42,6 +42,11 @@ fn optimized_rolling_strategies_match_one_shot_reduction() {
         Reducer::Max,
         Reducer::Median,
         Reducer::Percentile(0.9),
+        Reducer::Deviation,
+        Reducer::Variance,
+        Reducer::StdErr,
+        Reducer::First,
+        Reducer::Last,
     ];
 
     for size in [1, 2, 7, 64, 999] {
