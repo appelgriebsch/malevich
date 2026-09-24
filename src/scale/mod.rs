@@ -16,5 +16,6 @@ pub use format::NumberFormat;
 pub use linear::Linear;
 pub use palette::Palette;
 pub use spec::Scale;
+pub(crate) use ticks::offset_base;
 pub use ticks::{Tick, TickOptions, Ticks};
 pub use unit::Unit;

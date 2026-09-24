@@ -100,6 +100,8 @@ pub(crate) struct Layout<'p> {
     pub charset: Charset,
     pub title_rows: usize,
     pub legend_rows: usize,
+    /// The row above the plot holding the y axis's context note, if any.
+    pub y_context_rows: usize,
     pub axis_rows: usize,
     pub x_label_rows: usize,
     pub y_label_cols: usize,
@@ -153,10 +155,12 @@ impl<'p> Layout<'p> {
         let x_options = TickOptions {
             unit: x_unit.clone(),
             integer: matches!(x_spec, Scale::Integer),
+            context: true,
         };
         let y_options = TickOptions {
             unit: y_unit.clone(),
             integer: matches!(y_spec, Scale::Integer),
+            context: true,
         };
         let (has_x_label, has_y_label) = (axis_labels.0.is_some(), axis_labels.1.is_some());
         let (px, py) = density;
@@ -299,7 +303,19 @@ impl<'p> Layout<'p> {
         let title_rows = usize::from(has_title && frame.height >= 6);
         let has_legend = layers.iter().any(ResolvedLayer::has_legend);
         let legend_rows = usize::from(has_legend && frame.height >= 8);
-        let chrome_top = title_rows + legend_rows;
+        // Context notes — what the tick labels leave out, printed once — are
+        // decided from the domains before the ticks exist: the y note takes
+        // one row above the plot and is shed like the legend; the x note
+        // shares the x-label row, reserved for it and shed with it.
+        let expects_note = |data: (f64, f64), time: bool, log: bool| match (time, log) {
+            (true, _) => Ticks::time(data.0, data.1, 2).context().is_some(),
+            (_, true) => false,
+            _ => crate::scale::offset_base(data.0, data.1).is_some(),
+        };
+        let y_note = axes && y_categories.is_none() && expects_note(y_data, time_y, log_y);
+        let x_note = axes && categories.is_none() && expects_note(x_data, time_x, log_x);
+        let y_context_rows = usize::from(y_note && frame.height >= 8);
+        let chrome_top = title_rows + legend_rows + y_context_rows;
         // Without axes there is no axis row and no tick row: the data takes
         // every remaining row.
         let axis_rows = match frame.height - chrome_top {
@@ -309,7 +325,7 @@ impl<'p> Layout<'p> {
             _ => 2,
         };
         let x_label_rows = usize::from(
-            has_x_label && axis_rows == 2 && frame.height - chrome_top - axis_rows >= 4,
+            (has_x_label || x_note) && axis_rows == 2 && frame.height - chrome_top - axis_rows >= 4,
         );
         let plot_rows = frame.height - chrome_top - axis_rows - x_label_rows;
 
@@ -432,6 +448,7 @@ impl<'p> Layout<'p> {
             charset: frame.charset,
             title_rows,
             legend_rows,
+            y_context_rows,
             axis_rows,
             x_label_rows,
             y_label_cols,

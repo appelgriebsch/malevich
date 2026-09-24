@@ -2370,3 +2370,52 @@ fn one_sided_domains_fix_one_end_and_grow_the_other() {
     assert_eq!(windowed.mapping(&frame).x_domain(), (0.0, 1.0));
     assert_eq!(windowed.mapping(&frame).y_domain().0, 0.0);
 }
+
+#[test]
+fn context_notes_print_what_the_labels_leave_out() {
+    use crate::mark::Cells;
+
+    // A near-constant series: residual labels, the base printed once above
+    // the tick labels.
+    let values: Vec<f64> = (0..5)
+        .map(|i| 1_000_000_000.0 + f64::from(i) * 0.001)
+        .collect();
+    let rendered = Plot::new()
+        .layer(Line::y(&values[..]))
+        .render(&Frame::plain(44, 12));
+    assert!(rendered.contains("+1.000G"), "{rendered}");
+    assert!(rendered.contains("0.00"), "{rendered}");
+    // The same base on x ends the axis-title row, which is reserved for it.
+    let rendered = Plot::new()
+        .layer(Line::xy(&values[..], &[1.0, 2.0, 3.0, 4.0, 5.0][..]))
+        .x_label("t")
+        .render(&Frame::plain(60, 12));
+    let last = rendered.lines().last().unwrap();
+    assert!(
+        last.ends_with("+1.000G") && last.contains('t'),
+        "{rendered}"
+    );
+    // An intraday time axis names its day once.
+    let day = 1_785_542_400.0; // 2026-08-01 00:00 UTC
+    let stamps: Vec<f64> = (0..9)
+        .map(|h| day + (9.0 + f64::from(h)) * 3600.0)
+        .collect();
+    let prices: Vec<f64> = (0..9).map(|h| 100.0 + f64::from(h % 3)).collect();
+    let session = Plot::new()
+        .layer(Line::xy(&stamps[..], &prices[..]))
+        .time_x();
+    let rendered = session.render(&Frame::plain(60, 12));
+    assert!(rendered.contains("Aug 1 2026"), "{rendered}");
+    // Shed with its row on a short frame — the data rows come first.
+    let short = session.render(&Frame::plain(60, 5));
+    assert!(!short.contains("Aug 1 2026"), "{short}");
+    // A colorbar never offsets its labels: there is nowhere to print a base.
+    let cells = Plot::new()
+        .layer(Cells::matrix(
+            2,
+            vec![1e9, 1e9 + 0.001, 1e9 + 0.002, 1e9 + 0.003],
+        ))
+        .colorbar()
+        .render(&Frame::plain(50, 12));
+    assert!(!cells.contains("+1.000G"), "{cells}");
+}

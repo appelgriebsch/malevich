@@ -486,3 +486,42 @@ fn units_label_the_axis_and_keep_the_values() {
         ["25.00 kB"]
     );
 }
+
+#[test]
+fn near_constant_axes_read_relative_to_a_shared_base() {
+    let context = TickOptions::new().context();
+    let ticks = Ticks::linear_with(1_000_000_000.0, 1_000_000_000.004, 5, &context);
+    assert_eq!(ticks.context(), Some("+1.000G"));
+    assert_eq!(
+        labels(&ticks),
+        ["0.000", "0.001", "0.002", "0.003", "0.004"]
+    );
+    // The labels are relative; the tick values are not.
+    assert!((ticks.as_slice()[1].value - 1_000_000_000.001).abs() < 1e-6);
+    assert_eq!(ticks.step(), Some(0.001));
+    // Without the option nothing changes, and neither does an axis that
+    // shares fewer than four leading digits or straddles zero.
+    assert_eq!(
+        Ticks::linear(1_000_000_000.0, 1_000_000_000.004, 5).context(),
+        None
+    );
+    let plain = Ticks::linear_with(100.0, 104.0, 5, &context);
+    assert_eq!(plain.context(), None);
+    assert_eq!(labels(&plain), ["100", "101", "102", "103", "104"]);
+    assert_eq!(Ticks::linear_with(-1.0, 1.0, 5, &context).context(), None);
+    assert_eq!(
+        Ticks::linear_with(0.0, 1_000_000.0, 5, &context).context(),
+        None
+    );
+    // A negative base carries its sign; a span straddling a power of ten
+    // still finds the base beneath it.
+    let negative = Ticks::linear_with(-1_000_000_000.004, -1_000_000_000.0, 5, &context);
+    assert_eq!(negative.context(), Some("-1.000G"));
+    let straddle = Ticks::linear_with(999.9999, 1000.0001, 5, &context);
+    assert_eq!(straddle.context(), Some("+1000"));
+    // A unit rides on the note as on the labels.
+    let seconds = TickOptions::new().unit(Unit::si("s")).context();
+    let ticks = Ticks::linear_with(1_000_000_000.0, 1_000_000_000.004, 5, &seconds);
+    assert_eq!(ticks.context(), Some("+1.000 Gs"));
+    assert!(labels(&ticks)[1].ends_with(" s"), "{:?}", labels(&ticks));
+}

@@ -156,15 +156,43 @@ pub(crate) fn draw(
         }
     }
 
+    // Context notes — what the tick labels leave out, printed once. The x
+    // note ends the x-label row at the right edge; the x title keeps clear
+    // of it. The y note sits in its own row above the plot, right-aligned
+    // to the tick labels it qualifies.
+    let x_note = x_ticks.as_ref().and_then(|ticks| ticks.context());
+    let x_note_width = x_note.map_or(0, |note| display_width(note) + 1);
+    if layout.x_label_rows == 1
+        && let Some(note) = x_note
+    {
+        let len = display_width(note) as i64;
+        let row = (layout.plot_top + plot_rows + axis_rows) as i64;
+        surface.text((frame_width as i64 - len).max(0), row, note, Color::Default);
+    }
+    if layout.y_context_rows == 1
+        && let Some(note) = y_ticks.context()
+    {
+        let len = display_width(note) as i64;
+        let end = (layout.y_label_cols + label_width) as i64;
+        surface.text(
+            (end - len).max(0),
+            (plot_top - 1) as i64,
+            note,
+            Color::Default,
+        );
+    }
+
     // Axis titles: x centered on its own bottom row, y written vertically along
     // the left edge, centered on the plot rows.
     if layout.x_label_rows == 1
         && let Some(label) = axis_labels.0
     {
-        let label = fit_width_with(label, layout.plot_cols.max(1), glyphs.ellipsis);
+        let budget = layout.plot_cols.saturating_sub(x_note_width).max(1);
+        let label = fit_width_with(label, budget, glyphs.ellipsis);
         let len = display_width(&label) as i64;
-        let center = (gutter + layout.plot_cols / 2) as i64;
-        let start = (center - len / 2).clamp(0, (frame_width as i64 - len).max(0));
+        let right = (frame_width - x_note_width) as i64;
+        let center = (gutter + budget / 2) as i64;
+        let start = (center - len / 2).clamp(0, (right - len).max(0));
         let row = (layout.plot_top + plot_rows + axis_rows) as i64;
         surface.text(start, row, &label, Color::Default);
     }

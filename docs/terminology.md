@@ -169,10 +169,18 @@ carry exact-decimal labels: they parse back to their values, share one
 fraction width and one SI prefix per axis (one power of ten beyond the
 prefix table, `8.796e-100`), and never show float artifacts. A range no
 nice step can cover — equal bounds, a span past the exact mantissa — falls
-back to its two bounds, formatted by the same formatter at its budget. Maps
-to `scale::Ticks`; `scale::TickOptions` (a `Unit` and an `integer` flag)
-is how an axis's scale options reach the tick search through
-`Ticks::linear_with`. `scale::NumberFormat` makes the same label decisions
+back to its two bounds, formatted by the same formatter at its budget. What
+the labels leave out, an axis prints once as a context note
+(`Ticks::context`): values agreeing in four or more leading digits read
+relative to a round base printed above the y labels or at the end of the x
+title row (`+1.000G`, matplotlib's offset text), and a time axis whose first
+label omits its date or year prints that part (`Aug 1 2026` under hour
+labels, `2026` under day or month labels — Bokeh's `context`). An automatic
+layout rule, not an option: the y note is shed like the legend, the x note
+with the title row, and a colorbar never offsets. Maps
+to `scale::Ticks`; `scale::TickOptions` (a `Unit`, an `integer` flag, and
+the `context` flag the axes set) is how an axis's scale options reach the
+tick search through `Ticks::linear_with`. `scale::NumberFormat` makes the same label decisions
 once for an arbitrary set of related values — one fraction width, one SI
 prefix or power of ten, whole labels for whole-number sets, gaps as `—` —
 the per-column formatter behind `table`, usable for any readout; there is no

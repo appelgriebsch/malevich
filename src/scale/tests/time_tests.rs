@@ -1,5 +1,5 @@
 use super::super::Ticks;
-use super::{MAX_TIME_TICKS, civil_from_days, days_from_civil, supported_seconds};
+use super::{HOUR, MAX_TIME_TICKS, civil_from_days, days_from_civil, supported_seconds};
 
 const DAY: i64 = 86_400;
 
@@ -115,4 +115,26 @@ fn out_of_calendar_fallbacks_share_the_endpoint_formatter() {
     assert_eq!(labels(&both), ["-1.797e308", "1.797e308"]);
     let one = Ticks::time(f64::MAX, f64::MAX, 5);
     assert_eq!(labels(&one), ["1.797e308"]);
+}
+
+#[test]
+fn time_axes_note_what_the_first_label_leaves_out() {
+    let aug_1_2026 = (days_from_civil(2026, 8, 1) * DAY) as f64;
+    let hour = HOUR as f64;
+    // Hour labels: the date and the year, from the first tick.
+    let intraday = Ticks::time(aug_1_2026 + 9.0 * hour, aug_1_2026 + 17.0 * hour, 6);
+    assert_eq!(intraday.context(), Some("Aug 1 2026"));
+    // A session starting at midnight: its first label shows the date, so
+    // only the year is missing.
+    let from_midnight = Ticks::time(aug_1_2026, aug_1_2026 + 8.0 * hour, 6);
+    assert_eq!(from_midnight.context(), Some("2026"));
+    // Day labels omit the year; month labels do too, unless the first tick
+    // is January and says it; year labels omit nothing.
+    let days = Ticks::time(aug_1_2026, aug_1_2026 + 20.0 * DAY as f64, 6);
+    assert_eq!(days.context(), Some("2026"));
+    let jan_1_2021 = (days_from_civil(2021, 1, 1) * DAY) as f64;
+    let quarter = Ticks::time(jan_1_2021, jan_1_2021 + 90.0 * DAY as f64, 4);
+    assert_eq!(quarter.context(), None, "{:?}", quarter);
+    let decades = Ticks::time(jan_1_2021, jan_1_2021 + 20.0 * 365.25 * DAY as f64, 5);
+    assert_eq!(decades.context(), None);
 }

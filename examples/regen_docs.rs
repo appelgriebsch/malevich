@@ -154,6 +154,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                 "The Keeling curve: monthly CO2 at Mauna Loa since 1958 (NOAA), on a calendar axis.",
             ),
             (
+                "intraday",
+                "One session on a calendar axis: hour labels, and the day they leave \
+                 out printed once at the end of the axis-title row \u{2014} the context \
+                 note, an automatic layout rule.",
+            ),
+            (
                 "loss",
                 "A real training log: topos's bigram model on 32k names — per-step loss, \
                  rolling mean, and the known bigram limit as a rule.",

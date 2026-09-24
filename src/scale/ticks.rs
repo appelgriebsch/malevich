@@ -13,8 +13,9 @@
 use super::format;
 use super::unit::{BINARY_UNITS, Unit, binary_prefix};
 
-/// How a linear axis labels its ticks: the unit the labels carry, and whether
-/// the step may drop below one.
+/// How a linear axis labels its ticks: the unit the labels carry, whether
+/// the step may drop below one, and whether near-constant values may read
+/// relative to a base printed once.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub struct TickOptions {
@@ -22,6 +23,9 @@ pub struct TickOptions {
     pub unit: Unit,
     /// Whole-number ticks only: the step never drops below one.
     pub integer: bool,
+    /// Lets values that agree in four or more leading digits read relative
+    /// to a shared round base — matplotlib's offset text. Off by default.
+    pub context: bool,
 }
 
 impl TickOptions {
@@ -30,6 +34,7 @@ impl TickOptions {
         TickOptions {
             unit: Unit::Plain,
             integer: false,
+            context: false,
         }
     }
 
@@ -44,6 +49,18 @@ impl TickOptions {
     #[must_use]
     pub const fn integer(mut self) -> TickOptions {
         self.integer = true;
+        self
+    }
+
+    /// Lets the ticks stand on a shared base when the axis's values agree in
+    /// four or more leading digits: the search runs on the residuals, the
+    /// labels read as residuals, and [`Ticks::context`] carries the base
+    /// (`+1.000G`) for the axis to print once — the near-constant sensor
+    /// trace, the unix-seconds axis nobody made a time axis. Off by
+    /// default: a colorbar has nowhere to print the base.
+    #[must_use]
+    pub const fn context(mut self) -> TickOptions {
+        self.context = true;
         self
     }
 }
@@ -92,6 +109,7 @@ pub struct Tick {
 pub struct Ticks {
     ticks: Vec<Tick>,
     step: Option<f64>,
+    context: Option<String>,
 }
 
 impl Ticks {
@@ -139,13 +157,28 @@ impl Ticks {
             return Ticks {
                 ticks: with_unit(endpoint_ticks(slo, shi), factor, unit_name, &options.unit),
                 step: None,
+                context: None,
             };
         }
-        match search(slo, shi, target, min_step) {
-            Some(best) => materialize(&best, options, factor, unit_name),
+        // Near-constant values search on their residuals around a round base
+        // and read relative to it; the base is the axis's context note.
+        let base = if options.context {
+            offset_base(slo, shi).unwrap_or(0.0)
+        } else {
+            0.0
+        };
+        match search(slo - base, shi - base, target, min_step) {
+            Some(best) => {
+                let mut ticks = materialize(&best, options, factor, unit_name, base);
+                if base != 0.0 {
+                    ticks.context = Some(context_label(base, factor, unit_name, &options.unit));
+                }
+                ticks
+            }
             None => Ticks {
                 ticks: with_unit(endpoint_ticks(slo, shi), factor, unit_name, &options.unit),
                 step: Some(hi - lo),
+                context: None,
             },
         }
     }
@@ -165,6 +198,7 @@ impl Ticks {
                 })
                 .collect(),
             step: Some(1.0),
+            context: None,
         }
     }
 
@@ -214,12 +248,20 @@ impl Ticks {
                 label: power_of_ten_label(power),
             })
             .collect();
-        Ticks { ticks, step: None }
+        Ticks {
+            ticks,
+            step: None,
+            context: None,
+        }
     }
 
     /// Builds a set from precomputed ticks (time axes build these); no uniform step.
     pub(crate) fn from_time(ticks: Vec<Tick>) -> Ticks {
-        Ticks { ticks, step: None }
+        Ticks {
+            ticks,
+            step: None,
+            context: None,
+        }
     }
 
     /// The ticks, ascending.
@@ -240,6 +282,21 @@ impl Ticks {
     /// Whether there are no ticks. Never true for values produced by this crate.
     pub fn is_empty(&self) -> bool {
         self.ticks.is_empty()
+    }
+
+    /// The note an axis prints once beside its ticks: the shared base the
+    /// labels are relative to (`+1.000G`, see [`TickOptions::context`]), or
+    /// the calendar part a time axis's labels leave out (`Aug 1 2026` under
+    /// hour labels, `2026` under day or month labels). `None` when the labels
+    /// stand on their own.
+    pub fn context(&self) -> Option<&str> {
+        self.context.as_deref()
+    }
+
+    /// The same ticks with a context note attached.
+    pub(crate) fn with_context(mut self, context: Option<String>) -> Ticks {
+        self.context = context;
+        self
     }
 
     /// The spacing between adjacent ticks in data coordinates, or `None` when there
@@ -365,6 +422,7 @@ fn materialize(
     options: &TickOptions,
     factor: f64,
     unit_name: &str,
+    base: f64,
 ) -> Ticks {
     let mut mantissas: Vec<i128> = (0..candidate.count)
         .map(|t| (candidate.start + t as i128 * candidate.skip) * candidate.step_mantissa)
@@ -408,7 +466,7 @@ fn materialize(
                 Unit::Bytes => format!("{numeric} {unit_name}"),
             };
             Tick {
-                value: value_of(mantissa, exp10) * factor,
+                value: (value_of(mantissa, exp10) + base) * factor,
                 label,
             }
         })
@@ -419,7 +477,49 @@ fn materialize(
     Ticks {
         ticks,
         step: Some(step),
+        context: None,
     }
+}
+
+/// matplotlib's `ScalarFormatter` offset rule: the round base the values of
+/// `[lo, hi]` share when they agree in at least four leading digits and lie
+/// on one side of zero, `None` otherwise. Descending powers of ten find the
+/// first at which the two bounds' leading digits differ; a span that
+/// straddles a multiple of a large power of ten (`999.9999…1000.0001`)
+/// descends further until the bounds are more than one unit apart.
+pub(crate) fn offset_base(lo: f64, hi: f64) -> Option<f64> {
+    if lo >= hi || (lo <= 0.0 && hi >= 0.0) {
+        return None;
+    }
+    let (abs_min, abs_max) = (lo.abs().min(hi.abs()), lo.abs().max(hi.abs()));
+    let sign = lo.signum();
+    let oom_max = abs_max.log10().ceil() as i32;
+    let leading = |value: f64, oom: i32| (value / 10f64.powi(oom)).floor();
+    let descend = |apart: f64| {
+        (oom_max - 40..=oom_max)
+            .rev()
+            .find(|&oom| leading(abs_max, oom) - leading(abs_min, oom) > apart)
+            .map(|oom| oom + 1)
+    };
+    let mut oom = descend(0.0)?;
+    if (abs_max - abs_min) / 10f64.powi(oom) <= 1e-2 {
+        oom = descend(1.0)?;
+    }
+    let shared = leading(abs_max, oom);
+    (shared >= 1000.0).then(|| sign * shared * 10f64.powi(oom))
+}
+
+/// The context note for `base` in the axis's unit: a sign, the base at the
+/// formatter's budget, and the unit the tick labels carry.
+fn context_label(base: f64, factor: f64, unit_name: &str, unit: &Unit) -> String {
+    let magnitude = base.abs();
+    let tick = Tick {
+        value: magnitude,
+        label: format::NumberFormat::for_values(&[magnitude]).format(magnitude),
+    };
+    let labeled = with_unit(vec![tick], factor, unit_name, unit);
+    let sign = if base < 0.0 { "-" } else { "+" };
+    format!("{sign}{}", labeled[0].label)
 }
 
 /// Endpoint fallback ticks carrying the axis's unit: the bytes factor

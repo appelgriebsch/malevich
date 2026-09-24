@@ -550,6 +550,30 @@ m     │                                     ⣀⣀⣤⣶⢿⠿⠛⠉
        1960      1970      1980      1990      2000      2010      2020
 ```
 
+### intraday
+
+One session on a calendar axis: hour labels, and the day they leave out printed once at the end of the axis-title row — the context note, an automatic layout rule.
+Source: [examples/intraday.rs](examples/intraday.rs)
+
+```text
+                        one session (synthetic)
+                            ── open  ── last
+  184.25 ┤                                                           ⢀⣿⡄
+         │⢀⡀                                                      ⢀ ⣤⣸⠟⣧
+  184.00 ┤⢾⣧⢤⡤⢤⡤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢤⣿⣷⠿⣿⠤⠭
+         │⠈⢸⣿⣷⣿⣇                                                ⢀⢸⠇⠿
+  183.75 ┤ ⠘⠃⢸⡇⢻⣤⡄  ⣴                                       ⢀⡄⢀ ⣿⣿
+$        │     ⠸⡟⢷⣾⣶⠟⡇⣤⣀⣤                              ⣀    ⡼⣿⣿⣇⠇⠁
+  183.50 ┤       ⢸⠉⡿ ⢱⠿⣿⠿⡄                        ⢀⣤ ⣀⣸⣿⢀⣄⣸⣆⠇⠸⠇⠘
+         │           ⠈ ⠿ ⢣⣶ ⡀⢰⣦    ⢠⡄  ⢠⡄    ⢀    ⣸⢿⣾⣿⡏⠘⡼⢿⡟⠹
+  183.25 ┤               ⠸⠹⣿⣿⡿⠻⣦⣄⢠⣄⡟⢿⣼⡇⡿⣷⢀ ⢀⢠⣿⡄⣤⢠⣷⡏ ⠿⠘⠁ ⠁⠘⠃
+         │                 ⠻ ⠇ ⣿⢿⡿⢿⡇⠸⡏⢱⠁⢹⣿⡆⣾⣾⠃⢻⠿⣿⠻⠃
+  183.00 ┤                     ⠈⠘⠃⠈     ⠈⠃⢱⠁⠟ ⠘ ⠛
+         └────┬─────────┬────────┬─────────┬────────┬─────────┬────────┬
+            10:00     11:00    12:00     13:00    14:00     15:00  16:00
+                              time (UTC)                      Aug 3 2026
+```
+
 ### loss
 
 A real training log: topos's bigram model on 32k names — per-step loss, rolling mean, and the known bigram limit as a rule.

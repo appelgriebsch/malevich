@@ -5,6 +5,21 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- Axes print what their tick labels leave out, once. A numeric axis whose
+  values agree in four or more leading digits places its ticks on the
+  residuals around a round base and prints the base above the y labels or
+  at the right end of the x title row (`+1.000G`) — matplotlib's offset
+  text, so a near-constant sensor trace or a unix-seconds axis reads as
+  `0.001, 0.002` instead of twelve-digit labels or two endpoints. A time
+  axis whose first label omits its date or year prints that part in the
+  same place (`Aug 1 2026` under hour labels, `2026` under day or month
+  labels) — the `ConciseDateFormatter` offset and Bokeh's `context`. An
+  automatic layout rule: the y note takes one row above the plot and is
+  shed like the legend, the x note shares the title row and is shed with
+  it, and colorbars never offset. `Ticks::context` exposes the note;
+  `TickOptions::context` turns the numeric base on for callers placing
+  their own ticks. The `intraday` gallery example shows the day once.
+
 - `Plot::x_min`, `x_max`, `y_min`, `y_max` fix one end of an axis and fit
   the other: the fixed end is honored exactly, the free end grows to its
   outer tick as an automatic axis does — a rate chart floored at zero whose

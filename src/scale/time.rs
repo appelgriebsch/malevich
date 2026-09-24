@@ -119,7 +119,31 @@ impl Ticks {
             return calendar_point(lo, lo_seconds);
         }
         let ticks = label(&stamps, interval);
-        Ticks::from_time(ticks)
+        Ticks::from_time(ticks).with_context(context(stamps[0], interval))
+    }
+}
+
+/// The calendar part the first tick's label leaves out — Bokeh's
+/// `context_which = "start"`: the date and the year under time-of-day
+/// labels, the year under day or month labels, nothing when the first
+/// label already rolled over to show it (a midnight tick shows its date, a
+/// January tick its year) or under year labels.
+fn context(first: i64, interval: Interval) -> Option<String> {
+    let (year, month, day) = civil_from_days(first.div_euclid(DAY));
+    let at_midnight = first.rem_euclid(DAY) == 0;
+    let month_name = MONTHS[(month - 1) as usize];
+    match interval {
+        Interval::Seconds(step) if step < MINUTE => Some(format!("{month_name} {day} {year}")),
+        Interval::Seconds(step) if step < DAY => Some(if at_midnight {
+            format!("{year}")
+        } else {
+            format!("{month_name} {day} {year}")
+        }),
+        Interval::Seconds(_) | Interval::Weeks(_) => {
+            (!(month == 1 && day == 1)).then(|| format!("{year}"))
+        }
+        Interval::Months(_) => (month != 1).then(|| format!("{year}")),
+        Interval::Years(_) => None,
     }
 }
 
