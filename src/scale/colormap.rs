@@ -23,8 +23,9 @@ impl PartialEq for Exact {
 
 impl Eq for Exact {}
 
-/// A continuous colormap: linear interpolation through RGB stops, optionally
-/// centered on a data midpoint.
+/// A continuous colormap: interpolation through RGB stops in OKLab — the
+/// perceptual mix, so the halfway color between two stops looks halfway —
+/// optionally centered on a data midpoint.
 ///
 /// The named constants are a curated set that stays distinguishable down the
 /// whole color ladder (truecolor → 256 → 16 → plain shade): sequential
@@ -599,10 +600,25 @@ impl Colormap {
         let scaled = position * (self.stops.len() - 1) as f64;
         let index = (scaled as usize).min(self.stops.len() - 2);
         let t = scaled - index as f64;
-        let (r0, g0, b0) = self.stops[index];
-        let (r1, g1, b1) = self.stops[index + 1];
-        let lerp = |a: u8, b: u8| (f64::from(a) + (f64::from(b) - f64::from(a)) * t) as u8;
-        Color::Rgb(lerp(r0, r1), lerp(g0, g1), lerp(b0, b1))
+        // Stops are exact; between them the mix runs in OKLab, so a ramp
+        // keeps its lightness and hue honest instead of dipping through
+        // grey between two saturated stops.
+        if t <= 0.0 {
+            let (r, g, b) = self.stops[index];
+            return Color::Rgb(r, g, b);
+        }
+        if t >= 1.0 {
+            let (r, g, b) = self.stops[index + 1];
+            return Color::Rgb(r, g, b);
+        }
+        let from = crate::render::color::oklab(self.stops[index]);
+        let to = crate::render::color::oklab(self.stops[index + 1]);
+        let (r, g, b) = crate::render::color::from_oklab((
+            crate::numeric::lerp(from.0, to.0, t),
+            crate::numeric::lerp(from.1, to.1, t),
+            crate::numeric::lerp(from.2, to.2, t),
+        ));
+        Color::Rgb(r, g, b)
     }
 }
 

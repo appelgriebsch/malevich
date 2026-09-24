@@ -5,6 +5,15 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- Color math runs in OKLab: colormap stops interpolate perceptually, so the
+  halfway color between two stops looks halfway and a ramp between two
+  saturated stops no longer dips through grey; the 16-color tier picks by
+  OKLab lightness and hue — the two things sixteen colors can carry — so a
+  teal drops to green, never to the grey that is nearer in RGB. The
+  named maps' stops are unchanged, so their ends render as before. Paul
+  Tol's `Palette::BRIGHT` (seven colors) and `Palette::MUTED` (nine) join
+  Okabe–Ito.
+
 - `Colormap::domain(lo, hi)` fixes the value range a colormap spans instead
   of the data's extent — two heatmaps on one scale, a live grid whose
   colors hold still — and the colorbar shows it. `under(color)` and

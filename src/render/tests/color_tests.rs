@@ -92,3 +92,37 @@ fn resolved_colors_write_combined_foreground_and_background_sgr_forms() {
         "\x1b[31;44m\x1b[38;5;196;48;5;21m\x1b[38;2;1;2;3;48;2;4;5;6m\x1b[39;49m"
     );
 }
+
+#[test]
+fn oklab_round_trips_every_grey_and_the_primaries() {
+    use super::{from_oklab, oklab};
+
+    for v in 0..=255u8 {
+        assert_eq!(from_oklab(oklab((v, v, v))), (v, v, v), "grey {v}");
+    }
+    for rgb in [
+        (255, 0, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (255, 165, 0),
+        (86, 180, 233),
+    ] {
+        assert_eq!(from_oklab(oklab(rgb)), rgb, "{rgb:?}");
+    }
+    // Lightness orders greys, and a saturated color sits off the grey axis.
+    assert!(oklab((0, 0, 0)).0 < oklab((128, 128, 128)).0);
+    assert!(oklab((128, 128, 128)).0 < oklab((255, 255, 255)).0);
+    assert!(oklab((255, 0, 0)).1.abs() > 0.1);
+}
+
+#[test]
+fn the_sixteen_color_pick_is_perceptual() {
+    // A dim orange is nearer to red than to yellow to the eye; RGB distance
+    // would call it yellow-ish. Either way it must land on a red or yellow,
+    // never on green or blue.
+    let code = rgb_to_16(200, 90, 0);
+    assert!([31, 33, 91, 93].contains(&code), "{code}");
+    // Near-black and near-white stay black and white.
+    assert_eq!(rgb_to_16(10, 10, 10), 30);
+    assert_eq!(rgb_to_16(245, 245, 245), 97);
+}

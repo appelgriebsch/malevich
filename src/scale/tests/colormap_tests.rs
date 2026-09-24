@@ -17,9 +17,16 @@ fn out_of_range_and_gap_positions_clamp() {
 }
 
 #[test]
-fn midpoints_interpolate_between_stops() {
+fn midpoints_interpolate_between_stops_in_oklab() {
     let map = Colormap::new(&[(0, 0, 0), (100, 200, 50)]);
-    assert_eq!(map.color(0.5), Color::Rgb(50, 100, 25));
+    // Halfway in perceived lightness, which sRGB's gamma puts well below
+    // the halfway code value.
+    assert_eq!(map.color(0.5), Color::Rgb(34, 76, 13));
+    // Between two saturated stops the mix stays bright and colored — no
+    // grey mud, the flaw of mixing in RGB.
+    let clash = Colormap::new(&[(0, 0, 255), (255, 255, 0)]);
+    assert_eq!(clash.color(0.5), Color::Rgb(108, 171, 199));
+    assert_ne!(clash.color(0.5), Color::Rgb(127, 127, 127));
 }
 
 #[test]

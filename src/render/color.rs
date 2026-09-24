@@ -234,14 +234,98 @@ pub(crate) fn ansi256_to_rgb(index: u8) -> (u8, u8, u8) {
     }
 }
 
-/// Quantizes RGB to the nearest of the 16 palette colors, returning its SGR code.
+/// sRGB to OKLab (Björn Ottosson, 2020): the perceptual space the crate
+/// mixes and compares colors in. A straight line between two stops keeps
+/// its lightness and hue honest — no grey mud halfway between blue and
+/// yellow — and the nearest of sixteen palette colors is the one that
+/// looks nearest, not the one closest in RGB.
+pub(crate) fn oklab((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
+    let linear = |channel: u8| {
+        let c = f64::from(channel) / 255.0;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    let (r, g, b) = (linear(r), linear(g), linear(b));
+    let l = (0.412_221_470_8 * r + 0.536_332_536_3 * g + 0.051_445_992_9 * b).cbrt();
+    let m = (0.211_903_498_2 * r + 0.680_699_545_1 * g + 0.107_396_956_6 * b).cbrt();
+    let s = (0.088_302_461_9 * r + 0.281_718_837_6 * g + 0.629_978_700_5 * b).cbrt();
+    (
+        0.210_454_255_3 * l + 0.793_617_785 * m - 0.004_072_046_8 * s,
+        1.977_998_495_1 * l - 2.428_592_205 * m + 0.450_593_709_9 * s,
+        0.025_904_037_1 * l + 0.782_771_766_2 * m - 0.808_675_766 * s,
+    )
+}
+
+/// OKLab back to sRGB, clamped into the gamut.
+pub(crate) fn from_oklab((lightness, a, b): (f64, f64, f64)) -> (u8, u8, u8) {
+    let l = (lightness + 0.396_337_777_4 * a + 0.215_803_757_3 * b).powi(3);
+    let m = (lightness - 0.105_561_345_8 * a - 0.063_854_172_8 * b).powi(3);
+    let s = (lightness - 0.089_484_177_5 * a - 1.291_485_548 * b).powi(3);
+    let gamma = |c: f64| {
+        let c = if c.is_finite() {
+            c.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let encoded = if c <= 0.003_130_8 {
+            12.92 * c
+        } else {
+            1.055 * c.powf(1.0 / 2.4) - 0.055
+        };
+        (encoded * 255.0).round() as u8
+    };
+    (
+        gamma(4.076_741_662_1 * l - 3.307_711_591_3 * m + 0.230_969_929_2 * s),
+        gamma(-1.268_438_004_6 * l + 2.609_757_401_1 * m - 0.341_319_396_5 * s),
+        gamma(-0.004_196_086_3 * l - 0.703_418_614_7 * m + 1.707_614_701 * s),
+    )
+}
+
+/// The OKLab chroma below which a color reads as a grey. A color with
+/// visible chroma keeps a hue when it drops to sixteen colors — a teal
+/// becomes green, never the grey that is nearer in distance — and a tint
+/// too faint to read as colored goes to the greys.
+const ACHROMATIC_CHROMA: f64 = 0.03;
+
+/// The chroma every chromatic color is compared at: sixteen colors carry a
+/// hue and a lightness, so the pick matches those and sets chroma aside.
+const REFERENCE_CHROMA: f64 = 0.15;
+
+/// Quantizes RGB to the nearest of the 16 palette colors in OKLab —
+/// lightness and hue, at one reference chroma, within the color's own
+/// class of chromatic or grey — returning its SGR code.
 pub(crate) fn rgb_to_16(r: u8, g: u8, b: u8) -> u8 {
+    let chroma = |(_, a, b): (f64, f64, f64)| a.hypot(b);
+    // Lightness, and the hue as a point on a circle of reference chroma.
+    let place = |lab: (f64, f64, f64)| {
+        let c = chroma(lab);
+        if c > ACHROMATIC_CHROMA {
+            (
+                lab.0,
+                lab.1 / c * REFERENCE_CHROMA,
+                lab.2 / c * REFERENCE_CHROMA,
+            )
+        } else {
+            (lab.0, 0.0, 0.0)
+        }
+    };
+    let target = oklab((r, g, b));
+    let colored = chroma(target) > ACHROMATIC_CHROMA;
+    let target = place(target);
     let mut best = 0usize;
-    let mut best_distance = u32::MAX;
-    for (index, &(pr, pg, pb)) in PALETTE16.iter().enumerate() {
-        let distance = (i32::from(r) - i32::from(pr)).pow(2) as u32
-            + (i32::from(g) - i32::from(pg)).pow(2) as u32
-            + (i32::from(b) - i32::from(pb)).pow(2) as u32;
+    let mut best_distance = f64::INFINITY;
+    for (index, &entry) in PALETTE16.iter().enumerate() {
+        let candidate = oklab(entry);
+        if (chroma(candidate) > ACHROMATIC_CHROMA) != colored {
+            continue;
+        }
+        let candidate = place(candidate);
+        let distance = (target.0 - candidate.0).powi(2)
+            + (target.1 - candidate.1).powi(2)
+            + (target.2 - candidate.2).powi(2);
         if distance < best_distance {
             best_distance = distance;
             best = index;

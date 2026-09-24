@@ -162,8 +162,12 @@ two grids read on one scale, with `under`/`over` disclosing what falls
 outside instead of clamping it; `steps(n)` and `thresholds(values)`
 quantize the ramp into bands the colorbar draws and labels at their
 boundaries — `contourf` is `heatmap` under a map split at `contour`'s
-levels); `scale::Palette` is the categorical scale
-`color_by` draws from — Okabe–Ito (Wong 2011) by default.
+levels). Stops mix in OKLab, so the color halfway between two stops
+looks halfway — no grey between blue and yellow — and the 16-color tier
+picks by OKLab lightness and hue, the two things sixteen colors can carry.
+`scale::Palette` is the categorical scale `color_by` draws from —
+Okabe–Ito (Wong 2011) by default, Paul Tol's `BRIGHT` and `MUTED` (nine
+colors) beside it.
 
 ## Ticks
 

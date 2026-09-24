@@ -55,3 +55,27 @@ fn okabe_ito_survives_the_16_color_quantizer_distinguishably() {
         );
     }
 }
+
+#[test]
+fn tols_palettes_stand_beside_okabe_ito() {
+    use crate::render::color::rgb_to_256;
+
+    assert_eq!(Palette::BRIGHT.colors().len(), 7);
+    assert_eq!(Palette::BRIGHT.colors()[0], Color::Rgb(68, 119, 170));
+    assert_eq!(Palette::MUTED.colors().len(), 9);
+    assert_eq!(Palette::MUTED.colors()[0], Color::Rgb(51, 34, 136));
+    // Every color of each scheme survives the 256-color tier distinct.
+    for palette in [Palette::BRIGHT, Palette::MUTED] {
+        let mut codes: Vec<u8> = palette
+            .colors()
+            .iter()
+            .map(|color| match color {
+                Color::Rgb(r, g, b) => rgb_to_256(*r, *g, *b),
+                other => panic!("Tol's colors are RGB, got {other:?}"),
+            })
+            .collect();
+        codes.sort_unstable();
+        codes.dedup();
+        assert_eq!(codes.len(), palette.colors().len());
+    }
+}

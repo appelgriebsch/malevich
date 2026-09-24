@@ -1757,8 +1757,10 @@ mod tests {
         .unwrap();
         let debug = format!("{plot:?}");
         assert_eq!(debug.matches("Line {").count(), 2, "{debug}");
-        assert!(debug.contains(&format!("{:?}", Color::Rgb(63, 63, 63))));
-        assert!(debug.contains(&format!("{:?}", Color::Rgb(191, 191, 191))));
+        // A quarter and three quarters of the way up the grey ramp in
+        // OKLab lightness: the perceptual quarter greys.
+        assert!(debug.contains(&format!("{:?}", Color::Rgb(34, 34, 34))));
+        assert!(debug.contains(&format!("{:?}", Color::Rgb(174, 174, 174))));
     }
 
     #[test]

@@ -9,7 +9,9 @@ use crate::render::Color;
 ///
 /// The default is [`OKABE_ITO`](Palette::OKABE_ITO) — the Okabe–Ito palette
 /// (Wong 2011) without print-black: seven colors distinguishable under the
-/// common color-vision deficiencies, on dark and light backgrounds. More
+/// common color-vision deficiencies, on dark and light backgrounds. Paul
+/// Tol's [`BRIGHT`](Palette::BRIGHT) and [`MUTED`](Palette::MUTED) stand
+/// beside it, the second for up to nine categories. More
 /// categories than colors wrap around; in plain output categories separate by
 /// marker shape instead, so the wrap never hides a group.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +31,34 @@ impl Palette {
         Color::Rgb(204, 121, 167),
         Color::Rgb(0, 114, 178),
         Color::Rgb(240, 228, 66),
+    ]);
+
+    /// Paul Tol's *bright* qualitative scheme (Tol 2021): blue, red, green,
+    /// yellow, cyan, purple, grey — seven colors distinct under the common
+    /// color-vision deficiencies and, by lightness, in greyscale.
+    pub const BRIGHT: Palette = Palette::new(&[
+        Color::Rgb(68, 119, 170),
+        Color::Rgb(238, 102, 119),
+        Color::Rgb(34, 136, 51),
+        Color::Rgb(204, 187, 68),
+        Color::Rgb(102, 204, 238),
+        Color::Rgb(170, 51, 119),
+        Color::Rgb(187, 187, 187),
+    ]);
+
+    /// Paul Tol's *muted* qualitative scheme (Tol 2021): indigo, cyan, teal,
+    /// green, olive, sand, rose, wine, purple — nine colors at lower
+    /// saturation, for more categories than the default holds.
+    pub const MUTED: Palette = Palette::new(&[
+        Color::Rgb(51, 34, 136),
+        Color::Rgb(136, 204, 238),
+        Color::Rgb(68, 170, 153),
+        Color::Rgb(17, 119, 51),
+        Color::Rgb(153, 153, 51),
+        Color::Rgb(221, 204, 119),
+        Color::Rgb(204, 102, 119),
+        Color::Rgb(136, 34, 85),
+        Color::Rgb(170, 68, 153),
     ]);
 
     /// A custom palette over a static color list.
