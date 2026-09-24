@@ -5,7 +5,9 @@
 //! snapshots, [`Rate`] to turn a monotonic counter into per-sample deltas, and
 //! [`Live`] for the flicker-free cursor-up/erase-down repaint (no alt-screen, so
 //! the final frame survives in scrollback). The cursor is hidden while repainting
-//! and restored on EOF, SIGINT, or a closed pipe.
+//! and restored on EOF, SIGINT, or a closed pipe. A destination that is not a
+//! terminal (`2>log`) receives the frames as plain text and no escape byte at
+//! all — the library's `Live::detect` decides, and the cursor is left alone.
 //!
 //! The frame is re-detected every repaint, so a terminal resize degrades to a
 //! clean redraw at the new size.
@@ -54,15 +56,21 @@ fn drive<W: Write + IsTerminal>(handle: fn() -> W, args: &Args) -> io::Result<()
     let done = spawn_reader(ring.clone(), args.delimiter, args.rate);
 
     // Hide the cursor for the duration of the repaint (restored below no matter how
-    // the loop ends — EOF, interrupt, or a broken pipe).
+    // the loop ends — EOF, interrupt, or a broken pipe) — only where the
+    // destination is a terminal: a redirected stream gets no escapes.
     let mut cursor = handle();
-    let _ = write!(cursor, "\x1b[?25l");
-    let _ = cursor.flush();
+    let terminal = cursor.is_terminal();
+    if terminal {
+        let _ = write!(cursor, "\x1b[?25l");
+        let _ = cursor.flush();
+    }
 
     let result = repaint(handle, &ring, args, done, interval);
 
-    let _ = write!(cursor, "\x1b[?25h");
-    let _ = cursor.flush();
+    if terminal {
+        let _ = write!(cursor, "\x1b[?25h");
+        let _ = cursor.flush();
+    }
 
     match result {
         // A closed terminal (SIGPIPE → EPIPE) is a clean stop.
@@ -79,7 +87,7 @@ fn repaint<W: Write + IsTerminal>(
     done: Arc<AtomicBool>,
     interval: Duration,
 ) -> io::Result<()> {
-    let mut live = Live::new(handle());
+    let mut live = Live::detect(handle());
     loop {
         let frame = output::frame_for(&handle(), args);
         let plot = plot(ring.snapshot(), args);

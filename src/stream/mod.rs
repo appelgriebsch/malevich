@@ -19,7 +19,7 @@
 //!     }
 //! });
 //!
-//! let mut live = Live::new(std::io::stderr());
+//! let mut live = Live::detect(std::io::stderr());
 //! loop {
 //!     let chart = malevich::line(ring.snapshot());
 //!     live.draw(&chart, &malevich::Frame::detect()).unwrap();
@@ -29,7 +29,7 @@
 //! ```
 
 use std::collections::VecDeque;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::sync::{Arc, Mutex};
 
 use crate::plot::{Frame, Plot};
@@ -112,30 +112,59 @@ impl Rate {
 ///
 /// The first draw simply prints. Later draws move the cursor up over the previous
 /// frame and erase downward before writing, so the chart updates in place without
-/// flicker, survives in scrollback, and never takes over the screen. Query the
-/// frame each draw ([`Frame::detect`]) and resizes follow along.
+/// flicker, survives in scrollback, and never takes over the screen. Every
+/// repaint is one synchronized-output frame (DEC private mode 2026): a terminal
+/// that speaks it paints the whole chart at once, and one that does not ignores
+/// the bracket. Query the frame each draw ([`Frame::detect`]) and resizes
+/// follow along.
+///
+/// [`Live::new`] always repaints — it is the explicit form, for a destination
+/// the caller knows is a terminal. [`Live::detect`] is the named
+/// environment-reading form: it repaints on a terminal and appends frames as
+/// plain text anywhere else, so `2>log` receives a log of charts and never a
+/// cursor escape.
 #[derive(Debug)]
 pub struct Live<W: Write> {
     out: W,
     drawn_rows: usize,
+    repaint: bool,
 }
 
 impl<W: Write> Live<W> {
-    /// A repaint handle writing to `out` (commonly stderr, leaving stdout to data).
+    /// A repaint handle writing to `out` (commonly stderr, leaving stdout to
+    /// data). Repaints unconditionally: use [`Live::detect`] for a destination
+    /// that may be redirected.
     pub fn new(out: W) -> Live<W> {
-        Live { out, drawn_rows: 0 }
+        Live {
+            out,
+            drawn_rows: 0,
+            repaint: true,
+        }
     }
 
-    /// Renders the plot and repaints it over the previous frame.
+    /// Whether draws repaint in place (a terminal) or append plainly (a pipe or
+    /// file).
+    pub fn repaints(&self) -> bool {
+        self.repaint
+    }
+
+    /// Renders the plot and repaints it over the previous frame — or, on a
+    /// destination that is not a terminal, appends it as plain text.
     pub fn draw(&mut self, plot: &Plot<'_>, frame: &Frame) -> std::io::Result<()> {
         let text = plot.render(frame);
-        let mut buffer = String::with_capacity(text.len() + 16);
-        if self.drawn_rows > 0 {
-            use std::fmt::Write as _;
-            let _ = write!(buffer, "\x1b[{}A\r\x1b[J", self.drawn_rows);
+        let mut buffer = String::with_capacity(text.len() + 32);
+        if self.repaint {
+            buffer.push_str("\x1b[?2026h");
+            if self.drawn_rows > 0 {
+                use std::fmt::Write as _;
+                let _ = write!(buffer, "\x1b[{}A\r\x1b[J", self.drawn_rows);
+            }
         }
         buffer.push_str(&text);
         buffer.push('\n');
+        if self.repaint {
+            buffer.push_str("\x1b[?2026l");
+        }
         self.out.write_all(buffer.as_bytes())?;
         self.out.flush()?;
         self.drawn_rows = text.lines().count().max(1);
@@ -145,6 +174,20 @@ impl<W: Write> Live<W> {
     /// Stops repainting: the next draw starts fresh below the current output.
     pub fn detach(&mut self) {
         self.drawn_rows = 0;
+    }
+}
+
+impl<W: Write + IsTerminal> Live<W> {
+    /// A handle that repaints when `out` is a terminal and appends plain frames
+    /// otherwise — the one place this module reads its environment, decided
+    /// once at construction.
+    pub fn detect(out: W) -> Live<W> {
+        let repaint = out.is_terminal();
+        Live {
+            out,
+            drawn_rows: 0,
+            repaint,
+        }
     }
 }
 

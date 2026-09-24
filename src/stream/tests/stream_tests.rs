@@ -46,15 +46,46 @@ fn the_first_draw_prints_and_later_draws_repaint_in_place() {
     let mut out = Vec::new();
     {
         let mut live = Live::new(&mut out);
+        assert!(live.repaints());
         live.draw(&plot, &frame).unwrap();
         live.draw(&plot, &frame).unwrap();
     }
     let text = String::from_utf8(out).unwrap();
     let mut frames = text.split("\x1b[5A\r\x1b[J");
     let first = frames.next().unwrap();
+    let unbracketed = first.replace("\x1b[?2026h", "").replace("\x1b[?2026l", "");
     assert!(
-        !first.contains('\x1b'),
-        "first draw must not repaint: {first:?}"
+        !unbracketed.contains('\x1b'),
+        "first draw must not move the cursor: {first:?}"
     );
     assert!(frames.next().is_some(), "second draw must move up 5 rows");
+    // Every frame is one synchronized-output bracket.
+    assert_eq!(text.matches("\x1b[?2026h").count(), 2);
+    assert_eq!(text.matches("\x1b[?2026l").count(), 2);
+    assert!(text.starts_with("\x1b[?2026h"));
+    assert!(text.ends_with("\x1b[?2026l"));
+}
+
+#[test]
+fn a_detected_file_receives_plain_frames_and_no_escape_bytes() {
+    let plot = Plot::new().layer(crate::Line::y(&[1.0, 2.0][..]));
+    let frame = Frame::plain(20, 5);
+    let path = std::env::temp_dir().join(format!(
+        "malevich-live-{}-{}.log",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos())
+    ));
+    {
+        let file = std::fs::File::create(&path).unwrap();
+        let mut live = Live::detect(file);
+        assert!(!live.repaints(), "a file is not a terminal");
+        live.draw(&plot, &frame).unwrap();
+        live.draw(&plot, &frame).unwrap();
+    }
+    let text = std::fs::read_to_string(&path).unwrap();
+    let _ = std::fs::remove_file(&path);
+    assert!(!text.contains('\x1b'), "a file got escape bytes: {text:?}");
+    assert_eq!(text.matches(plot.render(&frame).as_str()).count(), 2);
 }

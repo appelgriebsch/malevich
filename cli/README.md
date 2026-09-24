@@ -153,7 +153,9 @@ kaz scatter penguins.tsv -H --by species --emit-code > plot.rs
 
 `--live` reads stdin forever, one value per line, and repaints a sliding line in
 place — no alt-screen, so the final frame stays in your scrollback, and Ctrl-C
-restores the cursor. Line only.
+restores the cursor. Each repaint is one synchronized-output frame. When the
+plot's destination is not a terminal (`2>log`), the frames append as plain text
+and no escape byte is written. Line only.
 
 ```sh
 ping -i.2 host | grep -oE 'time=[0-9.]+' | tr -d 'time=' | kaz line --live -t ping

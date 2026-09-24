@@ -5,6 +5,14 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `stream::Live::detect(out)` repaints in place only when `out` is a
+  terminal and appends plain frames otherwise, so a redirected stderr
+  (`2>log`) receives charts and never a cursor escape — the rule-4 gap the
+  unconditional repaint left. `Live::new` keeps its explicit always-repaint
+  contract. Every repaint is now one synchronized-output frame (DEC private
+  mode 2026), the bracket `Graphics::present` already used, so terminals
+  that speak it paint the chart at once and the last flicker source is gone.
+  `kaz --live` detects the same way and hides the cursor only on a terminal.
 - Every tick label comes from one formatter. The three fallback paths that
   formatted with Rust's `Display` — equal bounds, a span the search cannot
   cover, timestamps outside the calendar — now format at the shared

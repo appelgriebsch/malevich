@@ -308,7 +308,7 @@ fn time_x_gives_calendar_ticks() {
 // --- live mode (M-C3) ---
 
 #[test]
-fn live_streams_to_a_final_frame_with_cursor_discipline() {
+fn live_appends_plain_frames_to_a_piped_destination() {
     // A finite stream: stdin closes, the reader hits EOF, the loop draws a final
     // frame and exits. High fps keeps it quick.
     let out = run(
@@ -338,15 +338,16 @@ fn live_streams_to_a_final_frame_with_cursor_discipline() {
         plot.contains("live"),
         "the title is drawn in the final frame"
     );
-    // Cursor hidden while repainting, and restored on the way out.
-    assert!(plot.contains('\u{1b}'), "repaint uses escape sequences");
+    // The harness's stderr is a pipe, not a terminal: the frames append as
+    // plain text — no cursor hiding, no repaint, no escape byte at all. The
+    // repaint bracket itself is pinned by the library's own `Live` tests.
     assert!(
-        plot.starts_with("\u{1b}[?25l"),
-        "cursor hidden at the start"
+        !plot.contains('\u{1b}'),
+        "a piped destination must receive no escapes: {plot:?}"
     );
     assert!(
-        plot.trim_end().ends_with("\u{1b}[?25h"),
-        "cursor restored at the end"
+        plot.matches("live").count() >= 1,
+        "at least the final frame is written"
     );
 }
 

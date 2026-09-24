@@ -339,7 +339,12 @@ fn a_random_sweep_over_every_magnitude_keeps_the_label_contract() {
         // Log-uniform bounds across the whole finite range, signed, with a
         // span that ranges from the ulp scale to the full magnitude.
         let magnitude = random.unit() * 600.0 - 300.0;
-        let lo = 10f64.powf(magnitude) * if random.next().is_multiple_of(2) { 1.0 } else { -1.0 };
+        let lo = 10f64.powf(magnitude)
+            * if random.next().is_multiple_of(2) {
+                1.0
+            } else {
+                -1.0
+            };
         let span = 10f64.powf(magnitude - random.unit() * 20.0);
         let hi = if case % 7 == 0 { lo } else { lo + span };
         if !(lo.is_finite() && hi.is_finite()) {

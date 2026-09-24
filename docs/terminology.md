@@ -333,8 +333,10 @@ crate root. See [Presets are packaging](principles/presets-are-packaging.md).
 Live data machinery, kept at the edge of the crate: `stream::Ring` (a
 sliding window shared across threads — the one lock in the library),
 `stream::Rate` (counters into deltas), and `stream::Live` (in-place repaint:
-cursor up, erase down, one buffered write — flicker-free, scrollback-safe,
-never owning the screen). The core stays pure; time enters only at the rims —
+cursor up, erase down, one buffered write bracketed as a synchronized-output
+frame — flicker-free, scrollback-safe, never owning the screen; `Live::detect`
+repaints only on a terminal and appends plain frames to a pipe or file, so no
+escape byte lands where it is not safe). The core stays pure; time enters only at the rims —
 this module, and the ratatui widget's pixel pacing (below), which uses a
 monotonic clock to skip redundant re-encodes. Every render that does run
 remains a pure function of its inputs.
