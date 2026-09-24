@@ -247,7 +247,8 @@ export class Points extends Mark {
 type BarsPlacement =
   | { kind: "bands"; categories: string[] }
   | { kind: "spans"; start: number; width: number }
-  | { kind: "at"; x: Float64Array; width: number };
+  | { kind: "at"; x: Float64Array; width: number }
+  | { kind: "intervals"; starts: Float64Array; ends: Float64Array };
 
 export class Bars extends Mark {
   private placement: BarsPlacement;
@@ -297,6 +298,24 @@ export class Bars extends Mark {
     return new Bars({ kind: "at", x: xs, width }, series);
   }
 
+  /** Bars over explicit intervals: bar `i` covers `[starts[i], ends[i]]`, each its own width. */
+  static intervals(starts: SeriesLike, ends: SeriesLike, values: SeriesLike): Bars {
+    const from = toFloat64(starts);
+    const to = toFloat64(ends);
+    const series = toFloat64(values);
+    if (from.length !== series.length || to.length !== series.length) {
+      throw new TypeError(
+        `Bars: starts, ends, and values: channels differ in length (${from.length}, ${to.length}, and ${series.length})`,
+      );
+    }
+    for (let i = 0; i < from.length; i += 1) {
+      if (Number.isFinite(from[i]) && Number.isFinite(to[i]) && from[i] >= to[i]) {
+        throw new TypeError("Bars.intervals requires each start below its end");
+      }
+    }
+    return new Bars({ kind: "intervals", starts: from, ends: to }, series);
+  }
+
   color(color: string | Color): Bars {
     const next = this.clone();
     next.colorValue = canonicalizeColor(color);
@@ -338,6 +357,10 @@ export class Bars extends Mark {
       placement = {
         Spans: { start: this.placement.start, width: this.placement.width },
       };
+    } else if (this.placement.kind === "intervals") {
+      placement = { Intervals: { starts: { col: index }, ends: { col: index + 1 } } };
+      columns.push(this.placement.starts, this.placement.ends);
+      index += 2;
     } else {
       placement = { At: { x: { col: index }, width: this.placement.width } };
       columns.push(this.placement.x);

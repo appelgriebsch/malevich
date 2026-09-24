@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Frame } from "../frame.js";
-import { Line, Rule, Text } from "../mark.js";
+import { Bars, Line, Rule, Text } from "../mark.js";
 import { Plot, type PlotSpec } from "../plot.js";
 import { bar, hist, histWith, line, scatter } from "../presets.js";
 
@@ -81,4 +81,13 @@ test("one-sided domains write their end and fold into the pair", () => {
   assert.deepEqual(spec(line([1]).xMax(5)).x_domain, { max: 5 });
   const rendered = floored.render(Frame.plain(40, 10));
   assert.ok(rendered.includes("0 \u2524"), rendered);
+});
+
+test("interval bars equal spans when uniform", () => {
+  const frame = Frame.plain(40, 10);
+  const values = [2, 5, 3];
+  const intervals = new Plot().layer(Bars.intervals([0, 1, 2], [1, 2, 3], values)).render(frame);
+  const spans = new Plot().layer(Bars.spans(0, 1, values)).render(frame);
+  assert.equal(intervals, spans);
+  assert.throws(() => Bars.intervals([1], [0], [1]), /start below its end/);
 });
