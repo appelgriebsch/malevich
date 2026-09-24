@@ -1994,3 +1994,25 @@ fn y_ticks_land_on_distinct_rows_or_are_re_searched_sparser() {
         assert_eq!(drawn, layout.y_ticks.len(), "height {height}:\n{rendered}");
     }
 }
+
+#[test]
+fn the_stairs_preset_equals_its_step_expansion() {
+    use crate::stat::{StepDirection, steps};
+    let values = [1.0, 3.0, f64::NAN, 2.0, 5.0];
+    let frame = Frame::plain(40, 8);
+    let indices: Vec<f64> = (0..values.len()).map(|i| i as f64).collect();
+    for direction in [StepDirection::Post, StepDirection::Pre, StepDirection::Mid] {
+        let (x, y) = steps(&indices, &values, direction);
+        let expansion = Plot::new().layer(Line::xy(x, y)).render(&frame);
+        let preset = crate::stairs_with(
+            &values[..],
+            crate::StairsOptions::new().direction(direction),
+        )
+        .render(&frame);
+        assert_eq!(preset, expansion, "{direction:?}");
+    }
+    assert_eq!(
+        crate::stairs(&values[..]).render(&frame),
+        crate::stairs_with(&values[..], crate::StairsOptions::default()).render(&frame)
+    );
+}

@@ -419,23 +419,47 @@ pub fn hist_with<'a>(
     )
 }
 
+/// Configuration for [`stairs_with`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub struct StairsOptions {
+    /// Where each step changes: at the next sample (the default), the
+    /// previous one, or the midpoint.
+    pub direction: crate::stat::StepDirection,
+}
+
+impl StairsOptions {
+    /// Steps that change at the next sample — exactly [`stairs`].
+    pub const fn new() -> StairsOptions {
+        StairsOptions {
+            direction: crate::stat::StepDirection::Post,
+        }
+    }
+
+    /// Sets where each step changes.
+    #[must_use]
+    pub const fn direction(mut self, direction: crate::stat::StepDirection) -> StairsOptions {
+        self.direction = direction;
+        self
+    }
+}
+
 /// A step chart: `values` held flat between indices — counters, rates, states.
+/// The expansion is [`stat::steps`](crate::stat::steps) under
+/// [`StepDirection::Post`](crate::stat::StepDirection::Post), drawn as a line.
 ///
 /// ```
 /// println!("{}", malevich::stairs(&[1.0, 3.0, 2.0][..]).render(&malevich::Frame::plain(40, 8)));
 /// ```
 pub fn stairs<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    stairs_with(values, StairsOptions::new())
+}
+
+/// A step chart whose steps change where [`StairsOptions`] says.
+pub fn stairs_with<'a>(values: impl IntoSeries<'a>, options: StairsOptions) -> Plot<'a> {
     let series = values.into_series();
-    let mut x = Vec::with_capacity(series.len() * 2);
-    let mut y = Vec::with_capacity(series.len() * 2);
-    for (index, value) in series.iter().enumerate() {
-        if index > 0 {
-            x.push(index as f64);
-            y.push(y.last().copied().unwrap_or(value));
-        }
-        x.push(index as f64);
-        y.push(value);
-    }
+    let indices: Vec<f64> = (0..series.len()).map(|index| index as f64).collect();
+    let (x, y) = crate::stat::steps(&indices, series.as_slice(), options.direction);
     Plot::new().layer(Line::xy(x, y))
 }
 

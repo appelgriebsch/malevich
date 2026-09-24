@@ -172,6 +172,36 @@ m 200 ┤        ⢀⣼⣿⣆         ⢀⣠⣶⣿⣿⣿⣿⣿⣶⣄⡀         
               Adelie         Chinstrap        Gentoo
 ```
 
+### raincloud
+
+A raincloud from the grammar, no preset: a half-violin cloud, a Range box, and every measurement as jittered rain — stat::jitter's van der Corput strip fills evenly and renders the same every time.
+Source: [examples/raincloud.rs](examples/raincloud.rs)
+
+```text
+         flipper length by species: cloud, box, and rain
+  240 ┤                                                ⡄
+      │                                                ⣷⡀
+  230 ┤                                        ⢐⡤ ⠐⠒⠒⡖⠒⣿⣿⣆
+      │                                        ⢨⣁⡁   ⡇ ⣿⣿⣿
+      │                                        ⢐⢭⣧⣄⣄⣀⣇⣀⣿⣿⣿⣷⣤
+  220 ┤                              ⡇         ⢐⢏⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄
+      │            ⡇                 ⣿⡀        ⠐⠓━━━━━━━━━⣿⣿⣿⡿
+  210 ┤      ⠄     ⣿         ⠈ ⠤⠌⠉⠉⡏⠉⣿⣧        ⢀⠈⣯⡽⠍⠉⡏⠉⣿⣿⣿⣿⣿⠟⠁
+m     │       ⢈⠉⠉⡏⠉⣿         ⢐ ⡀⠄  ⡇ ⣿⣿⣆       ⠈ ⠘⠉  ⡇ ⣿⣿⠟⠛⠁
+m     │     ⠠⠐⢠  ⡇ ⣿⣆        ⢀⡐⣆⣠⣀⣀⣇⣀⣿⣿⣿⣷⣄        ⠒⠒⠒⠓⠒⣿⠁
+  200 ┤     ⠐⢼⡃  ⡇ ⣿⣿⣷⣄      ⢀⣧⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄           ⡇
+      │    ⢘⡒⣾⣿⣶⣶⣷⣶⣿⣿⣿⣿⣷⣄    ⢀⢯━━━━━━━━━⣿⣿⣿⡿           ⠁
+  190 ┤    ⢸⡷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷     ⡛⠟⠟⠛⡟⠛⣿⣿⣿⣿⣿⠏
+      │    ⠈⣷━━━━━━━━━⣿⣿⡿⠁    ⠑⠐⡐⠂ ⡇ ⣿⣿⣿⠟⠁
+      │    ⠨⣜⡎⠉  ⡇ ⣿⣿⣿⡿⠋      ⢀ ⡀  ⡇ ⣿⡿⠁
+  180 ┤    ⠈⠠⠌⠉⠆ ⡇ ⣿⣿⠏          ⠠⠤⠤⠧⠤⣿⠇
+      │     ⠌ ⠠⠤⠤⠧⠤⣿⠃                ⡿
+  170 ┤     ⠂      ⣿                 ⡇
+      │            ⡇
+      └───────────────────────────────────────────────────────────
+               Adelie           Chinstrap          Gentoo
+```
+
 ### latency
 
 A bounded density: kernels reflected at zero keep a latency distribution's mass where the data lives, beside the unbounded estimate that leaks below it.
@@ -258,7 +288,7 @@ d -4 ┤⠂⠈     ⡀⠊
 
 ### steps
 
-Step charts: stairs hold values flat between indices; an ECDF climbs a distribution from zero to one.
+Step charts: stairs hold values flat between indices — stat::steps changing after, before, or midway between samples — and an ECDF climbs a distribution from zero to one.
 Source: [examples/steps.rs](examples/steps.rs)
 
 ```text

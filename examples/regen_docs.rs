@@ -65,6 +65,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                  not a summary.",
             ),
             (
+                "raincloud",
+                "A raincloud from the grammar, no preset: a half-violin cloud, a \
+                 Range box, and every measurement as jittered rain — stat::jitter's \
+                 van der Corput strip fills evenly and renders the same every time.",
+            ),
+            (
                 "latency",
                 "A bounded density: kernels reflected at zero keep a latency \
                  distribution's mass where the data lives, beside the unbounded \
@@ -84,7 +90,9 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
             ),
             (
                 "steps",
-                "Step charts: stairs hold values flat between indices; an ECDF climbs a distribution from zero to one.",
+                "Step charts: stairs hold values flat between indices — stat::steps \
+                 changing after, before, or midway between samples — and an ECDF \
+                 climbs a distribution from zero to one.",
             ),
             (
                 "powerlaw",

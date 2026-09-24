@@ -79,6 +79,9 @@ that reflect the kernels so a latency density stays above zero; the
 cumulative form), `Window` (a
 sliding window anchored at its end by default, or centered or leading via
 `WindowAnchor`; `strict` gaps the positions whose window is incomplete),
+`jitter` (van der Corput offsets that spread a strip of points evenly, no
+seed), `steps` (the piecewise-constant expansion `stairs` draws, changing
+after, before, or midway between samples per `StepDirection`),
 `cumsum`/`diff`/`rank`/`normalize` (the series maps: running sums,
 differences, ranks, and division by a reducer of the whole series — index
 charts, percent-of-peak), `ecdf`,

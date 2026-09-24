@@ -5,6 +5,16 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `stat::jitter(positions, width)` spreads coincident points with a van der
+  Corput offset — an evenly filled strip that renders the same every time,
+  with no seed to forget — the "rain" beside a box or a violin. The
+  `raincloud` gallery example composes cloud, box, and rain from the
+  grammar.
+- `stat::steps(x, y, StepDirection::{Post, Pre, Mid})` is the step expansion
+  `stairs` used to inline, as a stat: hold each value and change it after,
+  before, or midway between samples; feed it to `Area::xy` for a filled step
+  chart. `stairs_with(values, StairsOptions)` chooses the direction;
+  `stairs` is proven equal to the `Post` expansion.
 - `stat::kde_with(values, points, KdeOptions)` chooses the bandwidth
   (`Bandwidth::Silverman`, `Scale(factor)`, `Fixed(width)`), bounds the
   support — kernels reflect at a bound, so a latency density keeps its mass
