@@ -134,7 +134,7 @@
         "x": "Auto",
         "x_domain": null,
         "x_label": null,
-        "y": "Auto",
+        "y": "Integer",
         "y_domain": null,
         "y_label": null
       },

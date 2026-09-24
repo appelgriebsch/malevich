@@ -71,7 +71,7 @@ printing one of them:
 
 <!-- generated:witness_packaging -->
 ```text
-hist(&samples) == Bins::auto + Bars::spans, byte for byte:
+hist(&samples) == Bins::auto + Bars::spans + Scale::Integer, byte for byte:
 90 ┤                    ▄▄▄▄▄▂▂▂▂▂
    │                    ██████████
 60 ┤               ▁▁▁▁▁██████████▁▁▁▁▁

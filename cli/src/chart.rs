@@ -23,8 +23,18 @@ pub fn build(recipe: &Recipe) -> malevich::Result<Built<'_>> {
             start,
             width,
             counts,
-        } => Plot::new().layer(Bars::spans(*start, *width, counts)),
-        Chart::Bars { labels, values } => malevich::bar(labels.iter().map(String::as_str), values),
+        } => Plot::new()
+            .layer(Bars::spans(*start, *width, counts))
+            .y_scale(Scale::Integer),
+        Chart::Bars { labels, values } => {
+            let plot = malevich::bar(labels.iter().map(String::as_str), values);
+            // Frequencies are whole: the count chart's axis says so.
+            if recipe.command == crate::args::Command::Count {
+                plot.y_scale(Scale::Integer)
+            } else {
+                plot
+            }
+        }
         Chart::Distribution { kind, values } => match kind {
             DistributionKind::Density => malevich::density(values),
             DistributionKind::Ecdf => malevich::ecdf(values),

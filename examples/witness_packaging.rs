@@ -2,7 +2,7 @@
 //! `regen_docs`: the `hist` preset and its explicit grammar expansion render
 //! byte-identically, asserted here before printing.
 
-use malevich::{Frame, Plot, mark::Bars, stat::Bins};
+use malevich::{Frame, Plot, Scale, mark::Bars, stat::Bins};
 
 fn main() {
     let samples: Vec<f64> = (0..400)
@@ -16,9 +16,10 @@ fn main() {
     let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
     let grammar = Plot::new()
         .layer(Bars::spans(bins.start(), bins.width(), &counts[..]))
+        .y_scale(Scale::Integer)
         .render(&frame);
 
     assert_eq!(preset, grammar, "the preset must equal its expansion");
-    println!("hist(&samples) == Bins::auto + Bars::spans, byte for byte:");
+    println!("hist(&samples) == Bins::auto + Bars::spans + Scale::Integer, byte for byte:");
     println!("{preset}");
 }

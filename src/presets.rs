@@ -396,7 +396,9 @@ pub fn bar<'a>(
 }
 
 /// A histogram: `values` binned automatically (Sturges/Freedman–Diaconis, nice
-/// decimal edges) and drawn as contiguous bars from zero.
+/// decimal edges) and drawn as contiguous bars from zero, on an
+/// [`Integer`](crate::Scale::Integer) count axis — a tall frame labels counts
+/// `0, 1, 2`, never `0.5`.
 ///
 /// ```
 /// let samples = [1.0, 2.0, 2.5, 2.7, 3.0, 3.1, 3.2, 4.0, 5.5];
@@ -427,7 +429,9 @@ pub fn hist_with<'a>(
         match crate::stat::Bins::try_auto(series.as_slice(), options.max_bins)? {
             Some(bins) => {
                 let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
-                Plot::new().layer(Bars::spans(bins.start(), bins.width(), counts))
+                Plot::new()
+                    .layer(Bars::spans(bins.start(), bins.width(), counts))
+                    .y_scale(crate::scale::Scale::Integer)
             }
             None => Plot::new(),
         },
@@ -1567,6 +1571,7 @@ mod tests {
         let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
         let expected = Plot::new()
             .layer(Bars::spans(bins.start(), bins.width(), counts))
+            .y_scale(crate::scale::Scale::Integer)
             .render(&frame);
         assert_eq!(actual, expected);
     }

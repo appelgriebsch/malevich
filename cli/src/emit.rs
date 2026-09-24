@@ -23,7 +23,14 @@ pub fn program(recipe: &Recipe) -> String {
             width,
             counts,
         } => histogram(&mut body, *start, *width, counts),
-        Chart::Bars { labels, values } => bars(&mut body, labels, values),
+        Chart::Bars { labels, values } => {
+            let chart = bars(&mut body, labels, values);
+            if recipe.command == crate::args::Command::Count {
+                format!("{chart}\n        .y_scale(malevich::Scale::Integer)")
+            } else {
+                chart
+            }
+        }
         Chart::Distribution { kind, values } => distribution(&mut body, *kind, values),
         Chart::Spark { values } => {
             let _ = writeln!(body, "    let values: Vec<f64> = {};", floats(values));
@@ -127,7 +134,7 @@ fn scatter_by(body: &mut String, x: &[f64], y: &[f64], groups: &[String]) -> Str
 fn histogram(body: &mut String, start: f64, width: f64, counts: &[f64]) -> String {
     let _ = writeln!(body, "    let counts: Vec<f64> = {};", floats(counts));
     format!(
-        "malevich::Plot::new()\n        .layer(malevich::Bars::spans({}, {}, counts))",
+        "malevich::Plot::new()\n        .layer(malevich::Bars::spans({}, {}, counts))\n        .y_scale(malevich::Scale::Integer)",
         float(start),
         float(width)
     )
