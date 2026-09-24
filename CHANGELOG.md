@@ -5,6 +5,17 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `stat::stack_with(series, StackOptions)` chooses a stack's offset and
+  order: `StackOffset::Normalize` scales every position's bands to fill
+  `[0, 1]` (the 100 % stack — breakdown bars, share-of-total areas),
+  `Center` shifts each position so its stack straddles zero (a streamgraph's
+  silhouette), and `StackOrder::Sum` piles the largest series at the
+  baseline. Bands come back in input order whatever the stacking order.
+  `stack` itself now stacks negative values below the baseline on their own
+  side, the way every grammar does, instead of running them through the
+  positive total; a position whose total is zero normalizes to zero-height
+  bands, never to `NaN`. The `breakdown` gallery example draws regional
+  electricity shares as horizontal 100 % stacks.
 - `Reducer` gains `Deviation`, `Variance`, `StdErr` (sample statistics,
   `n − 1` in the denominator, a gap below two values) and `First`, `Last` —
   inherited at once by `Window`, `Agg`, `binned`, and `Cells::reduce`, so a

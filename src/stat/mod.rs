@@ -45,5 +45,5 @@ pub use nearest::nearest;
 pub(crate) use reducer::ReducerState;
 pub use reducer::{Reducer, quantiles};
 pub use roc::{auc, roc};
-pub use stack::stack;
+pub use stack::{StackOffset, StackOptions, StackOrder, stack, stack_with};
 pub use window::Window;

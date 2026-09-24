@@ -74,7 +74,10 @@ seaborn.objects (`Stat`) and ggplot (`stat_*`). It is the module-level
 umbrella, not one execution algebra: a stat may be an online accumulator, a
 reducer, keyed orchestration, or a batch transform. Maps to the `stat`
 module — `M4`, `Bins`/`bins2`, `Agg`, `BoxStats`, `kde`, `Window`, `ecdf`,
-`roc`/`auc`, `ewma`, `stack`, `dodge` (side-by-side positions for grouped
+`roc`/`auc`, `ewma`, `stack`/`stack_with` (cumulative bands, positives
+above the baseline and negatives below it; `StackOffset::Normalize` is the
+100 % stack, `Center` the streamgraph silhouette, `StackOrder::Sum` piles the
+largest series first), `dodge` (side-by-side positions for grouped
 bars, one series per value series, fed to `Bars::at` — stack's sibling for
 bars beside each other), `lttb`, `Moments`, `Fit` (streaming least squares
 behind the `trend` preset), and `nearest` (the crosshair-snapping lookup: the

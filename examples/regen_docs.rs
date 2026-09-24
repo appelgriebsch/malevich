@@ -275,6 +275,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                  README's SVG card by the same example.",
             ),
             (
+                "breakdown",
+                "Breakdown bars: every region's sources as a horizontal 100 % stack \
+                 through stat::stack_with under StackOffset::Normalize — each row's \
+                 bands fill [0, 1], and a region with nothing to show draws nothing.",
+            ),
+            (
                 "multiples",
                 "Small multiples: a Grid of independent plots, axes shared by fixing \
                  domains explicitly.",

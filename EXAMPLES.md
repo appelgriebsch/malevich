@@ -1058,6 +1058,24 @@ walk an adjacency list ┤██████████████████
                                                 ×
 ```
 
+### breakdown
+
+Breakdown bars: every region's sources as a horizontal 100 % stack through stat::stack_with under StackOffset::Normalize — each row's bands fill [0, 1], and a region with nothing to show draws nothing.
+Source: [examples/breakdown.rs](examples/breakdown.rs)
+
+```text
+     electricity by source, share of each region (synthetic)
+               ██ hydro  ██ wind  ██ solar  ██ gas
+ north ┤█████████████49%██████████████████21%█████████████24%████▌
+ coast ┤█████████30%████████████22%█████████████████45%██████████▌
+plains ┤██████████████████51%████████████████13%████████28%██████▌
+island ┤██████11%████████████████████████82%█████████████████████▌
+outage ┤
+       └┬──────────┬───────────┬──────────┬───────────┬──────────┬
+       0.0        0.2         0.4        0.6         0.8       1.0
+                                   share
+```
+
 ### multiples
 
 Small multiples: a Grid of independent plots, axes shared by fixing domains explicitly.
