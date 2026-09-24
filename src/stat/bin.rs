@@ -112,10 +112,14 @@ impl Bins {
     }
 
     /// Bins sized to the data: bin count by the larger of Sturges' rule and
-    /// Freedman–Diaconis (the NumPy `auto` policy), capped at `limit`, with widths
-    /// and edges snapped to the same nice decimals ticks use. `None` without finite
-    /// values or when the requested cap cannot represent the complete span; use
-    /// [`Bins::try_auto`] to distinguish those cases.
+    /// Freedman–Diaconis (the NumPy `auto` policy, the quartiles type-7 like
+    /// every quantile in the crate), capped at `limit`, with widths and edges
+    /// snapped to the same nice decimals ticks use. A sample of whole numbers
+    /// gets a whole nice width of at least 1 and edges on half-integers, so
+    /// every bin holds the same number of consecutive integers and no bin
+    /// straddles two. `None`
+    /// without finite values or when the requested cap cannot represent the
+    /// complete span; use [`Bins::try_auto`] to distinguish those cases.
     pub fn auto(values: &[f64], limit: usize) -> Option<Bins> {
         Bins::try_auto(values, limit).ok().flatten()
     }
@@ -139,12 +143,12 @@ impl Bins {
         }
 
         let sturges = (n as f64).log2().ceil() as usize + 1;
-        let quarter = n / 4;
-        let (_, q1, _) = finite.select_nth_unstable_by(quarter, f64::total_cmp);
-        let q1 = *q1;
-        let upper = (3 * n) / 4;
-        let (_, q3, _) = finite.select_nth_unstable_by(upper.min(n - 1), f64::total_cmp);
-        let q3 = *q3;
+        // Whole-number data, in the range where "whole" still says something
+        // about the data rather than about `f64` (every value past 2⁵³ is).
+        let whole = max.abs().max(min.abs()) < 9_007_199_254_740_992.0
+            && finite.iter().all(|value| value.fract() == 0.0);
+        let q1 = super::reducer::quantile_select(&mut finite, 0.25);
+        let q3 = super::reducer::quantile_select(&mut finite, 0.75);
         let iqr = crate::numeric::span_per(q1, q3, 1);
         let fd = if let Some(iqr) = iqr {
             let width = 2.0 * iqr / (n as f64).cbrt();
@@ -169,16 +173,35 @@ impl Bins {
             .step()
             .filter(|step| step.is_finite() && *step > 0.0)
             .unwrap_or(fallback_width);
+        if whole {
+            // Whole-number data: a fractional width groups the integers
+            // unevenly (two per bin, then three), the classic integer
+            // histogram artifact — take the whole nice step at or below it,
+            // and never less than one integer per bin.
+            width = whole_nice_step(width);
+        }
         let snapped_start = (min / width).floor() * width;
         let mut start = if snapped_start.is_finite() && snapped_start <= min {
             snapped_start
         } else {
             min
         };
-        let mut bins = crate::numeric::span_ratio(start, max, width)
-            .map(|count| count.ceil() as usize)
-            .unwrap_or(usize::MAX)
-            .max(1);
+        let mut bins = if whole {
+            // Edges on half-integers beside the snapped start — below it when
+            // the minimum sits on it, above it otherwise — so the edges stay
+            // on the nice numbers the ticks label, every bin holds `width`
+            // consecutive integers, and the maximum never shares the last bin
+            // with its neighbor (`1..=50` at width 10 is five bins of ten).
+            start = if min > start { start + 0.5 } else { start - 0.5 };
+            crate::numeric::span_ratio(start, max, width)
+                .map(|count| count.floor() as usize + 1)
+                .unwrap_or(usize::MAX)
+        } else {
+            crate::numeric::span_ratio(start, max, width)
+                .map(|count| count.ceil() as usize)
+                .unwrap_or(usize::MAX)
+        }
+        .max(1);
         // Never drop data to honor the cap: if the nice width needs more bins than
         // allowed, widen it so the same span fits in `cap` bins. Coverage is the
         // contract; readable edges are the preference that yields first. Falling
@@ -283,6 +306,23 @@ impl Bins {
     pub fn counts(&self) -> &[u64] {
         &self.counts
     }
+}
+
+/// The largest whole nice step (`1, 2, 5, 10, 20, 50, …`) at or below
+/// `width`, and never below 1.
+fn whole_nice_step(width: f64) -> f64 {
+    if width.is_nan() || width <= 1.0 {
+        return 1.0;
+    }
+    let magnitude = 10f64.powi(width.log10().floor() as i32);
+    let mut step = 1.0;
+    for mantissa in [1.0, 2.0, 5.0] {
+        let candidate = mantissa * magnitude;
+        if candidate.is_finite() && candidate <= width {
+            step = candidate;
+        }
+    }
+    step
 }
 
 /// The result of [`bins2`]: a 2D histogram — a density grid plus the data extents

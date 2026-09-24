@@ -86,3 +86,29 @@ fn the_unified_vocabulary_reaches_windows_and_groups() {
     assert_eq!(keys, ["a", "b"]);
     assert_eq!(p95, [2.0, 10.0]);
 }
+
+#[test]
+fn selection_quantiles_agree_with_the_sorted_estimator() {
+    let values: Vec<f64> = (0..257)
+        .map(|index| (((index * 7919) % 1009) as f64).sin() * 40.0)
+        .collect();
+    let mut sorted = values.clone();
+    sorted.sort_by(f64::total_cmp);
+    for position in [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
+        let mut scratch = values.clone();
+        assert_eq!(
+            super::quantile_select(&mut scratch, position),
+            super::quantile_sorted(&sorted, position),
+            "position {position}"
+        );
+    }
+    // The textbook check: type-7 on [1, 2, 3, 10] gives 1.75 and 4.75.
+    assert_eq!(
+        super::quantile_select(&mut [1.0, 2.0, 3.0, 10.0], 0.25),
+        1.75
+    );
+    assert_eq!(
+        super::quantile_select(&mut [1.0, 2.0, 3.0, 10.0], 0.75),
+        4.75
+    );
+}

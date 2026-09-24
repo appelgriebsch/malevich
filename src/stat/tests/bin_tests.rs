@@ -211,3 +211,48 @@ fn binned_reducers_share_streaming_and_buffered_execution_semantics() {
         assert!(reduced[2].is_nan());
     }
 }
+
+#[test]
+fn whole_number_data_gets_whole_widths_and_half_integer_edges() {
+    // Ten integers: Sturges asks for five bins, the tick step would be 2.5,
+    // and the whole step at or below it is 2 — two integers per bin, every
+    // bin alike, the maximum not sharing the last bin with its neighbor.
+    let digits: Vec<f64> = (0..10).map(f64::from).collect();
+    let bins = Bins::auto(&digits, 60).unwrap();
+    assert_eq!(bins.width(), 2.0);
+    assert_eq!(bins.start(), -0.5);
+    assert_eq!(bins.counts(), [2u64; 5]);
+
+    // Ten thousand values in 0..=9: Freedman–Diaconis would ask for a
+    // fractional width; whole data takes width 1, never 0.5 with empties.
+    let dense: Vec<f64> = (0..10_000).map(|i| f64::from(i % 10)).collect();
+    let bins = Bins::auto(&dense, 60).unwrap();
+    assert_eq!(bins.width(), 1.0);
+    assert_eq!(bins.counts(), [1000u64; 10]);
+
+    // A wide integer span keeps a whole nice width and every integer in one bin.
+    let wide: Vec<f64> = (0..1_000).map(|i| f64::from((i * 37) % 997)).collect();
+    let bins = Bins::auto(&wide, 60).unwrap();
+    assert_eq!(bins.width().fract(), 0.0, "width {}", bins.width());
+    assert_eq!((bins.start() + 0.5).fract(), 0.0, "start {}", bins.start());
+    assert_eq!(bins.counts().iter().sum::<u64>(), 1_000);
+    // One to fifty at width ten: five bins of ten integers, none lonely.
+    let fifty: Vec<f64> = (1..=50).map(f64::from).collect();
+    let bins = Bins::auto(&fifty, 60).unwrap();
+    assert_eq!((bins.start(), bins.width()), (0.5, 10.0));
+    assert_eq!(bins.counts(), [10u64; 5]);
+    assert_eq!(super::whole_nice_step(2.5), 2.0);
+    assert_eq!(super::whole_nice_step(0.5), 1.0);
+    assert_eq!(super::whole_nice_step(30.0), 20.0);
+    let extreme = super::whole_nice_step(f64::MAX);
+    assert!(extreme.is_finite() && extreme <= f64::MAX);
+}
+
+#[test]
+fn freedman_diaconis_uses_type_7_quartiles() {
+    // [1.1, 2.1, 3.1, 10.1]: type-7 IQR is 3 (raw order statistics would say
+    // 8), so the FD width 2·3/4^(1/3) ≈ 3.8 asks for about three bins over
+    // the span, not one.
+    let bins = Bins::auto(&[1.1, 2.1, 3.1, 10.1], 60).unwrap();
+    assert!(bins.counts().len() >= 3, "{:?}", bins.counts());
+}

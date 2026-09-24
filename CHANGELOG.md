@@ -5,6 +5,13 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Bins::auto` computes its Freedman–Diaconis quartiles with the crate's one
+  type-7 estimator (selected in O(n), not sorted) — raw order statistics
+  read the IQR of four values 2.7× too wide — and treats whole-number data
+  as whole: a whole nice width of at least 1 and edges on half-integers
+  beside the nice start, so every bin holds the same number of consecutive
+  integers, no bin straddles two, and the maximum never shares the last bin
+  with its neighbor (`1..=50` is five bins of ten, not `9, 10, 10, 10, 11`).
 - The y axis re-searches instead of dropping labels: when two chosen ticks
   would round to one cell row, layout walks the tick target down until every
   tick has its own row — the rule the x axis already followed — so a short

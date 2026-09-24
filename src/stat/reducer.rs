@@ -155,6 +155,22 @@ pub fn quantiles(values: &[f64], positions: &[f64]) -> Vec<f64> {
         .collect()
 }
 
+/// The type-7 quantile of a non-empty slice of finite values, by selection
+/// rather than a sort — O(n), the same estimator [`quantile_sorted`] answers
+/// from an ordered slice. Reorders `values` in place.
+pub(crate) fn quantile_select(values: &mut [f64], p: f64) -> f64 {
+    let position = (values.len() - 1) as f64 * p;
+    let index = position.floor() as usize;
+    let fraction = position - index as f64;
+    let (_, &mut at, above) = values.select_nth_unstable_by(index, f64::total_cmp);
+    if fraction > 0.0 && !above.is_empty() {
+        let next = above.iter().copied().fold(f64::INFINITY, f64::min);
+        crate::numeric::lerp(at, next, fraction)
+    } else {
+        at
+    }
+}
+
 /// The type-7 quantile of an ascending-sorted, non-empty slice (the R
 /// default: linear interpolation of the order statistics).
 pub(crate) fn quantile_sorted(sorted: &[f64], p: f64) -> f64 {
