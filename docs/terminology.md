@@ -343,7 +343,8 @@ mode. Maps to `plot::Grid` (re-exported at the root).
 ## Preset
 
 A plain function composing the grammar into a named chart type: `line()`,
-`hist()`, `scatter()`, `sparkline()`, `table()`, `describe()`, …. Every preset is provably
+`hist()`, `scatter()`, `sparkline()`, `table()`, `describe()` (with
+`describe_with` adding an inline histogram column), …. Every preset is provably
 equal to its grammar expansion (asserted byte-identical in tests). Presets are the front door; the
 grammar is discovered, not required. `_with` means "configured with an
 options value"; a `try_` prefix identifies the checked twin of an otherwise

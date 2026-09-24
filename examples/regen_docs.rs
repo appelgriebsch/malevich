@@ -47,7 +47,8 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                 "describe",
                 "The first look is sometimes a table: the box plot's flippers as their \
                  five-number summary — a stat table from text on band scales, every \
-                 column formatted like a tiny axis and aligned at the decimal point.",
+                 column formatted like a tiny axis and aligned at the decimal point — \
+                 with each distribution's shape as an inline histogram column.",
             ),
         ],
     ),

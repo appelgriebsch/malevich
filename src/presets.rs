@@ -1315,14 +1315,33 @@ pub fn table_with<'a>(
             lengths: (rows.len(), values.len() / columns.len()),
         });
     }
-    let mut plot = Plot::new()
+    let plot = Plot::new()
         .x_scale(crate::scale::Scale::bands(
             columns.iter().map(String::as_str),
         ))
         .y_scale(crate::scale::Scale::bands(rows.iter().map(String::as_str)));
-    for column in 0..columns.len() {
-        let cells: Vec<f64> = (0..rows.len())
-            .map(|row| values[row * columns.len() + column])
+    Ok(table_cells(
+        plot,
+        rows.len(),
+        columns.len(),
+        values,
+        options.colormap.as_ref(),
+    ))
+}
+
+/// The numeric cells of a table as `Text` layers, column by column: each
+/// column formatted by its own [`NumberFormat`], padded to its width,
+/// centered on band `column` — the composition `table` and `describe` share.
+fn table_cells<'a>(
+    mut plot: Plot<'a>,
+    rows: usize,
+    columns: usize,
+    values: &[f64],
+    colormap: Option<&Colormap>,
+) -> Plot<'a> {
+    for column in 0..columns {
+        let cells: Vec<f64> = (0..rows)
+            .map(|row| values[row * columns + column])
             .collect();
         let format = NumberFormat::for_values(&cells);
         let labels: Vec<String> = cells.iter().map(|&value| format.format(value)).collect();
@@ -1343,7 +1362,7 @@ pub fn table_with<'a>(
         for (row, label) in labels.into_iter().enumerate() {
             let mut text = Text::at(column as f64, row as f64, format!("{label:>width$}"))
                 .align(Align::Center);
-            if let (Some(colormap), Some((low, high))) = (&options.colormap, extent)
+            if let (Some(colormap), Some((low, high))) = (colormap, extent)
                 && cells[row].is_finite()
             {
                 text = text.color(colormap.color(colormap.position_in(cells[row], low, high)));
@@ -1351,8 +1370,36 @@ pub fn table_with<'a>(
             plot = plot.layer(text);
         }
     }
-    Ok(plot)
+    plot
 }
+
+/// Configuration for [`describe_with`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub struct DescribeOptions {
+    /// An inline histogram column of this many bins per group, drawn as
+    /// eighth blocks scaled to the group's fullest bin — the distribution's
+    /// shape in a handful of cells (skimr's `hist`). `None` by default.
+    pub histogram: Option<usize>,
+}
+
+impl DescribeOptions {
+    /// The eight statistics columns, no histogram — exactly [`describe`].
+    pub const fn new() -> DescribeOptions {
+        DescribeOptions { histogram: None }
+    }
+
+    /// Adds an inline histogram column of `bins` bins.
+    #[must_use]
+    pub const fn histogram(mut self, bins: usize) -> DescribeOptions {
+        self.histogram = Some(bins);
+        self
+    }
+}
+
+/// The most bins an inline histogram column may have: a strip of glyphs, not
+/// a chart.
+const MAX_INLINE_BINS: usize = 200;
 
 /// The columns of a [`describe`] table, in the [`Reducer`](crate::stat::Reducer)
 /// vocabulary. `count` counts finite values; the quartiles are the type-7
@@ -1385,9 +1432,55 @@ pub fn describe<'a>(
     names: impl IntoIterator<Item = impl Into<String>>,
     groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
 ) -> Plot<'static> {
+    describe_with(names, groups, DescribeOptions::new())
+        .expect("describe requires one name per group")
+}
+
+/// A [`describe`] table with an optional inline histogram column: after the
+/// eight statistics, each group's distribution as `bins` eighth-block glyphs
+/// scaled to its fullest bin, an empty bin blank — the same
+/// [`Bins::try_uniform`](crate::stat::Bins::try_uniform) geometry a histogram
+/// preset would draw, as text on the band. The expansion is the statistics
+/// laid out by [`table`] plus one centered `Text` per group in a ninth band.
+///
+/// ```
+/// let loss = [0.9, 0.7, 0.55, 0.48, 0.41, 0.4, 0.39];
+/// let chart = malevich::describe_with(
+///     ["loss"],
+///     [&loss[..]],
+///     malevich::DescribeOptions::new().histogram(6),
+/// )
+/// .unwrap();
+/// println!("{}", chart.render(&malevich::Frame::plain(84, 5)));
+/// ```
+///
+/// # Errors
+///
+/// Returns an error when the number of names differs from the number of
+/// groups, or the histogram has no bins or more than 200.
+pub fn describe_with<'a>(
+    names: impl IntoIterator<Item = impl Into<String>>,
+    groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
+    options: DescribeOptions,
+) -> crate::Result<Plot<'static>> {
+    if let Some(bins) = options.histogram {
+        check_count(
+            bins,
+            1,
+            "describe histogram bins",
+            "a describe histogram needs at least one bin",
+        )?;
+        if bins > MAX_INLINE_BINS {
+            return Err(crate::Error::DimensionTooLarge {
+                what: "describe histogram bins",
+                requested: bins,
+                limit: MAX_INLINE_BINS,
+            });
+        }
+    }
     let names: Vec<String> = names.into_iter().map(Into::into).collect();
     let mut values = Vec::new();
-    let mut count = 0usize;
+    let mut strips = Vec::new();
     for group in groups {
         let series = group.into_series();
         let mut moments = crate::stat::Moments::new();
@@ -1408,10 +1501,53 @@ pub fn describe<'a>(
             quartile(&|s| s.q3),
             moments.max().unwrap_or(f64::NAN),
         ]);
-        count += 1;
+        if let Some(bins) = options.histogram {
+            strips.push(inline_histogram(series.as_slice(), bins)?);
+        }
     }
-    assert_eq!(names.len(), count, "describe requires one name per group");
-    table(names, DESCRIBE_COLUMNS, values)
+    if names.len() != values.len() / DESCRIBE_COLUMNS.len() {
+        return Err(crate::Error::UnequalChannels {
+            mark: "describe: names and groups",
+            lengths: (names.len(), values.len() / DESCRIBE_COLUMNS.len()),
+        });
+    }
+    let mut columns: Vec<&str> = DESCRIBE_COLUMNS.to_vec();
+    if options.histogram.is_some() {
+        columns.push("hist");
+    }
+    let rows = names.len();
+    let mut plot = Plot::new()
+        .x_scale(crate::scale::Scale::bands(columns.iter().copied()))
+        .y_scale(crate::scale::Scale::bands(names.iter().map(String::as_str)));
+    plot = table_cells(plot, rows, DESCRIBE_COLUMNS.len(), &values, None);
+    for (row, strip) in strips.into_iter().enumerate() {
+        plot = plot
+            .layer(Text::at(DESCRIBE_COLUMNS.len() as f64, row as f64, strip).align(Align::Center));
+    }
+    Ok(plot)
+}
+
+/// One group's distribution as `bins` eighth-block glyphs: each bin's count
+/// scaled to the fullest bin, one to eight eighths, an empty bin blank. A
+/// group without finite values is all blank.
+fn inline_histogram(values: &[f64], bins: usize) -> crate::Result<String> {
+    const RAMP: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    let Some(histogram) = crate::stat::Bins::try_uniform(values, bins)? else {
+        return Ok(" ".repeat(bins));
+    };
+    let fullest = histogram.counts().iter().copied().max().unwrap_or(0);
+    Ok(histogram
+        .counts()
+        .iter()
+        .map(|&count| {
+            if count == 0 || fullest == 0 {
+                ' '
+            } else {
+                let level = (count as f64 / fullest as f64 * 8.0).ceil() as usize;
+                RAMP[level.clamp(1, 8) - 1]
+            }
+        })
+        .collect())
 }
 
 #[cfg(test)]

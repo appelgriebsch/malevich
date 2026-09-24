@@ -1,19 +1,22 @@
 //! The first look is sometimes a table: the same flippers the box plot draws,
-//! as the numbers — count, mean, sd, min, quartiles, max per species. A table
-//! is text on band scales, not a widget: rows ride the y band axis, columns
-//! the x band axis, and every column is formatted like a tiny axis — uniform
-//! decimals, padded to the column's width so numbers meet at the decimal
-//! point, centered under its header by the header's own rule.
+//! as the numbers — count, mean, sd, min, quartiles, max per species — and,
+//! in a ninth column, each distribution's shape as eight eighth-block glyphs.
+//! A table is text on band scales, not a widget: rows ride the y band axis,
+//! columns the x band axis, and every column is formatted like a tiny axis —
+//! uniform decimals, padded to the column's width so numbers meet at the
+//! decimal point, centered under its header by the header's own rule.
 
-use malevich::Frame;
+use malevich::{DescribeOptions, Frame};
 
 fn main() {
     let (species, groups) = penguin_flippers();
     let refs: Vec<&[f64]> = groups.iter().map(Vec::as_slice).collect();
     // Three rows plus title, axis line, and headers — the tight-table height,
     // so every species lands on a consecutive line.
-    let chart = malevich::describe(species, refs).title("flipper length by species (mm)");
-    println!("{}", chart.render(&Frame::plain(76, 6)));
+    let chart = malevich::describe_with(species, refs, DescribeOptions::new().histogram(8))
+        .expect("one name per group")
+        .title("flipper length by species (mm)");
+    println!("{}", chart.render(&Frame::plain(96, 6)));
 }
 
 fn penguin_flippers() -> (Vec<&'static str>, [Vec<f64>; 3]) {

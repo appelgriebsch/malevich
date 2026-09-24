@@ -108,16 +108,16 @@ Source: [examples/annotated.rs](examples/annotated.rs)
 
 ### describe
 
-The first look is sometimes a table: the box plot's flippers as their five-number summary — a stat table from text on band scales, every column formatted like a tiny axis and aligned at the decimal point.
+The first look is sometimes a table: the box plot's flippers as their five-number summary — a stat table from text on band scales, every column formatted like a tiny axis and aligned at the decimal point — with each distribution's shape as an inline histogram column.
 Source: [examples/describe.rs](examples/describe.rs)
 
 ```text
-                       flipper length by species (mm)
-   Adelie ┤    151    190.0   6.539   172     186     190     195     210
-Chinstrap ┤     68    195.8   7.132   178     191     196     201     212
-   Gentoo ┤    123    217.2   6.485   203     212     216     221     231
-          └─────────────────────────────────────────────────────────────────
-              count   mean     sd     min     p25     p50     p75     max
+                                 flipper length by species (mm)
+   Adelie ┤     151     190.0    6.539     172      186      190       195      210   ▁▃▆██▅▁▁
+Chinstrap ┤      68     195.8    7.132     178      191      196       201      212   ▂▁▅▅█▅▂▂
+   Gentoo ┤     123     217.2    6.485     203      212      216       221      231   ▁▄███▄▃▅
+          └─────────────────────────────────────────────────────────────────────────────────────
+               count    mean      sd       min      p25      p50       p75      max     hist
 ```
 
 ## Distributions

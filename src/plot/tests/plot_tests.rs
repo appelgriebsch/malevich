@@ -2192,3 +2192,51 @@ fn bars_denser_than_the_columns_keep_the_extreme_per_column() {
     assert!(stacked.validate().is_ok());
     let _ = stacked.render(&frame);
 }
+
+#[test]
+fn describe_with_adds_an_inline_histogram_column_and_defaults_to_describe() {
+    let loss = [0.9, 0.7, 0.55, 0.48, 0.41, 0.4, 0.39, 0.39, 0.38];
+    let val = [1.1, 0.8, 0.6, 0.55, f64::NAN];
+    let frame = Frame::plain(90, 6);
+    assert_eq!(
+        crate::describe(["loss", "val"], [&loss[..], &val[..]]).render(&frame),
+        crate::describe_with(
+            ["loss", "val"],
+            [&loss[..], &val[..]],
+            crate::DescribeOptions::new()
+        )
+        .unwrap()
+        .render(&frame)
+    );
+    let with_hist = crate::describe_with(
+        ["loss", "val"],
+        [&loss[..], &val[..]],
+        crate::DescribeOptions::new().histogram(6),
+    )
+    .unwrap();
+    let rendered = with_hist.render(&frame);
+    assert!(rendered.contains("hist"), "{rendered}");
+    // The loss pile-up near 0.4 is the fullest bin: a full block at the low
+    // end of the strip, a lighter one at the high end.
+    let strip: String = rendered
+        .lines()
+        .find(|line| line.trim_start().starts_with("loss"))
+        .unwrap()
+        .chars()
+        .filter(|c| ('\u{2581}'..='\u{2588}').contains(c) || *c == ' ')
+        .collect();
+    assert!(strip.contains('\u{2588}'), "{rendered}");
+    assert_eq!(with_hist.mapping(&frame).x_categories().unwrap().len(), 9);
+    assert!(matches!(
+        crate::describe_with(
+            ["a"],
+            [&loss[..]],
+            crate::DescribeOptions::new().histogram(0)
+        ),
+        Err(crate::Error::InvalidParameter { .. })
+    ));
+    assert!(matches!(
+        crate::describe_with(["a", "b"], [&loss[..]], crate::DescribeOptions::new()),
+        Err(crate::Error::UnequalChannels { .. })
+    ));
+}

@@ -110,12 +110,12 @@ pub use mark::{
 };
 pub use plot::{Frame, Grid, Mapping, Panel, Plot, Viewport};
 pub use presets::{
-    BoxOptions, ContourLevels, ContourOptions, DensityOptions, EcdfOptions, HeatmapOptions,
-    Histogram2dOptions, HistogramOptions, StairsOptions, TableOptions, TrendOptions, ViolinOptions,
-    bar, box_plot, box_plot_with, contour, contour_with, density, density_with, describe, ecdf,
-    ecdf_with, error_bars, error_bars_asymmetric, heatmap, heatmap_with, hist, hist_with, hist2d,
-    hist2d_with, line, quiver, scatter, sparkline, stairs, stairs_with, table, table_with, trend,
-    trend_with, try_table, violin, violin_with,
+    BoxOptions, ContourLevels, ContourOptions, DensityOptions, DescribeOptions, EcdfOptions,
+    HeatmapOptions, Histogram2dOptions, HistogramOptions, StairsOptions, TableOptions,
+    TrendOptions, ViolinOptions, bar, box_plot, box_plot_with, contour, contour_with, density,
+    density_with, describe, describe_with, ecdf, ecdf_with, error_bars, error_bars_asymmetric,
+    heatmap, heatmap_with, hist, hist_with, hist2d, hist2d_with, line, quiver, scatter, sparkline,
+    stairs, stairs_with, table, table_with, trend, trend_with, try_table, violin, violin_with,
 };
 pub use render::{Charset, Color, ColorMode, Raster, RasterCell};
 pub use scale::Scale;

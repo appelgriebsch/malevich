@@ -5,6 +5,11 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `describe_with(names, groups, DescribeOptions::new().histogram(bins))`
+  adds a ninth column to the summary table: each group's distribution as
+  `bins` eighth-block glyphs scaled to its fullest bin, empty bins blank —
+  the shape beside the numbers, as skimr prints it. The defaults reproduce
+  `describe` exactly; the gallery's `describe` example shows the column.
 - `Plot::axes(false)` omits the axes — no axis lines, ticks, tick labels,
   or gutter; the data fills the frame and the domains are the data's own
   extent. `sparkline(values)` is the preset over it: bars from zero, one per
