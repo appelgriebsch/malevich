@@ -796,6 +796,30 @@ pub fn quiver<'a>(
     Plot::new().layer(Line::xy(xs, ys))
 }
 
+/// Configuration for [`box_plot_with`].
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[non_exhaustive]
+pub struct BoxOptions {
+    /// How far the whiskers reach; Tukey's 1.5 × IQR by default.
+    pub whiskers: crate::stat::Whiskers,
+}
+
+impl BoxOptions {
+    /// Tukey whiskers — exactly [`box_plot`].
+    pub const fn new() -> BoxOptions {
+        BoxOptions {
+            whiskers: crate::stat::Whiskers::Tukey(1.5),
+        }
+    }
+
+    /// Sets the whisker rule.
+    #[must_use]
+    pub const fn whiskers(mut self, whiskers: crate::stat::Whiskers) -> BoxOptions {
+        self.whiskers = whiskers;
+        self
+    }
+}
+
 /// Box plots: one five-number box per category (type-7 quartiles, Tukey whiskers),
 /// with outliers as dots.
 ///
@@ -813,16 +837,36 @@ pub fn box_plot<'a>(
     categories: impl IntoIterator<Item = impl Into<String>>,
     groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
 ) -> Plot<'a> {
+    box_plot_with(categories, groups, BoxOptions::new())
+        .expect("box_plot requires one category per group")
+}
+
+/// Box plots with a chosen whisker rule — the 5th to 95th percentile, the
+/// full range, a wider Tukey reach.
+///
+/// # Errors
+///
+/// Returns an error when the whisker rule's parameters are invalid or the
+/// number of categories differs from the number of groups.
+pub fn box_plot_with<'a>(
+    categories: impl IntoIterator<Item = impl Into<String>>,
+    groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
+    options: BoxOptions,
+) -> crate::Result<Plot<'a>> {
+    options.whiskers.validate()?;
     let categories: Vec<String> = categories.into_iter().map(Into::into).collect();
     let stats: Vec<Option<crate::stat::BoxStats>> = groups
         .into_iter()
-        .map(|group| crate::stat::BoxStats::of(group.into_series().as_slice()))
+        .map(|group| {
+            crate::stat::BoxStats::of_with(group.into_series().as_slice(), options.whiskers)
+        })
         .collect();
-    assert_eq!(
-        categories.len(),
-        stats.len(),
-        "box_plot requires one category per group"
-    );
+    if categories.len() != stats.len() {
+        return Err(crate::Error::UnequalChannels {
+            mark: "box_plot: categories and groups",
+            lengths: (categories.len(), stats.len()),
+        });
+    }
     let pick = |f: &dyn Fn(&crate::stat::BoxStats) -> f64| -> Vec<f64> {
         stats
             .iter()
@@ -848,11 +892,11 @@ pub fn box_plot<'a>(
         .body(pick(&|s| s.q1), pick(&|s| s.q3))
         .marker(pick(&|s| s.median)),
     );
-    if outlier_x.is_empty() {
+    Ok(if outlier_x.is_empty() {
         plot
     } else {
         plot.layer(Points::xy(outlier_x, outlier_y))
-    }
+    })
 }
 
 /// Error bars: points with symmetric `error` intervals around each `y`.

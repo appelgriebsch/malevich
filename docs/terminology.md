@@ -73,7 +73,8 @@ A data operation that runs before scales see the data. The word follows
 seaborn.objects (`Stat`) and ggplot (`stat_*`). It is the module-level
 umbrella, not one execution algebra: a stat may be an online accumulator, a
 reducer, keyed orchestration, or a batch transform. Maps to the `stat`
-module — `M4`, `Bins`/`bins2`, `Agg`, `BoxStats`, `kde`/`kde_with`
+module — `M4`, `Bins`/`bins2`, `Agg`, `BoxStats` (type-7 quartiles; the
+whiskers by `Whiskers::Tukey(k)`, `Percentiles(lo, hi)`, or `MinMax`), `kde`/`kde_with`
 (Silverman's bandwidth by default, scaled or fixed via `Bandwidth`; bounds
 that reflect the kernels so a latency density stays above zero; the
 cumulative form), `Window` (a

@@ -2016,3 +2016,34 @@ fn the_stairs_preset_equals_its_step_expansion() {
         crate::stairs_with(&values[..], crate::StairsOptions::default()).render(&frame)
     );
 }
+
+#[test]
+fn box_plot_with_default_options_reproduces_the_preset_and_rules_move_whiskers() {
+    use crate::stat::Whiskers;
+    let a: Vec<f64> = (1..=20).map(f64::from).chain([60.0]).collect();
+    let b = [2.0, 4.0, 5.0, 6.0, 7.0];
+    let frame = Frame::plain(44, 12);
+    let preset = crate::box_plot(["a", "b"], [&a[..], &b[..]]).render(&frame);
+    let configured = crate::box_plot_with(["a", "b"], [&a[..], &b[..]], crate::BoxOptions::new())
+        .unwrap()
+        .render(&frame);
+    assert_eq!(preset, configured);
+    let full_range = crate::box_plot_with(
+        ["a", "b"],
+        [&a[..], &b[..]],
+        crate::BoxOptions::new().whiskers(Whiskers::MinMax),
+    )
+    .unwrap();
+    assert!(
+        !format!("{full_range:?}").contains("Points"),
+        "min-max whiskers leave no outliers to dot"
+    );
+    assert!(matches!(
+        crate::box_plot_with(
+            ["a"],
+            [&b[..]],
+            crate::BoxOptions::new().whiskers(Whiskers::Tukey(-1.0))
+        ),
+        Err(crate::Error::InvalidParameter { .. })
+    ));
+}

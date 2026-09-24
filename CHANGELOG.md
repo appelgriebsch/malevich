@@ -5,6 +5,11 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `BoxStats::of_with(values, Whiskers)` and `box_plot_with(…, BoxOptions)`
+  choose the whisker rule: Tukey's `k × IQR` at any reach, two type-7
+  percentiles (`Percentiles(0.05, 0.95)`), or the full range with no
+  outliers. The quartiles stay the one type-7 estimate whatever the rule,
+  and the defaults reproduce `box_plot` exactly.
 - `stat::jitter(positions, width)` spreads coincident points with a van der
   Corput offset — an evenly filled strip that renders the same every time,
   with no seed to forget — the "rain" beside a box or a violin. The
