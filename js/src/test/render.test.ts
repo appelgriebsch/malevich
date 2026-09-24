@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Frame } from "../frame.js";
 import { Line, Rule, Text } from "../mark.js";
-import { Plot } from "../plot.js";
+import { Plot, type PlotSpec } from "../plot.js";
 import { bar, hist, histWith, line, scatter } from "../presets.js";
 
 const LINE = `7.5 ┤                                 ⡠⠊
@@ -71,4 +71,14 @@ test("console.log convenience uses inspect", async () => {
   const chart = line([1, 5, 2, 8]);
   assert.ok(inspect(chart).length > 20);
   assert.equal(chart.render(Frame.plain(40, 10)), LINE);
+});
+
+test("one-sided domains write their end and fold into the pair", () => {
+  const spec = (plot: Plot) => plot.toJSON().spec as PlotSpec;
+  const floored = line([3, 5, 7]).yMin(0);
+  assert.deepEqual(spec(floored).y_domain, { min: 0 });
+  assert.deepEqual(spec(floored.yMax(8)).y_domain, [0, 8]);
+  assert.deepEqual(spec(line([1]).xMax(5)).x_domain, { max: 5 });
+  const rendered = floored.render(Frame.plain(40, 10));
+  assert.ok(rendered.includes("0 \u2524"), rendered);
 });

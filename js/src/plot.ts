@@ -13,6 +13,9 @@ export type ViewportWindows = {
   y?: [number, number];
 };
 
+/** A manual axis domain: both ends as the `[min, max]` pair, or one end. */
+export type DomainJSON = [number, number] | { min?: number; max?: number };
+
 export type PlotSpec = {
   layers: Record<string, unknown>[];
   title: string | null;
@@ -20,8 +23,8 @@ export type PlotSpec = {
   y: ScaleJSON;
   x_label: string | null;
   y_label: string | null;
-  x_domain: [number, number] | null;
-  y_domain: [number, number] | null;
+  x_domain: DomainJSON | null;
+  y_domain: DomainJSON | null;
   colorbar: boolean;
   palette?: unknown;
 };
@@ -106,6 +109,26 @@ export class Plot {
       throw new TypeError("Plot.yDomain requires finite bounds");
     }
     return this.withSpec({ y_domain: [Math.min(min, max), Math.max(min, max)] });
+  }
+
+  /** Fixes the x axis's low end and fits the high end to the data. */
+  xMin(min: number): Plot {
+    return this.withSpec({ x_domain: sided(this.spec.x_domain, "min", min, "Plot.xMin") });
+  }
+
+  /** Fixes the x axis's high end and fits the low end to the data. */
+  xMax(max: number): Plot {
+    return this.withSpec({ x_domain: sided(this.spec.x_domain, "max", max, "Plot.xMax") });
+  }
+
+  /** Fixes the y axis's low end and fits the high end to the data. */
+  yMin(min: number): Plot {
+    return this.withSpec({ y_domain: sided(this.spec.y_domain, "min", min, "Plot.yMin") });
+  }
+
+  /** Fixes the y axis's high end and fits the low end to the data. */
+  yMax(max: number): Plot {
+    return this.withSpec({ y_domain: sided(this.spec.y_domain, "max", max, "Plot.yMax") });
   }
 
   xScale(scale: "Auto" | "Linear" | "Integer" | "Log" | "Time" | { bands: string[] }): Plot {
@@ -264,8 +287,8 @@ export class Plot {
     next.spec = {
       ...this.spec,
       layers: [...this.spec.layers],
-      x_domain: this.spec.x_domain ? [...this.spec.x_domain] : null,
-      y_domain: this.spec.y_domain ? [...this.spec.y_domain] : null,
+      x_domain: cloneDomain(this.spec.x_domain),
+      y_domain: cloneDomain(this.spec.y_domain),
     };
     next.columns = [...this.columns];
     return next;
@@ -384,4 +407,28 @@ function rebaseCols(value: unknown, offset: number): void {
       rebaseCols(nested, offset);
     }
   }
+}
+
+/** The ends a domain fixes, whichever wire form it takes. */
+function ends(domain: DomainJSON | null): { min?: number; max?: number } {
+  if (domain === null) {
+    return {};
+  }
+  return Array.isArray(domain) ? { min: domain[0], max: domain[1] } : { ...domain };
+}
+
+/** One end replaced; a domain with both ends folds back into the pair. */
+function sided(domain: DomainJSON | null, end: "min" | "max", value: number, who: string): DomainJSON {
+  if (!Number.isFinite(value)) {
+    throw new TypeError(`${who} requires a finite bound`);
+  }
+  const next = { ...ends(domain), [end]: value };
+  return next.min !== undefined && next.max !== undefined ? [next.min, next.max] : next;
+}
+
+function cloneDomain(domain: DomainJSON | null): DomainJSON | null {
+  if (domain === null) {
+    return null;
+  }
+  return Array.isArray(domain) ? [domain[0], domain[1]] : { ...domain };
 }

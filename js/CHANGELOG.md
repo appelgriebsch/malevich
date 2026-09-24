@@ -9,6 +9,8 @@ The renderer underneath is whatever `engineVersion` reports.
   axis; `hist` counts on it.
 - `histWith` takes `normalization` (`"Count" | "Probability" | "Percent" |
   "Density"`) and `cumulative`.
+- `Plot.xMin`, `xMax`, `yMin`, `yMax` fix one end of an axis and fit the
+  other; `DomainJSON` names both wire forms.
 
 ## 0.3.0 — 2026-09-07
 

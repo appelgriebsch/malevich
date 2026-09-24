@@ -31,7 +31,14 @@ export {
   type LineStyle,
   type PointStyle,
 } from "./mark.js";
-export { Grid, Plot, type DocumentJSON, type PlotSpec, type ViewportWindows } from "./plot.js";
+export {
+  Grid,
+  Plot,
+  type DocumentJSON,
+  type DomainJSON,
+  type PlotSpec,
+  type ViewportWindows,
+} from "./plot.js";
 export { Raster, type RasterCell } from "./raster.js";
 export { toFloat64, type Gap, type SeriesLike } from "./series.js";
 export {
