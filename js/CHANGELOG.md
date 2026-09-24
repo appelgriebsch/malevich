@@ -13,6 +13,7 @@ The renderer underneath is whatever `engineVersion` reports.
   other; `DomainJSON` names both wire forms.
 - `ColormapJSON` carries the crate's `domain`, `under`, `over`, `steps`, and
   `thresholds` when set.
+- `Palette.BRIGHT` and `Palette.MUTED`, Paul Tol's qualitative schemes.
 
 ## 0.3.0 — 2026-09-07
 

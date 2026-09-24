@@ -141,6 +141,32 @@ export const Palette = {
       { Rgb: [240, 228, 66] },
     ],
   } satisfies PaletteJSON,
+  /** Paul Tol's bright qualitative scheme: seven colors, greyscale-safe. */
+  BRIGHT: {
+    colors: [
+      { Rgb: [68, 119, 170] },
+      { Rgb: [238, 102, 119] },
+      { Rgb: [34, 136, 51] },
+      { Rgb: [204, 187, 68] },
+      { Rgb: [102, 204, 238] },
+      { Rgb: [170, 51, 119] },
+      { Rgb: [187, 187, 187] },
+    ],
+  } satisfies PaletteJSON,
+  /** Paul Tol's muted qualitative scheme: nine colors at lower saturation. */
+  MUTED: {
+    colors: [
+      { Rgb: [51, 34, 136] },
+      { Rgb: [136, 204, 238] },
+      { Rgb: [68, 170, 153] },
+      { Rgb: [17, 119, 51] },
+      { Rgb: [153, 153, 51] },
+      { Rgb: [221, 204, 119] },
+      { Rgb: [204, 102, 119] },
+      { Rgb: [136, 34, 85] },
+      { Rgb: [170, 68, 153] },
+    ],
+  } satisfies PaletteJSON,
   of(colors: Iterable<string | Color>): PaletteJSON {
     const list = [...colors].map((color) => colorToJSON(canonicalizeColor(color)));
     if (list.length === 0) {
