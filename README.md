@@ -227,8 +227,9 @@ assumes live in [docs/principles/](docs/principles/). The short version:
   Plot::new().layer(Line::y(&values[..])).title("training")
   ```
 - **Composition over modes.** `Grid` pastes small multiples side by side;
-  `x_domain`/`y_domain` fix axes matplotlib-style, so shared scales are an
-  explicit composition, not a mode. A ratatui widget (feature `ratatui`,
+  `x_domain`/`y_domain` fix axes matplotlib-style (`y_min` and friends fix
+  one end and fit the other), so shared scales are an explicit composition,
+  not a mode. A ratatui widget (feature `ratatui`,
   depending only on `ratatui-core`) drops any chart into a TUI — and rendered
   stateful, makes it interactive without malevich ever handling input: the
   widget caches the render's cell↔data `Mapping` for hit-testing, applies a

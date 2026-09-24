@@ -5,6 +5,16 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Plot::x_min`, `x_max`, `y_min`, `y_max` fix one end of an axis and fit
+  the other: the fixed end is honored exactly, the free end grows to its
+  outer tick as an automatic axis does — a rate chart floored at zero whose
+  top follows the data, matplotlib's `ylim(bottom=0)`. Two calls compose
+  into the two-sided domain; a floor above the data clips everything rather
+  than running backwards; bars keep their baseline in view when only the
+  top is fixed. On the wire a two-ended domain is the `[min, max]` pair it
+  always was, a one-ended one `{"min": v}` or `{"max": v}`, so v1
+  documents are byte-stable. sysmon floors its network chart at zero.
+
 - `HistogramOptions::normalization(Normalization)` and `.cumulative(bool)`
   rescale a histogram's bars: counts (the default, on the `Integer` axis),
   probability, percent (the axis reads `%`), or density per unit of x, the

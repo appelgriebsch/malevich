@@ -593,3 +593,44 @@ fn units_and_integer_axes_round_trip_and_stay_off_the_plain_wire() {
     let back: Plot<'static> = serde_json::from_str(&json).unwrap();
     assert_eq!(back.render(&frame()), plot.render(&frame()));
 }
+
+#[test]
+fn one_sided_domains_write_their_end_and_pairs_stay_pairs() {
+    let floored = Plot::new().layer(Line::y(vec![1.0, 2.0])).y_min(0.0);
+    let json = serde_json::to_value(&floored).unwrap();
+    assert_eq!(json["y_domain"], serde_json::json!({"min": 0.0}));
+    assert_eq!(json["x_domain"], serde_json::Value::Null);
+    let capped = Plot::new().layer(Line::y(vec![1.0, 2.0])).x_max(5.0);
+    assert_eq!(
+        serde_json::to_value(&capped).unwrap()["x_domain"],
+        serde_json::json!({"max": 5.0})
+    );
+    // Both ends, however they were set, are the v1 pair.
+    let both = Plot::new().y_min(0.0).y_max(4.0);
+    assert_eq!(
+        serde_json::to_value(&both).unwrap()["y_domain"],
+        serde_json::json!([0.0, 4.0])
+    );
+    assert_eq!(
+        serde_json::to_string(&both).unwrap(),
+        serde_json::to_string(&Plot::new().y_domain(0.0, 4.0)).unwrap()
+    );
+    // Round trips, and renders the same.
+    let frame = Frame::plain(40, 10);
+    let back: Plot = serde_json::from_str(&serde_json::to_string(&floored).unwrap()).unwrap();
+    assert_eq!(back.render(&frame), floored.render(&frame));
+    assert_eq!(back.mapping(&frame).y_domain().0, 0.0);
+    // A sided object naming both ends reads as the pair.
+    let mut sided = serde_json::to_value(Plot::new()).unwrap();
+    sided["x_domain"] = serde_json::json!({"min": 1.0, "max": 2.0});
+    let sided: Plot = serde_json::from_value(sided).unwrap();
+    assert_eq!(
+        serde_json::to_value(&sided).unwrap()["x_domain"],
+        serde_json::json!([1.0, 2.0])
+    );
+    // An object fixing nothing is refused, not read as automatic.
+    let mut empty = serde_json::to_value(Plot::new()).unwrap();
+    empty["x_domain"] = serde_json::json!({});
+    let error = serde_json::from_value::<Plot>(empty).expect_err("an empty domain object");
+    assert!(error.to_string().contains("min"), "{error}");
+}

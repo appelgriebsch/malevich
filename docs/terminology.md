@@ -148,7 +148,11 @@ the axis's one SI prefix before the unit (`2.5 MB`, `0 kB`), `Unit::Bytes`
 chooses ticks nice in the binary unit (`512 KiB`, `1.5 GiB`), and
 `Unit::suffix("%")` appends a bare suffix and never a prefix (`45%`). The
 unit is a scale option: the ticks stay the same ticks, only the labels
-change, and the `Mapping` readout speaks the same unit. Color scales:
+change, and the `Mapping` readout speaks the same unit. A domain is a
+scale option too: `Plot::x_domain`/`y_domain` fix both ends of an axis
+exactly, and `x_min`/`x_max`/`y_min`/`y_max` fix one end while the other
+fits the data and grows to its outer tick — a rate chart floored at zero
+whose top follows the traffic. Color scales:
 `scale::Colormap` covers
 sequential and diverging ramps (curated named constants — `VIRIDIS`,
 `MAGMA`, `CIVIDIS`, `GREYS`, `RED_BLUE`, `PURPLE_ORANGE`; `centered_at(mid)`

@@ -1,5 +1,6 @@
 //! The plot pipeline: retained descriptions, frames, and rendering.
 
+mod bounds;
 mod chrome;
 mod draw;
 pub(crate) mod frame;

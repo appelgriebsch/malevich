@@ -1,5 +1,6 @@
 //! Layout: everything geometric, computed once — scales, ticks, gutters, offsets.
 
+use crate::plot::bounds::Bounds;
 use crate::plot::frame::Frame;
 use crate::plot::resolve::{ResolvedLayer, extent, union};
 use crate::render::{Charset, display_width};
@@ -56,8 +57,8 @@ fn cells_colorbar(
     Some((colormap, low, high, ticks, 3 + label_width))
 }
 
-/// Manual axis overrides: `(x, y)`, each `Some((min, max))` when fixed.
-pub(crate) type Domains = (Option<(f64, f64)>, Option<(f64, f64)>);
+/// Manual axis ends: `(x, y)`, each fixing its min, its max, both, or neither.
+pub(crate) type Domains = (Bounds, Bounds);
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Map {
@@ -231,26 +232,65 @@ impl<'p> Layout<'p> {
                 (hi / 1000.0, hi)
             }
         };
-        let mut x_data = if let Some(fixed) = domains.0.filter(|_| categories.is_none()) {
-            if log_x { clamp_log(fixed) } else { fixed }
-        } else if log_x {
+        // A band axis ignores manual ends; elsewhere each fixed end replaces
+        // its side of the data extent, and a fixed end on a log axis is
+        // clamped into the positive like a whole manual domain.
+        let x_bounds = if categories.is_none() {
+            domains.0
+        } else {
+            Bounds::default()
+        };
+        let y_bounds = if y_categories.is_none() {
+            domains.1
+        } else {
+            Bounds::default()
+        };
+        let (x_fixed, y_fixed) = (x_bounds.fixed(), y_bounds.fixed());
+        let mut x_data = x_bounds.apply(if log_x {
             union(layers.iter().map(ResolvedLayer::x_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
             union(layers.iter().map(ResolvedLayer::x_extent)).unwrap_or((0.0, 1.0))
-        };
-        if has_zero_based_horizontal_bars && !log_x && domains.0.is_none() {
-            x_data = (x_data.0.min(0.0), x_data.1.max(0.0));
+        });
+        if log_x && (x_fixed.0 || x_fixed.1) {
+            x_data = clamp_log(x_data);
         }
-        let mut y_data = if let Some(fixed) = domains.1.filter(|_| y_categories.is_none()) {
-            if log_y { clamp_log(fixed) } else { fixed }
-        } else if log_y {
+        if has_zero_based_horizontal_bars && !log_x {
+            x_data = (
+                if x_fixed.0 {
+                    x_data.0
+                } else {
+                    x_data.0.min(0.0)
+                },
+                if x_fixed.1 {
+                    x_data.1
+                } else {
+                    x_data.1.max(0.0)
+                },
+            );
+        }
+        let mut y_data = y_bounds.apply(if log_y {
             union(layers.iter().map(ResolvedLayer::y_extent_positive)).unwrap_or((1.0, 100.0))
         } else {
             union(layers.iter().map(ResolvedLayer::y_extent)).unwrap_or((0.0, 1.0))
-        };
-        if has_zero_based_bars && !log_y && domains.1.is_none() {
-            // Bar length is the encoding, so the baseline must be in view.
-            y_data = (y_data.0.min(0.0), y_data.1.max(0.0));
+        });
+        if log_y && (y_fixed.0 || y_fixed.1) {
+            y_data = clamp_log(y_data);
+        }
+        if has_zero_based_bars && !log_y {
+            // Bar length is the encoding, so the baseline must be in view —
+            // unless the caller fixed that end themselves.
+            y_data = (
+                if y_fixed.0 {
+                    y_data.0
+                } else {
+                    y_data.0.min(0.0)
+                },
+                if y_fixed.1 {
+                    y_data.1
+                } else {
+                    y_data.1.max(0.0)
+                },
+            );
         }
 
         // Vertical layout: title, legend, plot rows, then the x axis and its
@@ -275,7 +315,6 @@ impl<'p> Layout<'p> {
 
         // Horizontal layout: the y-label gutter is measured, not fixed — and shed
         // entirely when it would eat the plot.
-        let y_fixed = domains.1.is_some() && y_categories.is_none();
         let y_ticks = if let Some(categories) = y_categories {
             // Band labels ride the tick pipeline: each lands on its band center
             // through the y scale, and the collision shed below drops what a
@@ -330,13 +369,12 @@ impl<'p> Layout<'p> {
             _ => (available, None),
         };
 
-        // A manual domain is honored exactly; an automatic one grows to its ticks
+        // A manual end is honored exactly; a free one grows to its outer tick
         // so the axis spans whole round numbers.
-        let x_fixed = domains.0.is_some() && categories.is_none();
         let y_domain = match y_categories {
             Some(categories) => (0.0, categories.len().saturating_sub(1) as f64),
-            None if y_fixed || !axes => y_data,
-            None => domain_with_ticks_on(y_data, &y_ticks, log_y),
+            None if !axes => y_data,
+            None => domain_with_ticks_on(y_data, &y_ticks, log_y, y_fixed),
         };
         let plot_sub_w = (plot_cols * px).max(1);
         let plot_sub_h = (plot_rows * py).max(1);
@@ -363,6 +401,7 @@ impl<'p> Layout<'p> {
                     gutter,
                     frame.width,
                     &x_options,
+                    x_fixed,
                 )
             }
         } else {
@@ -370,8 +409,8 @@ impl<'p> Layout<'p> {
         };
         let x_domain = match (&band, &x_ticks) {
             (Some(band), _) => (0.0, (band.count() - 1) as f64),
-            (None, Some(_)) if x_fixed || !axes => x_data,
-            (None, Some(ticks)) => domain_with_ticks_on(x_data, ticks, log_x),
+            (None, Some(_)) if !axes => x_data,
+            (None, Some(ticks)) => domain_with_ticks_on(x_data, ticks, log_x, x_fixed),
             (None, None) => x_data,
         };
         let x_range = match &band {
@@ -427,8 +466,15 @@ impl<'p> Layout<'p> {
 /// bound: the linear-fallback ticks of a sub-decade log range can include
 /// zero, and zero has no logarithmic position — growing to it would collapse
 /// the whole scale.
-fn domain_with_ticks_on(data: (f64, f64), ticks: &Ticks, log: bool) -> (f64, f64) {
-    let (low, high) = domain_with_ticks(data, ticks);
+/// Grows each free end of `data` to its outer tick; a fixed end (`fixed` is
+/// `(min, max)`) stays exactly where the caller put it.
+fn domain_with_ticks_on(
+    data: (f64, f64),
+    ticks: &Ticks,
+    log: bool,
+    fixed: (bool, bool),
+) -> (f64, f64) {
+    let (low, high) = domain_with_ticks(data, ticks, fixed);
     if log && low <= 0.0 {
         (data.0, high)
     } else {
@@ -436,9 +482,20 @@ fn domain_with_ticks_on(data: (f64, f64), ticks: &Ticks, log: bool) -> (f64, f64
     }
 }
 
-fn domain_with_ticks(data: (f64, f64), ticks: &Ticks) -> (f64, f64) {
+fn domain_with_ticks(data: (f64, f64), ticks: &Ticks, fixed: (bool, bool)) -> (f64, f64) {
     match (ticks.as_slice().first(), ticks.as_slice().last()) {
-        (Some(first), Some(last)) => (data.0.min(first.value), data.1.max(last.value)),
+        (Some(first), Some(last)) => (
+            if fixed.0 {
+                data.0
+            } else {
+                data.0.min(first.value)
+            },
+            if fixed.1 {
+                data.1
+            } else {
+                data.1.max(last.value)
+            },
+        ),
         _ => data,
     }
 }
@@ -472,14 +529,14 @@ fn labels_fit(
 /// vertical twin of [`fit_x_ticks`]: a tall target that would put two labels
 /// on one row is walked down to one that does not, instead of drawing a
 /// subset of an axis nobody chose. `kind` is `(time, log, fixed)`: which tick
-/// engine, and whether the domain is manual (honored exactly) or grows to
-/// its ticks. At the sparsest target the ticks are returned as they are —
-/// a plot too short for two labels sheds at chrome.
+/// engine, and which ends are manual (honored exactly) rather than growing
+/// to their ticks. At the sparsest target the ticks are returned as they
+/// are — a plot too short for two labels sheds at chrome.
 fn fit_y_ticks(
     data: (f64, f64),
     plot_rows: usize,
     py: usize,
-    kind: (bool, bool, bool),
+    kind: (bool, bool, (bool, bool)),
     options: &TickOptions,
 ) -> Ticks {
     let (time, log, fixed) = kind;
@@ -494,11 +551,7 @@ fn fit_y_ticks(
         } else {
             Ticks::linear_with(data.0, data.1, target, options)
         };
-        let domain = if fixed {
-            data
-        } else {
-            domain_with_ticks_on(data, &ticks, log)
-        };
+        let domain = domain_with_ticks_on(data, &ticks, log, fixed);
         let scale = Map::build(domain, ((sub_h - 1) as f64, 0.0), log);
         let mut rows: Vec<usize> = ticks
             .iter()
@@ -551,11 +604,12 @@ fn fit_x_ticks(
     gutter: usize,
     frame_width: usize,
     options: &TickOptions,
+    fixed: (bool, bool),
 ) -> Option<Ticks> {
     let densest = (plot_cols / 8).clamp(2, 12);
     for target in (2..=densest).rev() {
         let ticks = Ticks::linear_with(data.0, data.1, target, options);
-        let domain = domain_with_ticks(data, &ticks);
+        let domain = domain_with_ticks(data, &ticks, fixed);
         if labels_fit(&ticks, domain, plot_sub_w, px, gutter, frame_width) {
             return Some(ticks);
         }

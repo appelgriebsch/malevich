@@ -2305,3 +2305,68 @@ fn integer_axes_and_units_label_as_the_scale_says() {
         .mapping(&Frame::plain(40, 12));
     assert!(mapping.format_y(1_048_576.0).ends_with(" MiB"));
 }
+
+#[test]
+fn one_sided_domains_fix_one_end_and_grow_the_other() {
+    use crate::mark::Bars;
+
+    let values = [3.2, 5.1, 7.4];
+    let frame = Frame::plain(40, 12);
+    // A floor at zero, the top free: it grows to its outer tick as an
+    // automatic axis would.
+    let floored = Plot::new().layer(Line::y(&values[..])).y_min(0.0);
+    let (low, high) = floored.mapping(&frame).y_domain();
+    assert_eq!(low, 0.0);
+    assert!(high >= 7.4, "{high}");
+    let rendered = floored.render(&frame);
+    assert!(
+        rendered.contains("0 ┤"),
+        "the axis starts at zero:\n{rendered}"
+    );
+    // Fixing the other end too is exactly a two-sided domain.
+    assert_eq!(
+        Plot::new()
+            .layer(Line::y(&values[..]))
+            .y_min(0.0)
+            .y_max(8.0)
+            .render(&frame),
+        Plot::new()
+            .layer(Line::y(&values[..]))
+            .y_domain(0.0, 8.0)
+            .render(&frame)
+    );
+    // A ceiling on x, the low end fitted.
+    let capped = Plot::new().layer(Line::y(&values[..])).x_max(10.0);
+    let (low, high) = capped.mapping(&frame).x_domain();
+    assert_eq!((low, high), (0.0, 10.0));
+    // A floor above the data clips everything rather than running backwards.
+    let above = Plot::new().layer(Line::y(&values[..])).y_min(100.0);
+    let (low, high) = above.mapping(&frame).y_domain();
+    assert_eq!(low, 100.0);
+    assert!(high >= low);
+    let _ = above.render(&frame);
+    // Bars keep their baseline in view when only the top is fixed.
+    let bars = Plot::new()
+        .layer(Bars::new(["a", "b"], [4.0, 6.0]))
+        .y_max(10.0);
+    let (low, high) = bars.mapping(&frame).y_domain();
+    assert_eq!((low, high), (0.0, 10.0));
+    // A log axis honors a positive floor and refuses one at or below zero.
+    let log = Plot::new()
+        .layer(Line::y(&[2.0, 20.0, 200.0][..]))
+        .log_y()
+        .y_min(1.0);
+    assert_eq!(log.mapping(&frame).y_domain().0, 1.0);
+    assert!(matches!(
+        Plot::new()
+            .layer(Line::y(&values[..]))
+            .log_y()
+            .y_min(0.0)
+            .validate(),
+        Err(crate::Error::IncompatibleScale { .. })
+    ));
+    // The viewport replaces both ends, as it always did.
+    let windowed = floored.viewport(crate::Viewport::auto().with_x(0.0, 1.0));
+    assert_eq!(windowed.mapping(&frame).x_domain(), (0.0, 1.0));
+    assert_eq!(windowed.mapping(&frame).y_domain().0, 0.0);
+}

@@ -1,8 +1,9 @@
 //! `Plot`: the retained chart description, and its resolve → layout → rasterize
 //! pipeline.
 
+use super::bounds::Bounds;
 use super::frame::Frame;
-use super::layout::Layout;
+use super::layout::{Domains, Layout};
 use super::mapping::Mapping;
 use super::resolve::{Kind, Reduce, ResolvedLayer};
 use crate::mark::{LineStyle, Mark};
@@ -43,9 +44,9 @@ pub struct Plot<'a> {
     #[cfg_attr(feature = "serde", serde(default))]
     y_label: Option<String>,
     #[cfg_attr(feature = "serde", serde(default))]
-    x_domain: Option<(f64, f64)>,
+    x_domain: Option<Bounds>,
     #[cfg_attr(feature = "serde", serde(default))]
-    y_domain: Option<(f64, f64)>,
+    y_domain: Option<Bounds>,
     #[cfg_attr(feature = "serde", serde(default))]
     colorbar: bool,
     #[cfg_attr(
@@ -211,7 +212,42 @@ impl<'a> Plot<'a> {
             min.is_finite() && max.is_finite(),
             "Plot::x_domain requires finite bounds"
         );
-        self.x_domain = Some((min.min(max), max.max(min)));
+        self.x_domain = Some(Bounds::pair(min.min(max), max.max(min)));
+        self
+    }
+
+    /// Fixes the x axis's low end and fits the high end to the data — the
+    /// floor without a ceiling: matplotlib's `xlim(left=…)`. The fixed end
+    /// is honored exactly; the free end grows to its outer tick as an
+    /// automatic axis does. Composes with [`Plot::x_max`]; a later
+    /// [`Plot::x_domain`] replaces both.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `min` is not finite.
+    #[must_use]
+    pub fn x_min(mut self, min: f64) -> Plot<'a> {
+        assert!(min.is_finite(), "Plot::x_min requires a finite bound");
+        self.x_domain = Some(Bounds {
+            min: Some(min),
+            max: self.x_domain.and_then(|bounds| bounds.max),
+        });
+        self
+    }
+
+    /// Fixes the x axis's high end and fits the low end to the data; see
+    /// [`Plot::x_min`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `max` is not finite.
+    #[must_use]
+    pub fn x_max(mut self, max: f64) -> Plot<'a> {
+        assert!(max.is_finite(), "Plot::x_max requires a finite bound");
+        self.x_domain = Some(Bounds {
+            min: self.x_domain.and_then(|bounds| bounds.min),
+            max: Some(max),
+        });
         self
     }
 
@@ -229,7 +265,42 @@ impl<'a> Plot<'a> {
             min.is_finite() && max.is_finite(),
             "Plot::y_domain requires finite bounds"
         );
-        self.y_domain = Some((min.min(max), max.max(min)));
+        self.y_domain = Some(Bounds::pair(min.min(max), max.max(min)));
+        self
+    }
+
+    /// Fixes the y axis's low end and fits the high end to the data — a
+    /// rate chart that must start at zero while its top follows the data:
+    /// matplotlib's `ylim(bottom=…)`. The fixed end is honored exactly; the
+    /// free end grows to its outer tick as an automatic axis does. Composes
+    /// with [`Plot::y_max`]; a later [`Plot::y_domain`] replaces both.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `min` is not finite.
+    #[must_use]
+    pub fn y_min(mut self, min: f64) -> Plot<'a> {
+        assert!(min.is_finite(), "Plot::y_min requires a finite bound");
+        self.y_domain = Some(Bounds {
+            min: Some(min),
+            max: self.y_domain.and_then(|bounds| bounds.max),
+        });
+        self
+    }
+
+    /// Fixes the y axis's high end and fits the low end to the data; see
+    /// [`Plot::y_min`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `max` is not finite.
+    #[must_use]
+    pub fn y_max(mut self, max: f64) -> Plot<'a> {
+        assert!(max.is_finite(), "Plot::y_max requires a finite bound");
+        self.y_domain = Some(Bounds {
+            min: self.y_domain.and_then(|bounds| bounds.min),
+            max: Some(max),
+        });
         self
     }
 
@@ -329,11 +400,11 @@ impl<'a> Plot<'a> {
     /// interactive view is a scale option, not a render mode.
     #[must_use]
     pub fn viewport(mut self, viewport: crate::plot::Viewport) -> Plot<'a> {
-        if let Some(window) = viewport.x() {
-            self.x_domain = Some(window);
+        if let Some((min, max)) = viewport.x() {
+            self.x_domain = Some(Bounds::pair(min, max));
         }
-        if let Some(window) = viewport.y() {
-            self.y_domain = Some(window);
+        if let Some((min, max)) = viewport.y() {
+            self.y_domain = Some(Bounds::pair(min, max));
         }
         self
     }
@@ -669,29 +740,37 @@ impl<'a> Plot<'a> {
             }
         }
         for (axis, domain) in [("x", self.x_domain), ("y", self.y_domain)] {
-            if let Some((lo, hi)) = domain {
-                if !(lo.is_finite() && hi.is_finite()) {
+            if let Some(bounds) = domain {
+                if [bounds.min, bounds.max]
+                    .into_iter()
+                    .flatten()
+                    .any(|end| !end.is_finite())
+                {
                     return Err(crate::Error::NonFiniteDomain { axis });
                 }
-                if lo > hi {
+                if let Some((lo, hi)) = bounds.both()
+                    && lo > hi
+                {
                     return Err(crate::Error::InvalidParameter {
                         detail: "manual axis domains must be ascending",
                     });
                 }
             }
         }
-        if matches!(self.x, Scale::Log)
-            && let Some((lo, hi)) = self.x_domain
-            && (lo <= 0.0 || hi <= 0.0)
-        {
+        let below_zero = |bounds: Option<Bounds>| {
+            bounds.is_some_and(|bounds| {
+                [bounds.min, bounds.max]
+                    .into_iter()
+                    .flatten()
+                    .any(|end| end <= 0.0)
+            })
+        };
+        if matches!(self.x, Scale::Log) && below_zero(self.x_domain) {
             return Err(crate::Error::IncompatibleScale {
                 detail: "a log x axis needs a positive domain",
             });
         }
-        if matches!(self.y, Scale::Log)
-            && let Some((lo, hi)) = self.y_domain
-            && (lo <= 0.0 || hi <= 0.0)
-        {
+        if matches!(self.y, Scale::Log) && below_zero(self.y_domain) {
             return Err(crate::Error::IncompatibleScale {
                 detail: "a log y axis needs a positive domain",
             });
@@ -874,9 +953,17 @@ impl<'a> Plot<'a> {
             (&self.x, &self.y),
             (&self.x_unit, &self.y_unit),
             (self.x_label.as_deref(), self.y_label.as_deref()),
-            (self.x_domain, self.y_domain),
+            self.domains(),
             (self.colorbar, self.axes),
         ))
+    }
+
+    /// The manual ends of both axes, unset ends free.
+    fn domains(&self) -> Domains {
+        (
+            self.x_domain.unwrap_or_default(),
+            self.y_domain.unwrap_or_default(),
+        )
     }
 
     /// Runs the target-independent render orchestration once. The returned
@@ -892,7 +979,7 @@ impl<'a> Plot<'a> {
         let scales = (&self.x, &self.y);
         let units = (&self.x_unit, &self.y_unit);
         let labels = (self.x_label.as_deref(), self.y_label.as_deref());
-        let domains = (self.x_domain, self.y_domain);
+        let domains = self.domains();
         let layer_palette = &frame.theme.palette;
         let categorical = self
             .palette
