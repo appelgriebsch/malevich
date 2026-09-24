@@ -22,6 +22,8 @@ _kaz() {
     '--log-y[log-scale y]' \
     '--time-x[read x as time]' \
     '--bins[histogram bin count]:n:' \
+    '--normalize[histogram heights]:n:(count probability percent density)' \
+    '--cumulative[accumulate histogram bins]' \
     '--colormap[heatmap/hist2d colors]:map:(viridis magma cividis greys red-blue purple-orange)' \
     '--midpoint[center the colormap on a value]:v:' \
     '--log-color[logarithmic colormap]' \
@@ -41,7 +43,7 @@ _kaz() {
     '--rate[plot counter deltas]' \
     '--version[print version]' \
     '--help[show help]' \
-    '1:chart:(line scatter bar hist count density ecdf box violin hist2d heatmap)' \
+    '1:chart:(line scatter bar hist count density ecdf box violin hist2d heatmap spark)' \
     '*:file:_files'
 }
 

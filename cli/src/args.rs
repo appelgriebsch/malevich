@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use lexopt::prelude::*;
 use malevich::Charset;
 use malevich::scale::Colormap;
-use malevich::stat::Reducer;
+use malevich::stat::{Normalization, Reducer};
 
 const MAX_FRAME_DIMENSION: usize = 4096;
 const MAX_FRAME_CELLS: usize = 4 * 1024 * 1024;
@@ -187,6 +187,10 @@ pub struct Args {
     pub time_x: bool,
     /// Explicit histogram bin count (`--bins`); auto when absent.
     pub bins: Option<usize>,
+    /// Histogram bar heights (`--normalize`): counts unless told otherwise.
+    pub normalize: Normalization,
+    /// Accumulate histogram bins left to right (`--cumulative`).
+    pub cumulative: bool,
     /// Heatmap/hist2d colormap (`--colormap`, centered by `--midpoint`,
     /// logarithmic via `--log-color`); the default map when absent.
     pub colormap: Option<Colormap>,
@@ -268,6 +272,8 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
     let mut log_y = false;
     let mut time_x = false;
     let mut bins = None;
+    let mut normalize = Normalization::Count;
+    let mut cumulative = false;
     let mut colormap = None;
     let mut midpoint = None;
     let mut log_color = false;
@@ -368,6 +374,21 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
                     MAX_BINS,
                 )?);
             }
+            Long("normalize") => {
+                let value = parser.value()?.string()?;
+                normalize = match value.as_str() {
+                    "count" => Normalization::Count,
+                    "probability" => Normalization::Probability,
+                    "percent" => Normalization::Percent,
+                    "density" => Normalization::Density,
+                    _ => {
+                        return Err(Fail(format!(
+                            "--normalize must be count, probability, percent, or density, not `{value}`"
+                        )));
+                    }
+                };
+            }
+            Long("cumulative") => cumulative = true,
             Long("cols") => {
                 let value = parser.value()?.string()?;
                 let selectors: Vec<String> = value
@@ -530,6 +551,12 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             command.name()
         )));
     }
+    if (normalize != Normalization::Count || cumulative) && command != Command::Hist {
+        return Err(Fail(format!(
+            "--normalize and --cumulative only apply to hist, not `{}`",
+            command.name()
+        )));
+    }
     if fmt.is_some() && !matches!(command, Command::Line | Command::Scatter) {
         return Err(Fail(format!(
             "--fmt only applies to line and scatter, not `{}`",
@@ -614,6 +641,8 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
         log_y,
         time_x,
         bins,
+        normalize,
+        cumulative,
         colormap,
         labels_x,
         labels_y,

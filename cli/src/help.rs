@@ -74,6 +74,9 @@ Options:
   --log-y        log-scale the y axis
   --time-x       read the x column as time (unix seconds or ISO 8601)
   --bins N       histogram bin count (hist; 1..1000000; default: automatic)
+  --normalize N  histogram heights: count (default) | probability | percent |
+                 density
+  --cumulative   accumulate histogram bins left to right
   --colormap M   heatmap/hist2d colors: viridis (default) | magma | cividis |
                  greys | red-blue | purple-orange
   --midpoint V   center the colormap on value V (for signed data; heatmap/hist2d)
@@ -201,12 +204,15 @@ Usage:
 
 Input: every numeric field is pooled into one distribution. Bins are sized
 automatically (Sturges / Freedman-Diaconis) with nice decimal edges, or fixed
-with --bins N.
+with --bins N. Heights are counts on a whole-number axis; --normalize
+rescales them to probability, percent (a % axis), or density per unit of x,
+and --cumulative accumulates the bins so the last bar carries the total.
 
 Examples:
   awk '{print $5}' access.log | kaz hist -t latency
   cut -f2 measurements.tsv | kaz hist --bins 30
   kaz hist samples.txt --xlim 0,100
+  awk '{print $5}' access.log | kaz hist --normalize percent --cumulative
 
 Shared options: kaz --help
 ";

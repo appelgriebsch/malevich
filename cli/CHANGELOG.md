@@ -5,6 +5,17 @@ malevich API.
 
 ## Unreleased
 
+- `kaz spark` renders a sparkline one row tall from any column of numbers:
+  bars from zero, no axes, gaps blank. `--live` on a piped destination writes
+  plain frames, one per line, with no cursor or synchronized-output escapes.
+- `hist` and `count` label their axis in whole numbers: a tall frame reads
+  `0, 1, 2`, never `0.5`.
+- `hist --normalize count|probability|percent|density` rescales the bars
+  (percent labels its axis `%`) and `--cumulative` accumulates the bins so
+  the last bar carries the total — through the same `Bins::heights` the
+  library's `hist` preset uses, so the two cannot disagree. `--emit-code`
+  writes the matching axis.
+
 ## 0.3.0 — 2026-08-26
 
 - Heatmaps grow the ML face of the core's new machinery: `--labels-x` and

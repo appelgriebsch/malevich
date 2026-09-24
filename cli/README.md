@@ -73,7 +73,7 @@ man ./man/kaz.1
 | `line` | `l` | line chart, one line per series | `y` \| `xy` \| `xyy` \| `xyxy` \| `yx` |
 | `scatter` | `s` | scatter plot | `xy` \| `xyy` |
 | `bar` | `b` | one bar per label | `label value` |
-| `hist` | — | histogram (`--bins N` to fix the count) | columns of numbers |
+| `hist` | — | histogram (`--bins N` to fix the count; `--normalize`, `--cumulative`) | columns of numbers |
 | `count` | `c` | value frequencies as bars | one column of labels |
 | `density` | `d` | kernel density estimate | columns of numbers |
 | `ecdf` | — | empirical cumulative distribution | columns of numbers |
@@ -120,6 +120,8 @@ the data upstream (`xsv select …`, `mlr --c2t …`) and pipe the result in.
 --log-x  --log-y
 --time-x       read the x column as time (unix seconds or ISO 8601)
 --bins N       histogram bin count (hist; 1..1000000; default: automatic)
+--normalize N  histogram heights: count (default) | probability | percent | density
+--cumulative   accumulate histogram bins left to right
 --cols LIST    select/reorder columns: header names (with -H) or 0-based indices
 --by COL       scatter: color points by this column's categories
 --colormap M   heatmap/hist2d: viridis | magma | cividis | greys | red-blue | purple-orange

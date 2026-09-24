@@ -40,7 +40,8 @@ Scatter plot.
 One bar per label (\fIlabel value\fR rows).
 .TP
 .B hist
-Histogram; automatic bins, or \fB\-\-bins N\fR.
+Histogram; automatic bins, or \fB\-\-bins N\fR; counts, or \fB\-\-normalize\fR
+and \fB\-\-cumulative\fR.
 .TP
 .B count \fR(\fBc\fR)
 Value frequencies as bars.
@@ -62,6 +63,9 @@ A violin plot per column.
 .TP
 .B heatmap
 Shade a row\-major matrix (first line on top).
+.TP
+.B spark
+Sparkline: bars from zero, no axes, one row tall.
 .SH OPTIONS
 .TP
 .BI \-o " TARGET"
@@ -103,6 +107,13 @@ Read the x column as time: unix epoch, or an ISO\-8601 subset.
 .TP
 .BI \-\-bins " N"
 Histogram bin count (1..1000000; default: automatic).
+.TP
+.BI \-\-normalize " N"
+Histogram bar heights: \fBcount\fR (default, on a whole\-number axis),
+\fBprobability\fR, \fBpercent\fR (a % axis), or \fBdensity\fR per unit of x.
+.TP
+.B \-\-cumulative
+Accumulate histogram bins left to right, so the last bar carries the total.
 .TP
 .BI \-\-cols " LIST"
 Select and reorder columns before any chart reads them: comma\-separated header

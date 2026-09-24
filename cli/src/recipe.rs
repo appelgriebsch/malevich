@@ -8,6 +8,7 @@
 use std::fmt;
 
 use malevich::scale::Colormap;
+use malevich::stat::Normalization;
 
 use crate::args::{Args, Command};
 use crate::input::{self, Table};
@@ -38,7 +39,8 @@ pub(crate) enum Chart {
     Histogram {
         start: f64,
         width: f64,
-        counts: Vec<f64>,
+        heights: Vec<f64>,
+        normalization: Normalization,
     },
     Bars {
         labels: Vec<String>,
@@ -155,7 +157,7 @@ pub(crate) fn prepare(args: &Args, mut table: Table) -> Result<Recipe, PrepareEr
         }
         (Command::Line, _) => value(&table, args, ValueMark::Line),
         (Command::Scatter, _) => value(&table, args, ValueMark::Scatter),
-        (Command::Hist, _) => histogram(&table, args.bins)?,
+        (Command::Hist, _) => histogram(&table, args)?,
         (Command::Bar, _) => {
             let (labels, values, unparsed) = series::labeled_values(&table);
             (Chart::Bars { labels, values }, unparsed)
@@ -262,13 +264,14 @@ fn value(table: &Table, args: &Args, mark: ValueMark) -> (Chart, usize) {
     (Chart::Value { mark, data }, unparsed)
 }
 
-/// Resolves both automatic and explicit bins once. Keeping only bar geometry
+/// Resolves both automatic and explicit bins once, and their heights through
+/// the same `Bins::heights` the `hist` preset uses. Keeping only bar geometry
 /// gives rendering and generated source exactly the same histogram.
-fn histogram(table: &Table, count: Option<usize>) -> Result<(Chart, usize), malevich::Error> {
+fn histogram(table: &Table, args: &Args) -> Result<(Chart, usize), malevich::Error> {
     use malevich::stat::Bins;
 
     let (values, unparsed) = series::flatten(table);
-    let bins = match count {
+    let bins = match args.bins {
         Some(count) => Bins::try_uniform(&values, count)?,
         None => Bins::try_auto(&values, malevich::HistogramOptions::default().max_bins)?,
     };
@@ -276,7 +279,8 @@ fn histogram(table: &Table, count: Option<usize>) -> Result<(Chart, usize), male
         Some(bins) => Chart::Histogram {
             start: bins.start(),
             width: bins.width(),
-            counts: bins.counts().iter().map(|&count| count as f64).collect(),
+            heights: bins.heights(args.normalize, args.cumulative),
+            normalization: args.normalize,
         },
         None => Chart::Empty,
     };

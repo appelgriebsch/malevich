@@ -304,6 +304,37 @@ fn heatmap_matches_golden() {
 }
 
 #[test]
+fn hist_percent_cumulative_matches_golden_and_the_preset() {
+    let input: String = (1..=50).map(|n| format!("{n}\n")).collect();
+    let actual = plain(
+        &["hist", "--normalize", "percent", "--cumulative"],
+        "44",
+        "8",
+        &input,
+    );
+    assert_eq!(actual, include_str!("golden/hist_percent.txt"));
+    // The CLI and the preset scale their bins through the same stat.
+    let values: Vec<f64> = (1..=50).map(f64::from).collect();
+    let options = malevich::HistogramOptions::default()
+        .normalization(malevich::stat::Normalization::Percent)
+        .cumulative(true);
+    let preset = malevich::hist_with(&values[..], options)
+        .unwrap()
+        .render(&malevich::Frame::plain(44, 8));
+    assert_eq!(actual.trim_end_matches('\n'), preset.trim_end_matches('\n'));
+}
+
+#[test]
+fn normalization_flags_refuse_other_charts() {
+    let out = run(&["line", "--normalize", "percent"], "1\n2\n");
+    assert!(!out.status.success());
+    assert!(stderr(&out).contains("--normalize and --cumulative only apply to hist"));
+    let out = run(&["hist", "--normalize", "share"], "1\n2\n");
+    assert!(!out.status.success());
+    assert!(stderr(&out).contains("count, probability, percent, or density"));
+}
+
+#[test]
 fn hist_bins_matches_golden() {
     let input: String = (1..=50).map(|n| format!("{n}\n")).collect();
     assert_eq!(

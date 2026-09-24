@@ -51,11 +51,30 @@ fn automatic_histogram_geometry_is_prepared_once() {
     let table = input::frame("1\n2\n2\n3\nbad\n", None, false);
     let recipe = prepare(&args, table).unwrap();
 
-    let Chart::Histogram { counts, .. } = recipe.chart else {
+    let Chart::Histogram { heights, .. } = recipe.chart else {
         panic!("expected histogram geometry")
     };
-    assert_eq!(counts.iter().sum::<f64>(), 4.0);
+    assert_eq!(heights.iter().sum::<f64>(), 4.0);
     assert_eq!(recipe.unparsed, 1);
+}
+
+#[test]
+fn normalized_histograms_scale_through_the_same_bins() {
+    let args = args(&["hist", "--normalize", "percent", "--cumulative"]);
+    let table = input::frame("1\n2\n2\n3\n", None, false);
+    let recipe = prepare(&args, table).unwrap();
+
+    let Chart::Histogram {
+        heights,
+        normalization,
+        ..
+    } = recipe.chart
+    else {
+        panic!("expected histogram geometry")
+    };
+    assert_eq!(normalization, malevich::stat::Normalization::Percent);
+    assert_eq!(heights.last(), Some(&100.0));
+    assert!(heights.windows(2).all(|pair| pair[0] <= pair[1]));
 }
 
 #[test]

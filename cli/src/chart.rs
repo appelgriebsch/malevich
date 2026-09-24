@@ -1,6 +1,8 @@
 //! [`crate::recipe::Recipe`] → [`Plot`]. Zero input interpretation and zero
 //! rendering logic: each recipe shape maps directly onto public malevich grammar.
 
+use malevich::scale::Unit;
+use malevich::stat::Normalization;
 use malevich::{Bars, Cells, Line, Plot, Points, Scale};
 
 use crate::recipe::{Chart, DistributionKind, Furniture, GroupedKind, Recipe, ValueMark};
@@ -22,10 +24,18 @@ pub fn build(recipe: &Recipe) -> malevich::Result<Built<'_>> {
         Chart::Histogram {
             start,
             width,
-            counts,
-        } => Plot::new()
-            .layer(Bars::spans(*start, *width, counts))
-            .y_scale(Scale::Integer),
+            heights,
+            normalization,
+        } => {
+            let plot = Plot::new().layer(Bars::spans(*start, *width, heights));
+            // The axis the preset gives each normalization: whole counts,
+            // a percent sign, or plain.
+            match normalization {
+                Normalization::Count => plot.y_scale(Scale::Integer),
+                Normalization::Percent => plot.y_unit(Unit::suffix("%")),
+                _ => plot,
+            }
+        }
         Chart::Bars { labels, values } => {
             let plot = malevich::bar(labels.iter().map(String::as_str), values);
             // Frequencies are whole: the count chart's axis says so.

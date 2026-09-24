@@ -8,6 +8,7 @@
 use std::fmt::Write;
 
 use malevich::scale::Colormap;
+use malevich::stat::Normalization;
 
 use crate::recipe::{Chart, DistributionKind, Furniture, GroupedKind, Recipe, ValueMark};
 use crate::series::Dataset;
@@ -21,8 +22,9 @@ pub fn program(recipe: &Recipe) -> String {
         Chart::Histogram {
             start,
             width,
-            counts,
-        } => histogram(&mut body, *start, *width, counts),
+            heights,
+            normalization,
+        } => histogram(&mut body, *start, *width, heights, *normalization),
         Chart::Bars { labels, values } => {
             let chart = bars(&mut body, labels, values);
             if recipe.command == crate::args::Command::Count {
@@ -131,10 +133,21 @@ fn scatter_by(body: &mut String, x: &[f64], y: &[f64], groups: &[String]) -> Str
     "malevich::Plot::new()\n        .layer(malevich::Points::xy(x, y).color_by(groups))".to_string()
 }
 
-fn histogram(body: &mut String, start: f64, width: f64, counts: &[f64]) -> String {
-    let _ = writeln!(body, "    let counts: Vec<f64> = {};", floats(counts));
+fn histogram(
+    body: &mut String,
+    start: f64,
+    width: f64,
+    heights: &[f64],
+    normalization: Normalization,
+) -> String {
+    let _ = writeln!(body, "    let heights: Vec<f64> = {};", floats(heights));
+    let axis = match normalization {
+        Normalization::Count => "\n        .y_scale(malevich::Scale::Integer)",
+        Normalization::Percent => "\n        .y_unit(malevich::scale::Unit::suffix(\"%\"))",
+        _ => "",
+    };
     format!(
-        "malevich::Plot::new()\n        .layer(malevich::Bars::spans({}, {}, counts))\n        .y_scale(malevich::Scale::Integer)",
+        "malevich::Plot::new()\n        .layer(malevich::Bars::spans({}, {}, heights)){axis}",
         float(start),
         float(width)
     )

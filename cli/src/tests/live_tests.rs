@@ -66,6 +66,8 @@ fn args_with(f: impl FnOnce(&mut crate::args::Args)) -> crate::args::Args {
         log_y: false,
         time_x: false,
         bins: None,
+        normalize: malevich::stat::Normalization::Count,
+        cumulative: false,
         colormap: None,
         labels_x: None,
         labels_y: None,
