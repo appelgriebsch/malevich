@@ -93,12 +93,15 @@ fn repaint<W: Write + IsTerminal>(
 ) -> io::Result<()> {
     let mut live = Live::detect(handle());
     loop {
+        // Read the flag before the snapshot: the reader raises it after its
+        // last push, so a frame drawn after seeing it holds the complete
+        // window — the last frame, once the input is exhausted or Ctrl-C
+        // arrived.
+        let finished = done.load(Ordering::Relaxed) || INTERRUPTED.load(Ordering::Relaxed);
         let frame = output::frame_for(&handle(), args);
         let plot = plot(rings.snapshot(), args);
         live.draw(&plot, &frame)?;
-        // Draw the latest frame, then stop once the input is exhausted or Ctrl-C
-        // arrived — the last frame reflects the complete window.
-        if done.load(Ordering::Relaxed) || INTERRUPTED.load(Ordering::Relaxed) {
+        if finished {
             return Ok(());
         }
         thread::sleep(interval);
