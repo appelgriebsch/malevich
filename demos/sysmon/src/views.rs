@@ -112,8 +112,9 @@ pub fn mem_chart(mem_bytes: &[f64], total_bytes: f64, interval: f64) -> Plot<'st
 /// malevich notes: the y axis carries raw bytes per second and
 /// `.y_unit(Unit::si("B/s"))` labels it with one SI prefix for the whole
 /// axis — `2.5 MB/s`, `100 kB/s` — so the chart never needs manual unit
-/// switching as traffic scales. Labeling the layers is what makes the legend
-/// appear.
+/// switching as traffic scales. `.y_min(0.0)` floors the axis at zero while
+/// the top follows the traffic: a steady 400 kB/s must not look like a
+/// cliff. Labeling the layers is what makes the legend appear.
 pub fn net_chart(rx: &[f64], tx: &[f64], interval: f64) -> Plot<'static> {
     let x = seconds_ago(rx.len(), interval);
     Plot::new()
@@ -124,6 +125,7 @@ pub fn net_chart(rx: &[f64], tx: &[f64], interval: f64) -> Plot<'static> {
         )
         .layer(Line::xy(x, tx.to_vec()).label("tx").color(Color::Magenta))
         .title("network")
+        .y_min(0.0)
         .y_unit(Unit::si("B/s"))
         .x_label("seconds ago")
 }
@@ -219,6 +221,10 @@ mod tests {
         assert!(
             rendered.contains(" MB/s"),
             "megabyte rates get an SI prefix and the unit:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("0 MB/s") || rendered.contains("0.0 MB/s"),
+            "the rate axis starts at zero:\n{rendered}"
         );
     }
 
