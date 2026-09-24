@@ -76,14 +76,17 @@ impl Frame {
     /// Detects a frame for stdout — [`Frame::detect_for`] against
     /// [`std::io::stdout`].
     ///
-    /// Size: the terminal's width and about a third of its height (80×16 without a
-    /// terminal). Charset: an explicit `MALEVICH_CHARSET` override, otherwise ASCII
-    /// for `TERM=dumb` or an explicitly non-UTF-8 locale, and quadrants for UTF-8.
-    /// Dense Unicode tiers are opt-in because terminal identity cannot establish
-    /// font coverage. Color, in precedence order: `NO_COLOR` (non-empty) disables;
-    /// `CLICOLOR_FORCE` (non-empty, not `0`) forces color even when piped; otherwise
-    /// color only when stdout is a terminal — at the tier named by
-    /// `COLORTERM=truecolor`, a `256color` `TERM`, or 16-color ANSI as the floor.
+    /// Size: the terminal's width and about a third of its height; without a
+    /// terminal, `COLUMNS` and `LINES` when set, else 80×16. Charset: an
+    /// explicit `MALEVICH_CHARSET` override, otherwise ASCII for `TERM=dumb`
+    /// or `unknown` or an explicitly non-UTF-8 locale, and quadrants for
+    /// UTF-8. Dense Unicode tiers are opt-in because terminal identity cannot
+    /// establish font coverage. Color, in precedence order: `NO_COLOR`
+    /// (non-empty) disables; `CLICOLOR_FORCE` or `FORCE_COLOR` (non-empty, not
+    /// `0`) forces color even when piped; otherwise color only when stdout is
+    /// a terminal — at the tier named by `COLORTERM=truecolor` or a
+    /// `TERM=*-direct`, a `256color` `TERM`, or 16-color ANSI as the floor,
+    /// with `TERM=screen*` capped at 256.
     pub fn detect() -> Frame {
         Frame::detect_for(&std::io::stdout())
     }
@@ -99,17 +102,14 @@ impl Frame {
     /// `TERM=dumb` keep their precedence regardless of destination. Size still comes
     /// from whichever of stdout/stderr/stdin is a terminal.
     pub fn detect_for(destination: &impl IsTerminal) -> Frame {
-        let (width, height) = match terminal_size::terminal_size() {
-            Some((terminal_size::Width(w), terminal_size::Height(h))) => {
-                (w as usize, (h as usize / 3).clamp(8, 24))
-            }
-            None => (80, 16),
-        };
+        let measured = terminal_size::terminal_size()
+            .map(|(terminal_size::Width(w), terminal_size::Height(h))| (w as usize, h as usize));
+        let (width, height) = detect_size_with(measured, variable);
         Frame {
             width,
             height,
             charset: detect_charset(),
-            color: detect_color(destination.is_terminal()),
+            color: detect_color_with(destination.is_terminal(), variable),
             theme: Theme::detect(),
         }
     }
@@ -117,6 +117,32 @@ impl Frame {
 
 fn variable(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|value| !value.is_empty())
+}
+
+/// The frame size: the measured terminal, a third of its height; without one,
+/// `COLUMNS` and `LINES` when they parse (a piped render inside a shell that
+/// exports them), else 80×16.
+fn detect_size_with(
+    measured: Option<(usize, usize)>,
+    mut variable: impl FnMut(&str) -> Option<String>,
+) -> (usize, usize) {
+    let rows_to_height = |rows: usize| (rows / 3).clamp(8, 24);
+    if let Some((width, rows)) = measured {
+        return (width, rows_to_height(rows));
+    }
+    let mut exported = |name: &str| {
+        variable(name)
+            .and_then(|value| value.trim().parse::<usize>().ok())
+            .filter(|value| *value > 0)
+    };
+    let width = exported("COLUMNS").unwrap_or(80);
+    let height = exported("LINES").map_or(16, rows_to_height);
+    (width, height)
+}
+
+/// A `TERM` that declares no capabilities at all.
+fn is_dumb(term: &str) -> bool {
+    term == "dumb" || term == "unknown"
 }
 
 fn detect_charset() -> Charset {
@@ -127,7 +153,7 @@ fn detect_charset_with(mut variable: impl FnMut(&str) -> Option<String>) -> Char
     if let Some(charset) = variable("MALEVICH_CHARSET").and_then(|value| named_charset(&value)) {
         return charset;
     }
-    if variable("TERM").as_deref() == Some("dumb") {
+    if variable("TERM").is_some_and(|term| is_dumb(&term)) {
         return Charset::Ascii;
     }
     // POSIX precedence; the first set variable decides. Unset means a modern
@@ -156,20 +182,38 @@ fn named_charset(value: &str) -> Option<Charset> {
     })
 }
 
-fn detect_color(is_terminal: bool) -> ColorMode {
+/// The color tier, pure over its lookup. `NO_COLOR` wins; `CLICOLOR_FORCE` or
+/// `FORCE_COLOR` (non-empty, not `0`) keeps color off a terminal; a dumb or
+/// unknown `TERM` is plain; `COLORTERM=truecolor` or a `*-direct` `TERM` is
+/// truecolor; a `screen*` `TERM` caps at 256, since the multiplexer
+/// re-encodes what passes through it; `256color` is 256; the floor is 16.
+fn detect_color_with(
+    is_terminal: bool,
+    mut variable: impl FnMut(&str) -> Option<String>,
+) -> ColorMode {
     if variable("NO_COLOR").is_some() {
         return ColorMode::Plain;
     }
-    let forced = variable("CLICOLOR_FORCE").is_some_and(|value| value != "0");
+    let forcing = |value: String| value != "0";
+    let forced = variable("CLICOLOR_FORCE").is_some_and(forcing)
+        || variable("FORCE_COLOR").is_some_and(forcing);
     if !forced && !is_terminal {
         return ColorMode::Plain;
     }
     let term = variable("TERM").unwrap_or_default();
-    if term == "dumb" {
+    if is_dumb(&term) {
         return ColorMode::Plain;
     }
     let colorterm = variable("COLORTERM").unwrap_or_default();
-    if colorterm == "truecolor" || colorterm == "24bit" {
+    let truecolor = colorterm == "truecolor" || colorterm == "24bit" || term.ends_with("-direct");
+    if term.starts_with("screen") {
+        return if truecolor || term.contains("256color") {
+            ColorMode::Ansi256
+        } else {
+            ColorMode::Ansi16
+        };
+    }
+    if truecolor {
         return ColorMode::TrueColor;
     }
     if term.contains("256color") {

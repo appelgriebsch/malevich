@@ -51,7 +51,14 @@ shared pixel panel.
 Two tiers with different licenses:
 
 - **Sniffing** reads environment variables — free, instant, wrong only by
-  omission. It may run anywhere.
+  omission. It may run anywhere. It knows kitty (`KITTY_WINDOW_ID`,
+  `KITTY_PID`, a kitty `TERM`), Ghostty (`GHOSTTY_BIN_DIR`, its `TERM` or
+  `TERM_PROGRAM`), iTerm2 (`TERM_PROGRAM`, or `LC_TERMINAL`, which ssh
+  forwards), WezTerm (`TERM_PROGRAM` or `WEZTERM_EXECUTABLE`), Rio, Warp,
+  foot, mlterm, Konsole 22.04+, and Windows Terminal; `TMUX`, a `screen`
+  or `tmux` `TERM`, `dumb`, and `unknown` mean cells.
+  `MALEVICH_GRAPHICS=kitty|sixel|iterm2|none` outranks all of it, for the
+  user who has arranged passthrough or wants cells.
 - **Probing** asks the terminal itself over one raw-mode `/dev/tty` round
   trip: the kitty graphics query, XTVERSION, XTSMGRAPHICS, and `CSI 16 t`
   for the cell size, with DA1 as the ordering barrier. Ground truth that

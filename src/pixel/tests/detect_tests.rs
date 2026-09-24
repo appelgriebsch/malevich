@@ -30,6 +30,25 @@ fn known_terminals_map_to_their_protocols_best_first() {
         (&[("TERM", "foot-extra")], &[Protocol::Sixel]),
         (&[("KONSOLE_VERSION", "230400")], &[Protocol::Sixel]),
         (&[("WT_SESSION", "guid")], &[Protocol::Sixel]),
+        (&[("KITTY_PID", "4242")], &[Protocol::Kitty]),
+        (
+            &[("GHOSTTY_BIN_DIR", "/opt/ghostty/bin")],
+            &[Protocol::Kitty],
+        ),
+        (
+            &[("LC_TERMINAL", "iTerm2"), ("TERM", "xterm-256color")],
+            &[Protocol::ITerm2, Protocol::Sixel],
+        ),
+        (
+            &[("WEZTERM_EXECUTABLE", "/usr/bin/wezterm")],
+            &[Protocol::ITerm2, Protocol::Sixel],
+        ),
+        (
+            &[("TERM_PROGRAM", "rio")],
+            &[Protocol::ITerm2, Protocol::Sixel],
+        ),
+        (&[("TERM_PROGRAM", "WarpTerminal")], &[Protocol::ITerm2]),
+        (&[("MLTERM", "3.9.3")], &[Protocol::Sixel]),
     ];
     for (pairs, expected) in cases {
         assert_eq!(sniff(&environment(pairs)), *expected, "{pairs:?}");
@@ -42,6 +61,7 @@ fn unknown_and_hostile_environments_detect_nothing() {
         &[],
         &[("TERM", "xterm-256color")],
         &[("TERM", "dumb")],
+        &[("TERM", "unknown")],
         &[("TERM_PROGRAM", "Apple_Terminal")],
         &[("TERM_PROGRAM", "vscode")],
         &[("KONSOLE_VERSION", "210800")],
@@ -66,5 +86,41 @@ fn multiplexers_suppress_detection_even_inside_a_capable_terminal() {
             ("TERM_PROGRAM", "iTerm.app"),
         ])),
         Vec::new()
+    );
+}
+
+#[test]
+fn an_explicit_graphics_override_outranks_the_sniff() {
+    // Named protocols, even under a multiplexer the user has configured.
+    assert_eq!(
+        sniff(&environment(&[
+            ("MALEVICH_GRAPHICS", "kitty"),
+            ("TMUX", "/tmp/tmux-1000/default,1234,0"),
+        ])),
+        vec![Protocol::Kitty]
+    );
+    assert_eq!(
+        sniff(&environment(&[("MALEVICH_GRAPHICS", "iterm2")])),
+        vec![Protocol::ITerm2]
+    );
+    assert_eq!(
+        sniff(&environment(&[("MALEVICH_GRAPHICS", "Sixel")])),
+        vec![Protocol::Sixel]
+    );
+    // `none` is cells inside the most capable terminal.
+    assert_eq!(
+        sniff(&environment(&[
+            ("MALEVICH_GRAPHICS", "none"),
+            ("KITTY_WINDOW_ID", "1"),
+        ])),
+        Vec::new()
+    );
+    // A name nobody knows is ignored, not obeyed.
+    assert_eq!(
+        sniff(&environment(&[
+            ("MALEVICH_GRAPHICS", "hologram"),
+            ("KITTY_WINDOW_ID", "1"),
+        ])),
+        vec![Protocol::Kitty]
     );
 }

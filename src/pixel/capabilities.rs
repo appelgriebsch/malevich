@@ -133,7 +133,8 @@ fn resolve(
 
 /// Whether writing probe escapes to the controlling terminal is safe and
 /// meaningful: the output destination is a tty, no multiplexer would swallow
-/// or mangle the queries, and the terminal is not declared dumb.
+/// or mangle the queries, the terminal is not declared dumb, and no
+/// `MALEVICH_GRAPHICS` override has already decided.
 fn probing_is_safe(
     destination_is_terminal: bool,
     variable: &impl Fn(&str) -> Option<String>,
@@ -141,8 +142,12 @@ fn probing_is_safe(
     if !destination_is_terminal || variable("TMUX").is_some() {
         return false;
     }
+    if variable("MALEVICH_GRAPHICS").is_some_and(|value| detect::named_protocols(&value).is_some())
+    {
+        return false;
+    }
     let term = variable("TERM").unwrap_or_default();
-    term != "dumb" && !term.starts_with("screen") && !term.starts_with("tmux")
+    term != "dumb" && term != "unknown" && !term.starts_with("screen") && !term.starts_with("tmux")
 }
 
 /// The probe round trip, at most once per process. A cache is the polite

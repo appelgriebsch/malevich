@@ -113,3 +113,29 @@ fn probe_safety_is_keyed_to_the_output_destination() {
     let behind_tmux = |name: &str| (name == "TMUX").then(|| "session".into());
     assert!(!probing_is_safe(true, &behind_tmux));
 }
+
+#[test]
+fn an_override_or_an_unknown_terminal_skips_the_probe() {
+    let lookup = |pairs: &'static [(&str, &str)]| {
+        move |name: &str| {
+            pairs
+                .iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| value.to_string())
+        }
+    };
+    assert!(!probing_is_safe(
+        true,
+        &lookup(&[("MALEVICH_GRAPHICS", "none")])
+    ));
+    assert!(!probing_is_safe(
+        true,
+        &lookup(&[("MALEVICH_GRAPHICS", "kitty")])
+    ));
+    // A name nobody knows leaves the probe to decide.
+    assert!(probing_is_safe(
+        true,
+        &lookup(&[("MALEVICH_GRAPHICS", "hologram")])
+    ));
+    assert!(!probing_is_safe(true, &lookup(&[("TERM", "unknown")])));
+}

@@ -5,6 +5,18 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- Detection reads what the field agreed on. `FORCE_COLOR` (non-empty, not
+  `0`) forces color like `CLICOLOR_FORCE`; a `TERM` ending in `-direct` is
+  truecolor; `TERM=unknown` is as dumb as `dumb`; a `screen*` `TERM` caps
+  color at 256; `COLUMNS` and `LINES` size a render with no terminal to
+  measure. `MALEVICH_GRAPHICS=kitty|sixel|iterm2|none` names the pixel
+  protocol, outranking the sniff and skipping the probe, like
+  `MALEVICH_CHARSET` does for glyphs; the sniff table learns
+  `LC_TERMINAL=iTerm2` (which ssh forwards), `WEZTERM_EXECUTABLE`,
+  `GHOSTTY_BIN_DIR`, `KITTY_PID`, `MLTERM`, Rio, and Warp. The iTerm2
+  payload carries `doNotMoveCursor=1`, so an image ending at the screen's
+  bottom row no longer scrolls before the cursor is restored.
+
 - `Bars::intervals(starts, ends, values)` is the fourth placement: every bar
   between its own two edges on a continuous axis — the histogram with
   irregular bins, sideways a Gantt-style row. A gap in either edge skips the

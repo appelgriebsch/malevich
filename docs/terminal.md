@@ -43,14 +43,19 @@ vanish in a pipe.
 order:
 
 - **Charset.** `MALEVICH_CHARSET` wins if set to a known name. `TERM=dumb`
-  means ASCII. Then locale, POSIX precedence — `LC_ALL`, `LC_CTYPE`,
-  `LANG`; a locale without `utf` means ASCII. Otherwise quadrants.
+  or `unknown` means ASCII. Then locale, POSIX precedence — `LC_ALL`,
+  `LC_CTYPE`, `LANG`; a locale without `utf` means ASCII. Otherwise
+  quadrants.
 - **Color.** `NO_COLOR` (any value) means plain. Output that is not a
-  terminal means plain, unless `CLICOLOR_FORCE` is set and not `0`.
-  `TERM=dumb` means plain. `COLORTERM=truecolor` or `24bit` means
-  truecolor; a `TERM` containing `256color` means 256; otherwise 16.
-- **Size.** The terminal's reported cell size, with a fallback when there
-  is none.
+  terminal means plain, unless `CLICOLOR_FORCE` or `FORCE_COLOR` is set and
+  not `0`. `TERM=dumb` or `unknown` means plain. `COLORTERM=truecolor` or
+  `24bit`, or a `TERM` ending in `-direct`, means truecolor; a `TERM`
+  starting with `screen` caps at 256, since the multiplexer re-encodes
+  what passes through it; a `TERM` containing `256color` means 256;
+  otherwise 16.
+- **Size.** The terminal's reported size, a third of its height for the
+  plot. Without a terminal, `COLUMNS` and `LINES` when a shell exports
+  them; else 80×16.
 - **Theme.** `COLORFGBG` distinguishes dark from light backgrounds.
 
 Piped output is therefore clean plain text by default — detection sees a
@@ -61,8 +66,11 @@ file cannot hold.
 
 - `MALEVICH_CHARSET` — `ascii`, `half`, `quad`, `sextants`, `octants`,
   `braille`, or `auto`.
+- `MALEVICH_GRAPHICS` — `kitty`, `sixel`, `iterm2`, or `none`: the pixel
+  protocol, outranking the sniff and skipping the probe (feature `pixel`).
 - `NO_COLOR` — force plain output ([no-color.org](https://no-color.org)).
-- `CLICOLOR_FORCE` — keep color when piping.
+- `CLICOLOR_FORCE` or `FORCE_COLOR` — keep color when piping.
+- `COLUMNS` / `LINES` — size a render that has no terminal to measure.
 - An explicit `Frame` — the programmatic override that consults nothing.
 
 ## Text discipline
