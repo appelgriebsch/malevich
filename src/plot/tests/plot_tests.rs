@@ -1956,3 +1956,39 @@ fn horizontal_bars_render_gaps_and_bases_like_vertical_ones() {
         "a NaN value must be a gap: {rendered}"
     );
 }
+
+#[test]
+fn y_ticks_land_on_distinct_rows_or_are_re_searched_sparser() {
+    // Every automatic y axis, at every height where two labels fit, draws
+    // every tick it chose: a collision re-searches at a sparser target rather
+    // than dropping a subset of the labels.
+    let values: Vec<f64> = (0..40)
+        .map(|i| (i as f64 * 0.37).sin() * 7.3 + 2.1)
+        .collect();
+    for height in 3..=30 {
+        let frame = Frame::plain(40, height);
+        let plot = crate::line(&values[..]);
+        let layout = plot
+            .prepare_layout(&frame, super::TargetPolicy::cells(&frame, true))
+            .expect("layout");
+        if layout.plot_rows < 2 {
+            continue;
+        }
+        let rows: Vec<usize> = layout
+            .y_ticks
+            .iter()
+            .map(|tick| (layout.y_scale.map(tick.value).round() as usize) / layout.py)
+            .collect();
+        let mut distinct = rows.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        assert_eq!(
+            distinct.len(),
+            rows.len(),
+            "height {height}: ticks share a row: {rows:?}"
+        );
+        let rendered = plot.render(&frame);
+        let drawn = rendered.matches('\u{2524}').count();
+        assert_eq!(drawn, layout.y_ticks.len(), "height {height}:\n{rendered}");
+    }
+}

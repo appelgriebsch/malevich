@@ -256,7 +256,7 @@ impl<'p> Layout<'p> {
 
         // Horizontal layout: the y-label gutter is measured, not fixed — and shed
         // entirely when it would eat the plot.
-        let target = (plot_rows / 2).clamp(2, 8);
+        let y_fixed = domains.1.is_some() && y_categories.is_none();
         let y_ticks = if let Some(categories) = y_categories {
             // Band labels ride the tick pipeline: each lands on its band center
             // through the y scale, and the collision shed below drops what a
@@ -266,12 +266,8 @@ impl<'p> Layout<'p> {
                 (frame.width / 3).max(1),
                 frame.charset.chrome().ellipsis,
             )
-        } else if time_y {
-            Ticks::time(y_data.0, y_data.1, target)
-        } else if log_y {
-            Ticks::log10(y_data.0, y_data.1, target)
         } else {
-            Ticks::linear(y_data.0, y_data.1, target)
+            fit_y_ticks(y_data, plot_rows, py, (time_y, log_y, y_fixed))
         };
         let mut label_width = y_ticks
             .iter()
@@ -307,7 +303,6 @@ impl<'p> Layout<'p> {
 
         // A manual domain is honored exactly; an automatic one grows to its ticks
         // so the axis spans whole round numbers.
-        let y_fixed = domains.1.is_some() && y_categories.is_none();
         let x_fixed = domains.0.is_some() && categories.is_none();
         let y_domain = match y_categories {
             Some(categories) => (0.0, categories.len().saturating_sub(1) as f64),
@@ -431,6 +426,50 @@ fn labels_fit(
         last_end = start + len;
     }
     true
+}
+
+/// Chooses the densest y labeling whose ticks land on distinct rows — the
+/// vertical twin of [`fit_x_ticks`]: a tall target that would put two labels
+/// on one row is walked down to one that does not, instead of drawing a
+/// subset of an axis nobody chose. `kind` is `(time, log, fixed)`: which tick
+/// engine, and whether the domain is manual (honored exactly) or grows to
+/// its ticks. At the sparsest target the ticks are returned as they are —
+/// a plot too short for two labels sheds at chrome.
+fn fit_y_ticks(data: (f64, f64), plot_rows: usize, py: usize, kind: (bool, bool, bool)) -> Ticks {
+    let (time, log, fixed) = kind;
+    let densest = (plot_rows / 2).clamp(2, 8);
+    let sub_h = (plot_rows * py).max(1);
+    let mut chosen = None;
+    for target in (2..=densest).rev() {
+        let ticks = if time {
+            Ticks::time(data.0, data.1, target)
+        } else if log {
+            Ticks::log10(data.0, data.1, target)
+        } else {
+            Ticks::linear(data.0, data.1, target)
+        };
+        let domain = if fixed {
+            data
+        } else {
+            domain_with_ticks_on(data, &ticks, log)
+        };
+        let scale = Map::build(domain, ((sub_h - 1) as f64, 0.0), log);
+        let mut rows: Vec<usize> = ticks
+            .iter()
+            .map(|tick| scale.map(tick.value))
+            .filter(|sub| sub.is_finite())
+            .map(|sub| (sub.round().max(0.0) as usize) / py.max(1))
+            .collect();
+        let count = rows.len();
+        rows.sort_unstable();
+        rows.dedup();
+        let distinct = rows.len() == count;
+        chosen = Some(ticks);
+        if distinct {
+            break;
+        }
+    }
+    chosen.expect("the target walk yields at least one candidate")
 }
 
 /// Chooses the densest calendar labeling that fits without collisions.

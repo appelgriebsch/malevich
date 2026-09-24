@@ -136,7 +136,23 @@ impl Ticks {
         }
         let decades = (last - first + 1) as usize;
         let stride = decades.div_ceil(target).max(1) as i32;
-        let ticks: Vec<Tick> = (first..=last)
+        // Strided decades prefer multiples of the stride (10⁰, 10³, 10⁶ rather
+        // than 10¹, 10⁴, 10⁷) whenever that phase yields as many ticks as any
+        // other; a phase that keeps one more tick in range wins otherwise.
+        let start_for = |phase: i32| first + (phase - first).rem_euclid(stride);
+        let count_for = |phase: i32| {
+            let start = start_for(phase);
+            if start > last {
+                0
+            } else {
+                (last - start) / stride + 1
+            }
+        };
+        let most = (0..stride).map(count_for).max().unwrap_or(0);
+        let phase = (0..stride)
+            .find(|&phase| count_for(phase) == most)
+            .unwrap_or(0);
+        let ticks: Vec<Tick> = (start_for(phase)..=last)
             .step_by(stride as usize)
             .map(|power| Tick {
                 value: 10f64.powi(power),

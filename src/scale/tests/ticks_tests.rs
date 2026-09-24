@@ -397,3 +397,18 @@ fn a_random_sweep_over_every_magnitude_keeps_the_label_contract() {
         );
     }
 }
+
+#[test]
+fn strided_decades_prefer_multiples_of_the_stride() {
+    // Nine decades at a target of three: stride 3, and the phase on multiples
+    // of three keeps as many ticks as any other, so it wins.
+    let ticks = Ticks::log10(1.0, 1e8, 3);
+    assert_eq!(labels(&ticks), ["1", "10\u{00B3}", "10\u{2076}"]);
+    // Eight decades from 10¹: the aligned phase would keep only 10³ and 10⁶,
+    // so the phase with three ticks wins instead.
+    let ticks = Ticks::log10(10.0, 1e8, 3);
+    assert_eq!(labels(&ticks), ["10", "10\u{2074}", "10\u{2077}"]);
+    // No stride: every decade, unchanged.
+    let ticks = Ticks::log10(1.0, 1e4, 8);
+    assert_eq!(ticks.len(), 5);
+}

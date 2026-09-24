@@ -5,6 +5,13 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- The y axis re-searches instead of dropping labels: when two chosen ticks
+  would round to one cell row, layout walks the tick target down until every
+  tick has its own row — the rule the x axis already followed — so a short
+  plot shows a complete sparser set, never a subset of a denser one.
+- Strided decade ticks prefer multiples of the stride (`1, 10³, 10⁶` rather
+  than `10¹, 10⁴, 10⁷`) whenever that phase keeps as many ticks as any
+  other, matching the placement matplotlib settled on in 3.11.
 - `stream::Live::detect(out)` repaints in place only when `out` is a
   terminal and appends plain frames otherwise, so a redirected stderr
   (`2>log`) receives charts and never a cursor escape — the rule-4 gap the
