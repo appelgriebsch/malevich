@@ -2047,3 +2047,47 @@ fn box_plot_with_default_options_reproduces_the_preset_and_rules_move_whiskers()
         Err(crate::Error::InvalidParameter { .. })
     ));
 }
+
+#[test]
+fn spans_wash_their_band_extend_the_axes_and_let_marks_show_through() {
+    use crate::mark::Rule;
+    let values = [1.0, 3.0, 2.0, 4.0, 3.0, 5.0];
+    let frame = Frame::plain(40, 10);
+    let bare = Plot::new().layer(Line::y(&values[..]));
+    let spanned = Plot::new()
+        .layer(Rule::v_span(1.0, 3.0).label("warmup"))
+        .layer(Line::y(&values[..]));
+    let plain = bare.render(&frame);
+    let washed = spanned.render(&frame);
+    assert_ne!(plain, washed, "the span draws something");
+    // The wash is a texture, so it adds ink but never a fully solid cell,
+    // and the line's own cells keep every dot they had.
+    assert!(
+        !washed.contains('\u{28FF}'),
+        "a wash must not fill cells solid:\n{washed}"
+    );
+    let ink = |text: &str| {
+        text.chars()
+            .filter(|c| ('\u{2800}'..='\u{28FF}').contains(c))
+            .count()
+    };
+    assert!(ink(&washed) > ink(&plain));
+    // Legend: the span shows a shade swatch, not a line.
+    assert!(washed.contains("\u{2591}\u{2591} warmup"), "{washed}");
+    // A span past the data widens the axis to include it.
+    let wide = Plot::new()
+        .layer(Line::y(&values[..]))
+        .layer(Rule::h_span(8.0, 9.0));
+    assert!(wide.mapping(&frame).y_domain().1 >= 9.0);
+    // The same span renders identically whichever way its bounds are given.
+    assert_eq!(
+        Plot::new()
+            .layer(Rule::v_span(3.0, 1.0))
+            .layer(Line::y(&values[..]))
+            .render(&frame),
+        Plot::new()
+            .layer(Rule::v_span(1.0, 3.0))
+            .layer(Line::y(&values[..]))
+            .render(&frame)
+    );
+}

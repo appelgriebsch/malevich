@@ -5,6 +5,16 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Rule::v_span(x0, x1)` and `Rule::h_span(y0, y1)` wash the band between
+  two values across the whole plot in the rule's color — recessions,
+  warm-up phases, tolerance windows, the annotation matplotlib calls
+  `axvspan` and Bokeh a `BoxAnnotation`. On cell targets the wash is a light
+  checkerboard of subpixels that marks drawn after it show through; on pixel
+  targets it is a quarter-opacity fill. Spans extend the axis to include
+  them, legend as a shade swatch, and serialize as `VerticalSpan` /
+  `HorizontalSpan` beside the unchanged line forms. fred's recession shading
+  becomes one span per recession behind the data, with no carved-out strip
+  and no exception for log axes; the `annotated` example washes its warm-up.
 - `BoxStats::of_with(values, Whiskers)` and `box_plot_with(…, BoxOptions)`
   choose the whisker rule: Tukey's `k × IQR` at any reach, two type-7
   percentiles (`Percentiles(0.05, 0.95)`), or the full range with no

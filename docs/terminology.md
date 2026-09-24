@@ -36,7 +36,9 @@ the values along x — the `barh` of the catalog), `Area`
 (baseline fills and bands), `Cells` (value grids, rgb images, or categorical
 class regions),
 `Range` (intervals with optional body and marker channels), `Rule`
-(reference lines), and `Text` (annotations at data coordinates). Chart types
+(reference lines at one value, and spans — `h_span`/`v_span` — washing the
+band between two values across the plot: a recession, a warm-up phase, a
+tolerance window), and `Text` (annotations at data coordinates). Chart types
 are compositions of marks, never peers of them. The family is complete. See
 [What earns a concept](principles/what-earns-a-concept.md).
 

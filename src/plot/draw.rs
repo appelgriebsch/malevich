@@ -186,6 +186,22 @@ pub(crate) fn layers<C: Canvas>(
                         &mut 0.0,
                     );
                 }
+                Orientation::HorizontalSpan(a, b) => {
+                    let (sa, sb) = (y_offset + y_scale.map(*a), y_offset + y_scale.map(*b));
+                    surface.wash(
+                        (x_offset, sa.min(sb)),
+                        (x_offset + (plot_sub_w - 1) as f64, sa.max(sb)),
+                        *color,
+                    );
+                }
+                Orientation::VerticalSpan(a, b) => {
+                    let (sa, sb) = (x_offset + x_scale.map(*a), x_offset + x_scale.map(*b));
+                    surface.wash(
+                        (sa.min(sb), y_offset),
+                        (sa.max(sb), y_offset + (plot_sub_h - 1) as f64),
+                        *color,
+                    );
+                }
             },
             ResolvedLayer::Text {
                 x,

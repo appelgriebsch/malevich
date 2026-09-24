@@ -86,22 +86,22 @@ Source: [examples/distribution.rs](examples/distribution.rs)
 
 ### annotated
 
-Annotations: a Rule for the target line, a Text note at data coordinates.
+Annotations: a Rule for the target line, a Rule span washing the warm-up phase behind the data, a Text note at data coordinates.
 Source: [examples/annotated.rs](examples/annotated.rs)
 
 ```text
                  annotated loss (synthetic)
-                     ── loss  ── target
-  │⠑⢄
-4 ┤ ⠈⠢⡀
-  │   ⠑⠢⡀
-3 ┤     ⠈⠢⣀
-  │        ⠑⠢⣀
-2 ┤           ⠉⠢⢄⣀            < converging
-  │               ⠉⠒⠢⢄⣀
-1 ┤                    ⠉⠉⠑⠒⠤⠤⢄⣀⣀⡀
-  │⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣈⣉⣉⣉⣑⣒⣒⣒⣒⣒⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣀⣀⣀⣀⣀⣀⣀⣀
-0 ┤
+               ░░ warm-up  ── loss  ── target
+  │⢕⢕⢕⢕⢕⢕⢕⢕⠅
+4 ┤⢕⢝⢷⣕⢕⢕⢕⢕⠅
+  │⢕⢕⢕⢕⢷⣕⢕⢕⠅
+3 ┤⢕⢕⢕⢕⢕⢝⢷⣕⠅
+  │⢕⢕⢕⢕⢕⢕⢕⢕⠕⠢⣀
+2 ┤⢕⢕⢕⢕⢕⢕⢕⢕⠅  ⠉⠢⢄⣀            < converging
+  │⢕⢕⢕⢕⢕⢕⢕⢕⠅      ⠉⠒⠢⢄⣀
+1 ┤⢕⢕⢕⢕⢕⢕⢕⢕⠅           ⠉⠉⠑⠒⠤⠤⢄⣀⣀⡀
+  │⣕⣕⣕⣕⣕⣕⣕⣕⣅⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣈⣉⣉⣉⣑⣒⣒⣒⣒⣒⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣀⣀⣀⣀⣀⣀⣀⣀
+0 ┤⢕⢕⢕⢕⢕⢕⢕⢕⠅
   └┬───────┬───────┬───────┬───────┬───────┬───────┬───────┬
    0      10      20      30      40      50      60      70
 ```

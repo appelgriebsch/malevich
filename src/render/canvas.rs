@@ -78,6 +78,12 @@ pub(crate) trait Canvas {
     /// Writes text starting at the cell `(column, row)`; cells outside clip away.
     fn text(&mut self, column: i64, row: i64, text: &str, color: Color);
 
+    /// Washes the subpixel rectangle from `from` to `to` (inclusive corners)
+    /// in `color` — a span's ground. Glyph targets lay a light checkerboard
+    /// of subpixels that later marks overprint; pixel targets fill
+    /// translucently. Non-finite corners draw nothing.
+    fn wash(&mut self, from: (f64, f64), to: (f64, f64), color: Color);
+
     /// An annotation at a subpixel position, its ink related to the anchor by
     /// `anchor`: `cell` is the target's subpixels per cell. Glyph targets snap
     /// to the containing cell and shift whole cells; pixel targets place the

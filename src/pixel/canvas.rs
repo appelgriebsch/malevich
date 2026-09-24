@@ -11,6 +11,9 @@
 use super::font;
 use crate::render::{Anchor, Canvas, Color, PlotRect, PointShape};
 
+/// The opacity a span's wash is laid at on pixel targets: ground, not ink.
+const WASH_OPACITY: f64 = 0.25;
+
 /// A device-pixel raster covering the whole frame; encoders crop the plot panel.
 pub(crate) struct PixelCanvas {
     width: usize,
@@ -518,6 +521,37 @@ impl Canvas for PixelCanvas {
             }
             pen += width * 8 * scale;
         }
+    }
+
+    /// A translucent fill — a quarter opacity over whatever is beneath — so
+    /// the span reads as ground and the data drawn after it stays fully inked.
+    fn wash(&mut self, from: (f64, f64), to: (f64, f64), color: Color) {
+        if !(from.0.is_finite() && from.1.is_finite() && to.0.is_finite() && to.1.is_finite()) {
+            return;
+        }
+        if self.width == 0 || self.height == 0 {
+            return;
+        }
+        let (mut x0, mut y0, mut x1, mut y1) =
+            (0i64, 0i64, self.width as i64 - 1, self.height as i64 - 1);
+        if let Some((cx0, cy0, cx1, cy1)) = self.clip {
+            x0 = x0.max(cx0);
+            y0 = y0.max(cy0);
+            x1 = x1.min(cx1 - 1);
+            y1 = y1.min(cy1 - 1);
+        }
+        let left = (from.0.min(to.0).round() as i64).max(x0);
+        let right = (from.0.max(to.0).round() as i64).min(x1);
+        let top = (from.1.min(to.1).round() as i64).max(y0);
+        let bottom = (from.1.max(to.1).round() as i64).min(y1);
+        let saved = self.opacity;
+        self.opacity = (saved * WASH_OPACITY).clamp(0.0, 1.0);
+        for y in top..=bottom {
+            for x in left..=right {
+                self.set(x, y, color);
+            }
+        }
+        self.opacity = saved;
     }
 
     /// One bar as an exact device-pixel rectangle — no cell snapping, at least

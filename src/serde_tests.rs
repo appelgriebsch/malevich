@@ -547,3 +547,20 @@ fn horizontal_bars_round_trip_and_stay_out_of_vertical_encodings() {
         serde_json::to_string(&Document::plot(crate::bar(["a"], &[1.0][..])).unwrap()).unwrap();
     assert!(!vertical.contains("horizontal"), "{vertical}");
 }
+
+#[test]
+fn rule_spans_round_trip_and_stay_off_the_line_wire() {
+    let plot = Plot::new()
+        .layer(Rule::v_span(1.0, 3.0).label("warmup"))
+        .layer(Rule::h_span(0.5, 0.25))
+        .layer(Rule::h(2.5));
+    let json = serde_json::to_string(&plot).unwrap();
+    assert!(json.contains("\"VerticalSpan\":[1.0,3.0]"), "{json}");
+    assert!(json.contains("\"HorizontalSpan\":[0.5,0.25]"), "{json}");
+    assert!(json.contains("\"Horizontal\":2.5"), "{json}");
+    let back: Plot<'static> = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.render(&frame()), plot.render(&frame()));
+    // A line rule serializes exactly as before.
+    let line = serde_json::to_string(&Plot::new().layer(Rule::h(2.5))).unwrap();
+    assert!(!line.contains("Span"), "{line}");
+}

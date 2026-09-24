@@ -4,7 +4,8 @@ use super::line::Dash;
 use crate::render::Color;
 
 /// A reference line spanning the plot: horizontal at a y value, or vertical at an
-/// x value. The zero line, a target, a threshold — annotations, not data.
+/// x value — or a span, the band between two values on one axis. The zero line, a
+/// target, a threshold, a highlighted period — annotations, not data.
 ///
 /// A rule extends the axis domain to include its position, so it is always visible.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -12,9 +13,18 @@ use crate::render::Color;
 pub(crate) enum Orientation {
     Horizontal(f64),
     Vertical(f64),
+    HorizontalSpan(f64, f64),
+    VerticalSpan(f64, f64),
 }
 
-/// A reference line across the plot area.
+/// A reference line across the plot area, or a span across it.
+///
+/// A span ([`Rule::h_span`], [`Rule::v_span`]) washes the band between two
+/// values across the whole plot in the rule's color: a recession, a warm-up
+/// phase, a tolerance window. On cell targets the wash is a light subpixel
+/// texture that marks drawn after it still show through; on pixel targets it
+/// is a translucent fill. Layers draw in order, so a span layered first sits
+/// behind the data.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rule {
@@ -62,8 +72,45 @@ impl Rule {
         rule
     }
 
+    /// A horizontal span between `y0` and `y1`, across the plot's width — a
+    /// tolerance band, a target range.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either bound is not finite.
+    pub fn h_span(y0: f64, y1: f64) -> Rule {
+        let rule = Rule {
+            orientation: Orientation::HorizontalSpan(y0, y1),
+            color: None,
+            label: None,
+            dash: Dash::Solid,
+        };
+        rule.validate()
+            .expect("Rule::h_span requires finite bounds");
+        rule
+    }
+
+    /// A vertical span between `x0` and `x1`, across the plot's height — a
+    /// recession, a warm-up phase, an event's duration.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either bound is not finite.
+    pub fn v_span(x0: f64, x1: f64) -> Rule {
+        let rule = Rule {
+            orientation: Orientation::VerticalSpan(x0, x1),
+            color: None,
+            label: None,
+            dash: Dash::Solid,
+        };
+        rule.validate()
+            .expect("Rule::v_span requires finite bounds");
+        rule
+    }
+
     /// Sets the stroke pattern; [`Dash::Solid`] by default. A dashed or
     /// dotted rule reads as annotation at a glance — a target, not data.
+    /// A span has no stroke and ignores it.
     #[must_use]
     pub fn dash(mut self, dash: Dash) -> Rule {
         self.dash = dash;
@@ -87,10 +134,13 @@ impl Rule {
 
     /// Checks the rule position after any construction path.
     pub(crate) fn validate(&self) -> crate::Result<()> {
-        let position = match self.orientation {
-            Orientation::Horizontal(value) | Orientation::Vertical(value) => value,
+        let finite = match self.orientation {
+            Orientation::Horizontal(value) | Orientation::Vertical(value) => value.is_finite(),
+            Orientation::HorizontalSpan(a, b) | Orientation::VerticalSpan(a, b) => {
+                a.is_finite() && b.is_finite()
+            }
         };
-        if position.is_finite() {
+        if finite {
             Ok(())
         } else {
             Err(crate::Error::InvalidParameter {

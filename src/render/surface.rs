@@ -575,6 +575,38 @@ impl Canvas for Surface {
         Surface::text(self, column, row, text, color);
     }
 
+    /// A checkerboard of subpixels: every other one, so the wash reads as a
+    /// texture — dots in braille, `▚` in quadrants — and a line drawn after it
+    /// still shows as the denser path through it. Bounded by the surface and
+    /// the clip before iterating, so a far-off span costs nothing.
+    fn wash(&mut self, from: (f64, f64), to: (f64, f64), color: Color) {
+        if !(from.0.is_finite() && from.1.is_finite() && to.0.is_finite() && to.1.is_finite()) {
+            return;
+        }
+        let (sw, sh) = self.subpixel_size();
+        if sw == 0 || sh == 0 {
+            return;
+        }
+        let (mut x0, mut y0, mut x1, mut y1) = (0i64, 0i64, sw as i64 - 1, sh as i64 - 1);
+        if let Some((cx0, cy0, cx1, cy1)) = self.clip {
+            x0 = x0.max(cx0);
+            y0 = y0.max(cy0);
+            x1 = x1.min(cx1 - 1);
+            y1 = y1.min(cy1 - 1);
+        }
+        let left = (from.0.min(to.0).round() as i64).max(x0);
+        let right = (from.0.max(to.0).round() as i64).min(x1);
+        let top = (from.1.min(to.1).round() as i64).max(y0);
+        let bottom = (from.1.max(to.1).round() as i64).min(y1);
+        for y in top..=bottom {
+            for x in left..=right {
+                if (x + y) % 2 == 0 {
+                    self.set(x, y, color);
+                }
+            }
+        }
+    }
+
     /// Annotations keep the field they land on: same cell snapping and anchor
     /// shifts as the trait contract, placed through [`Surface::annotate`] so a
     /// glyph over patch ink takes the underlying color as its background.

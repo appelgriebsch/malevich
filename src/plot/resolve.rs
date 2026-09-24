@@ -325,6 +325,10 @@ impl ResolvedLayer<'_> {
                 orientation: Orientation::Vertical(x),
                 ..
             } => Some((*x, *x)),
+            ResolvedLayer::Rule {
+                orientation: Orientation::VerticalSpan(a, b),
+                ..
+            } => Some((a.min(*b), a.max(*b))),
             ResolvedLayer::Rule { .. } => None,
             ResolvedLayer::Text { x, .. } => Some((*x, *x)),
             ResolvedLayer::Cells {
@@ -383,6 +387,10 @@ impl ResolvedLayer<'_> {
                 orientation: Orientation::Horizontal(y),
                 ..
             } => Some((*y, *y)),
+            ResolvedLayer::Rule {
+                orientation: Orientation::HorizontalSpan(a, b),
+                ..
+            } => Some((a.min(*b), a.max(*b))),
             ResolvedLayer::Rule { .. } => None,
             ResolvedLayer::Text { y, .. } => Some((*y, *y)),
             ResolvedLayer::Cells {
@@ -451,6 +459,10 @@ impl ResolvedLayer<'_> {
                 orientation: Orientation::Vertical(x),
                 ..
             } if *x > 0.0 => Some((*x, *x)),
+            ResolvedLayer::Rule {
+                orientation: Orientation::VerticalSpan(..),
+                ..
+            } => self.x_extent().filter(|(lo, _)| *lo > 0.0),
             ResolvedLayer::Text { x, .. } if *x > 0.0 => Some((*x, *x)),
             ResolvedLayer::Cells { .. } => self.x_extent().filter(|(lo, _)| *lo > 0.0),
             ResolvedLayer::Range { x, bands: None, .. } => x.extent_positive(),
@@ -485,6 +497,10 @@ impl ResolvedLayer<'_> {
                 orientation: Orientation::Horizontal(y),
                 ..
             } if *y > 0.0 => Some((*y, *y)),
+            ResolvedLayer::Rule {
+                orientation: Orientation::HorizontalSpan(..),
+                ..
+            } => self.y_extent().filter(|(lo, _)| *lo > 0.0),
             ResolvedLayer::Text { y, .. } if *y > 0.0 => Some((*y, *y)),
             ResolvedLayer::Cells { .. } => self.y_extent().filter(|(lo, _)| *lo > 0.0),
             ResolvedLayer::Range { low, high, .. } => {
@@ -543,8 +559,21 @@ impl ResolvedLayer<'_> {
             ResolvedLayer::Rule {
                 color,
                 label: Some(label),
+                orientation,
                 ..
-            } => visit(if ascii { "--" } else { "\u{2500}\u{2500}" }, *color, label),
+            } => {
+                let span = matches!(
+                    orientation,
+                    Orientation::HorizontalSpan(..) | Orientation::VerticalSpan(..)
+                );
+                let swatch = match (span, ascii) {
+                    (true, true) => "::",
+                    (true, false) => "\u{2591}\u{2591}",
+                    (false, true) => "--",
+                    (false, false) => "\u{2500}\u{2500}",
+                };
+                visit(swatch, *color, label)
+            }
             ResolvedLayer::Cells {
                 classes: Some(channel),
                 ..

@@ -199,12 +199,8 @@ pub fn series_chart(
             _ => series.unit,
         });
 
-    // Recession shading is skipped on a log axis: the ribbon strip must extend
-    // below the data, and a log axis cannot go to or past zero honestly.
-    if transform != Transform::Log
-        && let Some(recessions) = recessions
-    {
-        plot = recession_ribbon(plot, recessions, &x, &y);
+    if let Some(recessions) = recessions {
+        plot = recession_spans(plot, recessions, &x);
     }
 
     // Inflation charts get the Fed's 2% target as a reference rule: `Rule::h` is a
@@ -242,36 +238,22 @@ pub fn series_chart(
     plot
 }
 
-/// Adds the NBER recessions as a ribbon in a strip reserved *below* the data — a
-/// full-height band would fill every subpixel and swallow the line (terminals have
-/// no translucency). Assumes a linear y axis.
+/// Adds the NBER recessions as spans behind the data.
 ///
-/// malevich notes: two features compose here. `.y_domain(lo - strip, hi)` fixes
-/// the axis wider than the data (matplotlib's `ylim`), carving out space the data
-/// never enters; each recession is then an `Area::between(x, low, high)` — a
-/// filled band between two edges — living only inside that carved strip. Marks
-/// clip to the plot rectangle, so a period reaching past the visible range simply
-/// clips honestly.
-fn recession_ribbon(
-    mut plot: Plot<'static>,
-    recessions: &[(f64, f64)],
-    x: &[f64],
-    y: &[f64],
-) -> Plot<'static> {
-    let (lo, hi) = extent(y);
-    if x.is_empty() || !lo.is_finite() || hi <= lo {
+/// malevich notes: `Rule::v_span(start, end)` washes the band between two x
+/// values across the whole plot — on cells a light subpixel texture the line
+/// drawn after it still shows through, on pixels a translucent fill — so the
+/// shading needs no carved-out strip and works on a log axis too. Layers draw
+/// in insertion order, which is why the spans go in before the data. Marks
+/// clip to the plot rectangle, so a period reaching past the visible range
+/// simply clips honestly.
+fn recession_spans(mut plot: Plot<'static>, recessions: &[(f64, f64)], x: &[f64]) -> Plot<'static> {
+    let (Some(&first), Some(&last)) = (x.first(), x.last()) else {
         return plot;
-    }
-    let strip = (hi - lo) * 0.06;
-    plot = plot.y_domain(lo - strip, hi);
-    let (first, last) = (x[0], *x.last().unwrap_or(&0.0));
+    };
     for &(start, end) in recessions {
         if end >= first && start <= last {
-            plot = plot.layer(
-                Area::between([start, end], [lo - strip, lo - strip], [lo, lo])
-                    .color(ink::ROSE)
-                    .opacity(0.55),
-            );
+            plot = plot.layer(Rule::v_span(start, end).color(ink::ROSE));
         }
     }
     plot
@@ -415,7 +397,7 @@ pub fn relations_charts(
         .time_x()
         .y_label("points");
     if let Some(recessions) = recessions {
-        spread_plot = recession_ribbon(spread_plot, recessions, &dates, &spread);
+        spread_plot = recession_spans(spread_plot, recessions, &dates);
     }
     spread_plot = spread_plot
         .layer(

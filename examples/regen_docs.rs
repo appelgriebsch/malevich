@@ -40,7 +40,8 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
             ),
             (
                 "annotated",
-                "Annotations: a Rule for the target line, a Text note at data coordinates.",
+                "Annotations: a Rule for the target line, a Rule span washing the \
+                 warm-up phase behind the data, a Text note at data coordinates.",
             ),
             (
                 "describe",
