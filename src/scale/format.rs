@@ -37,6 +37,28 @@ pub(crate) fn decimal(mantissa: i128, exp10: i32) -> String {
 /// The fixed significant-digit budget a value set is formatted at.
 const SIGNIFICANT_DIGITS: i32 = 4;
 
+/// The one SI prefix for a set whose largest magnitude is `10^magnitude`:
+/// engaged at ten thousand and up (`k`, `M`, `G`, `T`) or below a thousandth
+/// (`µ`, `n`, `p`), as `(shift, suffix)`; `None` inside that band or beyond
+/// the table.
+pub(crate) fn si_prefix(magnitude: i32) -> Option<(i32, char)> {
+    if magnitude < 4 && magnitude > -4 {
+        return None;
+    }
+    let shift = 3 * magnitude.div_euclid(3);
+    let suffix = match shift {
+        3 => 'k',
+        6 => 'M',
+        9 => 'G',
+        12 => 'T',
+        -6 => '\u{00B5}',
+        -9 => 'n',
+        -12 => 'p',
+        _ => return None,
+    };
+    Some((shift, suffix))
+}
+
 /// The shortest decimal that round-trips to `value`, as an integer digit
 /// string and its power of ten: `0.1 + 0.2` is `(30000000000000004, -17)`.
 /// Rounding those digits to a budget is integer arithmetic, so a label never
@@ -136,22 +158,7 @@ impl NumberFormat {
             };
         }
         let magnitude = max_abs.log10().floor() as i32;
-        let prefix = if magnitude >= 4 || magnitude <= -4 {
-            let shift = 3 * magnitude.div_euclid(3);
-            let suffix = match shift {
-                3 => Some('k'),
-                6 => Some('M'),
-                9 => Some('G'),
-                12 => Some('T'),
-                -6 => Some('\u{00B5}'),
-                -9 => Some('n'),
-                -12 => Some('p'),
-                _ => None,
-            };
-            suffix.map(|suffix| (shift, suffix))
-        } else {
-            None
-        };
+        let prefix = si_prefix(magnitude);
         // Beyond the prefix table — past `T`, below `p` — the set is written
         // against one power of ten instead: `1.798e308`, never 309 digits, and
         // never a `Display` fallback that a smaller chart would not use.

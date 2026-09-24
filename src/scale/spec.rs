@@ -12,7 +12,7 @@
 /// [`Range::over`](crate::Range::over), and to linear otherwise. The explicit x-axis
 /// contract is:
 ///
-/// | Mark | Linear / Time | Log | Bands |
+/// | Mark | Linear / Integer / Time | Log | Bands |
 /// | --- | --- | --- | --- |
 /// | Line, Points, Area, numeric Range, Rule, Text | yes | yes; non-positive values are gaps | yes; positions are band indices |
 /// | `Bars::new`, `Range::over` | no | no | yes |
@@ -43,6 +43,10 @@ pub enum Scale {
     Auto,
     /// A continuous linear axis.
     Linear,
+    /// A linear axis whose ticks are whole numbers: counts, ranks, sizes. The
+    /// tick step never drops below one, so a tall frame over `0..3` labels
+    /// `0, 1, 2, 3`, never `0.5`.
+    Integer,
     /// Base-10 logarithmic: decade ticks, and values at or below zero become gaps.
     Log,
     /// Unix seconds (UTC): calendar-aligned ticks with multi-scale labels.

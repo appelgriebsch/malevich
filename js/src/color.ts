@@ -112,9 +112,11 @@ export const Theme = {
   },
 };
 
-export type ScaleJSON = "Auto" | "Linear" | "Log" | "Time" | { Bands: string[] };
+export type ScaleJSON = "Auto" | "Linear" | "Integer" | "Log" | "Time" | { Bands: string[] };
 
-export function scaleToJSON(scale: "Auto" | "Linear" | "Log" | "Time" | { bands: string[] } | ScaleJSON): ScaleJSON {
+export function scaleToJSON(
+  scale: "Auto" | "Linear" | "Integer" | "Log" | "Time" | { bands: string[] } | ScaleJSON,
+): ScaleJSON {
   if (typeof scale === "string") {
     return scale;
   }

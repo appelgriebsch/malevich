@@ -135,9 +135,19 @@ itself mergeable.
 A mapping from data domain to raster range with the d3-scale contract:
 `nice`, `ticks(n)`, `invert`, and a tick formatter. Position scales:
 `Linear`, `Log`, `Time`, `Band` — the axis specification is `scale::Scale`
-(`Linear | Log | Time | Bands`), set via `Plot::x_scale`/`y_scale`. `Bands`
+(`Linear | Integer | Log | Time | Bands`), set via `Plot::x_scale`/`y_scale`.
+`Integer` is a linear axis whose tick step never drops below one — counts,
+ranks, sizes — so a tall frame over `0..3` labels `0, 1, 2, 3`, never `0.5`;
+`hist` counts on it. `Bands`
 works on either axis: on x it is the bar-family categorical axis, on y it
-labels matrix rows in matrix order. Color scales: `scale::Colormap` covers
+labels matrix rows in matrix order. A linear or integer axis may also carry
+a unit, `scale::Unit`, set via `Plot::x_unit`/`y_unit`: `Unit::si("B")` puts
+the axis's one SI prefix before the unit (`2.5 MB`, `0 kB`), `Unit::Bytes`
+chooses ticks nice in the binary unit (`512 KiB`, `1.5 GiB`), and
+`Unit::suffix("%")` appends a bare suffix and never a prefix (`45%`). The
+unit is a scale option: the ticks stay the same ticks, only the labels
+change, and the `Mapping` readout speaks the same unit. Color scales:
+`scale::Colormap` covers
 sequential and diverging ramps (curated named constants — `VIRIDIS`,
 `MAGMA`, `CIVIDIS`, `GREYS`, `RED_BLUE`, `PURPLE_ORANGE`; `centered_at(mid)`
 anchors a diverging map to a data value, `log()` makes a sequential map
@@ -154,7 +164,9 @@ fraction width and one SI prefix per axis (one power of ten beyond the
 prefix table, `8.796e-100`), and never show float artifacts. A range no
 nice step can cover — equal bounds, a span past the exact mantissa — falls
 back to its two bounds, formatted by the same formatter at its budget. Maps
-to `scale::Ticks`. `scale::NumberFormat` makes the same label decisions
+to `scale::Ticks`; `scale::TickOptions` (a `Unit` and an `integer` flag)
+is how an axis's scale options reach the tick search through
+`Ticks::linear_with`. `scale::NumberFormat` makes the same label decisions
 once for an arbitrary set of related values — one fraction width, one SI
 prefix or power of ten, whole labels for whole-number sets, gaps as `—` —
 the per-column formatter behind `table`, usable for any readout; there is no

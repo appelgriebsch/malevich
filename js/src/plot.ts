@@ -108,11 +108,11 @@ export class Plot {
     return this.withSpec({ y_domain: [Math.min(min, max), Math.max(min, max)] });
   }
 
-  xScale(scale: "Auto" | "Linear" | "Log" | "Time" | { bands: string[] }): Plot {
+  xScale(scale: "Auto" | "Linear" | "Integer" | "Log" | "Time" | { bands: string[] }): Plot {
     return this.withSpec({ x: scaleToJSON(scale) });
   }
 
-  yScale(scale: "Auto" | "Linear" | "Log" | "Time" | { bands: string[] }): Plot {
+  yScale(scale: "Auto" | "Linear" | "Integer" | "Log" | "Time" | { bands: string[] }): Plot {
     return this.withSpec({ y: scaleToJSON(scale) });
   }
 

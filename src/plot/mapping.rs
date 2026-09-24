@@ -1,7 +1,7 @@
 //! `Mapping`: the resolved geometry of one render, as a queryable value.
 
 use super::layout::{Layout, Map};
-use crate::scale::Scale;
+use crate::scale::{Scale, Unit};
 
 /// How a rendered plot maps cells onto data: the plot rectangle and the
 /// resolved scales, computed by the same layout pass rendering uses.
@@ -39,6 +39,8 @@ pub struct Mapping {
     y_kind: AxisKind,
     x_categories: Option<Vec<String>>,
     y_categories: Option<Vec<String>>,
+    x_unit: Unit,
+    y_unit: Unit,
 }
 
 /// The plot panel's cell rectangle within its frame: where the data draws,
@@ -93,6 +95,8 @@ impl Mapping {
             y_kind,
             x_categories: layout.categories.map(<[String]>::to_vec),
             y_categories,
+            x_unit: layout.x_unit.clone(),
+            y_unit: layout.y_unit.clone(),
         }
     }
 
@@ -113,6 +117,8 @@ impl Mapping {
             y_kind: AxisKind::Linear,
             x_categories: None,
             y_categories: None,
+            x_unit: Unit::Plain,
+            y_unit: Unit::Plain,
         }
     }
 
@@ -237,8 +243,8 @@ impl Mapping {
 
     /// Formats an x value the way the x axis would: exact decimals at the
     /// resolution one cell actually has (never `0.30000000000000004`, never
-    /// false precision), calendar instants on a time axis, the category label
-    /// on a bands axis.
+    /// false precision), in the axis's unit, calendar instants on a time
+    /// axis, the category label on a bands axis.
     pub fn format_x(&self, value: f64) -> String {
         format_value(
             value,
@@ -246,6 +252,7 @@ impl Mapping {
             self.x_domain,
             self.columns,
             self.x_categories.as_deref(),
+            &self.x_unit,
         )
     }
 
@@ -257,6 +264,7 @@ impl Mapping {
             self.y_domain,
             self.rows,
             self.y_categories.as_deref(),
+            &self.y_unit,
         )
     }
 
@@ -291,6 +299,7 @@ fn format_value(
     domain: (f64, f64),
     cells: usize,
     categories: Option<&[String]>,
+    unit: &Unit,
 ) -> String {
     if !value.is_finite() {
         return value.to_string();
@@ -309,7 +318,40 @@ fn format_value(
         AxisKind::Time => {
             crate::scale::time::readout(value, (domain.1 - domain.0) / cells.max(1) as f64)
         }
-        AxisKind::Linear => decimal_at(value, (domain.1 - domain.0) / cells.max(1) as f64),
+        AxisKind::Linear => {
+            let step = (domain.1 - domain.0) / cells.max(1) as f64;
+            match unit {
+                Unit::Plain => decimal_at(value, step),
+                Unit::Suffix(suffix) => format!("{}{suffix}", decimal_at(value, step)),
+                Unit::Si(name) => {
+                    // The prefix the value's own magnitude asks for, the
+                    // resolution scaled along with it.
+                    let magnitude = if value == 0.0 {
+                        0
+                    } else {
+                        value.abs().log10().floor() as i32
+                    };
+                    match crate::scale::format::si_prefix(magnitude) {
+                        Some((shift, prefix)) => {
+                            let factor = 10f64.powi(shift);
+                            format!(
+                                "{} {prefix}{name}",
+                                decimal_at(value / factor, step / factor)
+                            )
+                        }
+                        None => format!("{} {name}", decimal_at(value, step)),
+                    }
+                }
+                Unit::Bytes => {
+                    let (power, factor) = crate::scale::unit::binary_prefix(value.abs());
+                    format!(
+                        "{} {}",
+                        decimal_at(value / factor, step / factor),
+                        crate::scale::unit::BINARY_UNITS[power]
+                    )
+                }
+            }
+        }
         AxisKind::Log => {
             if value <= 0.0 || domain.0 <= 0.0 || domain.1 <= 0.0 {
                 return value.to_string();

@@ -60,6 +60,18 @@ pub struct Plot<'a> {
         serde(default = "axes_default", skip_serializing_if = "axes_shown")
     )]
     axes: bool,
+    /// The unit the x axis's labels carry; wire documents omit it while plain.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "crate::scale::Unit::is_plain")
+    )]
+    x_unit: crate::scale::Unit,
+    /// The unit the y axis's labels carry; wire documents omit it while plain.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "crate::scale::Unit::is_plain")
+    )]
+    y_unit: crate::scale::Unit,
 }
 
 #[cfg(feature = "serde")]
@@ -140,7 +152,29 @@ impl<'a> Plot<'a> {
             colorbar: false,
             palette: None,
             axes: true,
+            x_unit: crate::scale::Unit::Plain,
+            y_unit: crate::scale::Unit::Plain,
         }
+    }
+
+    /// Sets the unit the x axis's labels carry — a scale option on a linear
+    /// or integer axis: [`Unit::si`](crate::scale::Unit::si) for one SI prefix
+    /// plus the unit (`2.5 MB`, `100 µs`), [`Unit::Bytes`](crate::scale::Unit::Bytes)
+    /// for binary bytes with ticks nice in their own unit (`1.5 GiB`),
+    /// [`Unit::suffix`](crate::scale::Unit::suffix) for a bare suffix (`45%`).
+    /// The readout of a [`Mapping`] speaks the same unit. Log, time, and
+    /// bands axes keep their own labels.
+    #[must_use]
+    pub fn x_unit(mut self, unit: crate::scale::Unit) -> Plot<'a> {
+        self.x_unit = unit;
+        self
+    }
+
+    /// Sets the unit the y axis's labels carry; see [`Plot::x_unit`].
+    #[must_use]
+    pub fn y_unit(mut self, unit: crate::scale::Unit) -> Plot<'a> {
+        self.y_unit = unit;
+        self
     }
 
     /// Draws or omits the axes: with `false`, no axis lines, ticks, tick
@@ -336,6 +370,8 @@ impl<'a> Plot<'a> {
             colorbar: self.colorbar,
             palette: self.palette,
             axes: self.axes,
+            x_unit: self.x_unit,
+            y_unit: self.y_unit,
         }
     }
 
@@ -508,7 +544,10 @@ impl<'a> Plot<'a> {
                     "a categorical layer needs an Auto or Bands x scale",
                 )
             };
-            if matches!(scale, Scale::Linear | Scale::Log | Scale::Time) {
+            if matches!(
+                scale,
+                Scale::Linear | Scale::Integer | Scale::Log | Scale::Time
+            ) {
                 return Err(crate::Error::IncompatibleScale { detail });
             }
             match existing {
@@ -833,6 +872,7 @@ impl<'a> Plot<'a> {
             &probe,
             self.title.is_some(),
             (&self.x, &self.y),
+            (&self.x_unit, &self.y_unit),
             (self.x_label.as_deref(), self.y_label.as_deref()),
             (self.x_domain, self.y_domain),
             (self.colorbar, self.axes),
@@ -850,6 +890,7 @@ impl<'a> Plot<'a> {
         let sample_width = sample_width(frame, policy)?;
         let title = self.title.is_some();
         let scales = (&self.x, &self.y);
+        let units = (&self.x_unit, &self.y_unit);
         let labels = (self.x_label.as_deref(), self.y_label.as_deref());
         let domains = (self.x_domain, self.y_domain);
         let layer_palette = &frame.theme.palette;
@@ -902,6 +943,7 @@ impl<'a> Plot<'a> {
                 &layers,
                 title,
                 scales,
+                units,
                 labels,
                 domains,
                 (self.colorbar, self.axes),

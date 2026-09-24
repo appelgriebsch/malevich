@@ -28,7 +28,7 @@ pub struct Document {
 
 #[derive(Debug, Clone)]
 enum Content {
-    Plot(Plot<'static>),
+    Plot(Box<Plot<'static>>),
     Grid(Grid<'static>),
 }
 
@@ -40,7 +40,7 @@ impl Document {
     pub fn plot(plot: Plot<'_>) -> crate::Result<Document> {
         plot.validate()?;
         Ok(Document {
-            content: Content::Plot(plot.into_owned()),
+            content: Content::Plot(Box::new(plot.into_owned())),
         })
     }
 
@@ -160,7 +160,7 @@ struct OwnedEnvelope {
 #[derive(serde::Deserialize)]
 #[serde(tag = "kind", content = "spec", rename_all = "snake_case")]
 enum OwnedContent {
-    Plot(Plot<'static>),
+    Plot(Box<Plot<'static>>),
     Grid(Grid<'static>),
 }
 

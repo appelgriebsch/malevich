@@ -318,6 +318,7 @@ fn the_hist_preset_equals_its_grammar_expansion() {
             bins.width(),
             &counts[..],
         ))
+        .y_scale(crate::scale::Scale::Integer)
         .render(&frame);
     assert_eq!(preset, grammar);
 }
@@ -2239,4 +2240,68 @@ fn describe_with_adds_an_inline_histogram_column_and_defaults_to_describe() {
         crate::describe_with(["a", "b"], [&loss[..]], crate::DescribeOptions::new()),
         Err(crate::Error::UnequalChannels { .. })
     ));
+}
+
+#[test]
+fn integer_axes_and_units_label_as_the_scale_says() {
+    use crate::scale::{Scale, Unit};
+    // Three counts over a tall frame: whole ticks only.
+    let counts = Plot::new()
+        .layer(crate::mark::Bars::new(
+            ["a", "b", "c"],
+            &[1.0, 3.0, 2.0][..],
+        ))
+        .y_scale(Scale::Integer)
+        .render(&Frame::plain(30, 20));
+    for line in counts.lines() {
+        if let Some(label) = line
+            .split('\u{2524}')
+            .next()
+            .filter(|_| line.contains('\u{2524}'))
+        {
+            assert!(!label.contains('.'), "fractional count tick:\n{counts}");
+        }
+    }
+    // An SI unit: one prefix per axis, spaced off the number, the unit after.
+    let bytes: Vec<f64> = (0..10).map(|i| i as f64 * 5.0e5).collect();
+    let si = Plot::new()
+        .layer(Line::y(&bytes[..]))
+        .y_unit(Unit::si("B"))
+        .render(&Frame::plain(40, 12));
+    assert!(si.contains(" MB"), "{si}");
+    assert!(
+        si.contains("0 MB") || si.contains("0.0 MB"),
+        "zero reads in the axis's unit:\n{si}"
+    );
+    // Binary bytes: ticks nice in MiB, labels in MiB.
+    let binary = Plot::new()
+        .layer(Line::y(&bytes[..]))
+        .y_unit(Unit::Bytes)
+        .render(&Frame::plain(40, 12));
+    assert!(binary.contains(" MiB"), "{binary}");
+    assert!(!binary.contains(" MB"), "{binary}");
+    // A bare suffix, never a prefix.
+    let percent = Plot::new()
+        .layer(Line::y(&[10.0, 45.0, 80.0][..]))
+        .y_unit(Unit::suffix("%"))
+        .render(&Frame::plain(30, 10));
+    assert!(
+        percent.contains("80%") || percent.contains("75%"),
+        "{percent}"
+    );
+    // The readout speaks the unit at cell resolution.
+    let mapping = Plot::new()
+        .layer(Line::y(&bytes[..]))
+        .y_unit(Unit::si("B"))
+        .mapping(&Frame::plain(40, 12));
+    let readout = mapping.format_y(2_500_000.0);
+    assert!(
+        readout.ends_with(" MB") && readout.starts_with("2.5"),
+        "{readout}"
+    );
+    let mapping = Plot::new()
+        .layer(Line::y(&bytes[..]))
+        .y_unit(Unit::Bytes)
+        .mapping(&Frame::plain(40, 12));
+    assert!(mapping.format_y(1_048_576.0).ends_with(" MiB"));
 }

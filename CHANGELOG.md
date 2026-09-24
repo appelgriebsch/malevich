@@ -5,6 +5,20 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Scale::Integer` is a linear axis whose tick step never drops below one:
+  counts, ranks, sizes. A tall frame over `0..3` labels `0, 1, 2, 3`, never
+  `0.5`. `hist`, `kaz hist`, and `kaz count` count on it; the packaging
+  witness now names it in the expansion.
+- `Plot::x_unit(Unit)` / `Plot::y_unit(Unit)` put a unit on a linear or
+  integer axis's labels: `Unit::si("B")` places the axis's one SI prefix
+  before the unit (`2.5 MB`, `100 µs`, `0 kB`), `Unit::Bytes` chooses ticks
+  nice in the binary unit and labels `512 KiB`, `1.5 GiB`, `Unit::suffix("%")`
+  appends a bare suffix and never a prefix. The ticks stay the extended
+  Wilkinson ticks — only the labels change — and the `Mapping` readout speaks
+  the same unit. `Ticks::linear_with(min, max, target, &TickOptions)` exposes
+  both options to callers who place their own ticks. sysmon labels memory in
+  bytes and throughput in `B/s`.
+
 - `describe_with(names, groups, DescribeOptions::new().histogram(bins))`
   adds a ninth column to the summary table: each group's distribution as
   `bins` eighth-block glyphs scaled to its fullest bin, empty bins blank —

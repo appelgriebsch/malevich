@@ -5,6 +5,9 @@ The renderer underneath is whatever `engineVersion` reports.
 
 ## Unreleased
 
+- `xScale` / `yScale` accept `"Integer"`, the crate's whole-number linear
+  axis; `hist` counts on it.
+
 ## 0.3.0 — 2026-09-07
 
 The JS rim covers the grammar, proves it against the crate, and stops leaking

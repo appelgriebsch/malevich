@@ -575,3 +575,21 @@ fn axes_off_round_trips_and_stays_off_the_wire_when_shown() {
     let back: Plot<'static> = serde_json::from_str(&json).unwrap();
     assert_eq!(back.render(&frame()), bare.render(&frame()));
 }
+
+#[test]
+fn units_and_integer_axes_round_trip_and_stay_off_the_plain_wire() {
+    use crate::scale::{Scale, Unit};
+    let plain = serde_json::to_string(&Plot::new().layer(Line::y(&[1.0, 2.0][..]))).unwrap();
+    assert!(!plain.contains("unit"), "{plain}");
+    let plot = Plot::new()
+        .layer(Line::y(&[1.0, 2.0][..]))
+        .y_unit(Unit::si("B"))
+        .x_unit(Unit::Bytes)
+        .y_scale(Scale::Integer);
+    let json = serde_json::to_string(&plot).unwrap();
+    assert!(json.contains("\"y_unit\":{\"Si\":\"B\"}"), "{json}");
+    assert!(json.contains("\"x_unit\":\"Bytes\""), "{json}");
+    assert!(json.contains("\"y\":\"Integer\""), "{json}");
+    let back: Plot<'static> = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.render(&frame()), plot.render(&frame()));
+}

@@ -11,6 +11,42 @@
 //! no binary-float artifacts, and a uniform number of decimals across the axis.
 
 use super::format;
+use super::unit::{BINARY_UNITS, Unit, binary_prefix};
+
+/// How a linear axis labels its ticks: the unit the labels carry, and whether
+/// the step may drop below one.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub struct TickOptions {
+    /// The unit on every label; [`Unit::Plain`] by default.
+    pub unit: Unit,
+    /// Whole-number ticks only: the step never drops below one.
+    pub integer: bool,
+}
+
+impl TickOptions {
+    /// Plain labels, any step — exactly [`Ticks::linear`].
+    pub const fn new() -> TickOptions {
+        TickOptions {
+            unit: Unit::Plain,
+            integer: false,
+        }
+    }
+
+    /// Sets the unit.
+    #[must_use]
+    pub fn unit(mut self, unit: Unit) -> TickOptions {
+        self.unit = unit;
+        self
+    }
+
+    /// Restricts ticks to whole numbers.
+    #[must_use]
+    pub const fn integer(mut self) -> TickOptions {
+        self.integer = true;
+        self
+    }
+}
 
 /// Step mantissas in preference order, as `(integer mantissa, value)` with
 /// `value = mantissa / 10`, so that every tick value stays an exact decimal.
@@ -74,22 +110,41 @@ impl Ticks {
     ///
     /// Panics if `min` or `max` is not finite.
     pub fn linear(min: f64, max: f64, target: usize) -> Ticks {
+        Ticks::linear_with(min, max, target, &TickOptions::new())
+    }
+
+    /// [`Ticks::linear`] with a [`TickOptions`]: a unit on the labels (one SI
+    /// prefix per axis plus the unit, binary bytes nice in their own unit, or
+    /// a bare suffix) and, with `integer`, a step of at least one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `min` or `max` is not finite.
+    pub fn linear_with(min: f64, max: f64, target: usize, options: &TickOptions) -> Ticks {
         assert!(
             min.is_finite() && max.is_finite(),
             "Ticks::linear requires finite bounds, got {min} and {max}"
         );
         let (lo, hi) = if min <= max { (min, max) } else { (max, min) };
         let target = target.max(2);
-        if lo == hi {
+        // Binary bytes search in their own unit, so the ticks are nice there.
+        let binary = matches!(options.unit, Unit::Bytes).then(|| {
+            let (power, factor) = binary_prefix(lo.abs().max(hi.abs()));
+            (factor, BINARY_UNITS[power])
+        });
+        let (factor, unit_name) = binary.unwrap_or((1.0, ""));
+        let (slo, shi) = (lo / factor, hi / factor);
+        let min_step = if options.integer { 1.0 } else { 0.0 };
+        if slo == shi {
             return Ticks {
-                ticks: endpoint_ticks(lo, hi),
+                ticks: with_unit(endpoint_ticks(slo, shi), factor, unit_name, &options.unit),
                 step: None,
             };
         }
-        match search(lo, hi, target) {
-            Some(best) => materialize(&best),
+        match search(slo, shi, target, min_step) {
+            Some(best) => materialize(&best, options, factor, unit_name),
             None => Ticks {
-                ticks: endpoint_ticks(lo, hi),
+                ticks: with_unit(endpoint_ticks(slo, shi), factor, unit_name, &options.unit),
                 step: Some(hi - lo),
             },
         }
@@ -224,7 +279,7 @@ const MAX_MAGNITUDE_STEPS: i32 = 60;
 /// such ranges (huge value, tiny span) fall back to plain endpoint ticks.
 const MAX_INDEX: f64 = 1e14;
 
-fn search(dmin: f64, dmax: f64, target: usize) -> Option<Candidate> {
+fn search(dmin: f64, dmax: f64, target: usize, min_step: f64) -> Option<Candidate> {
     let range = dmax - dmin;
     // A span so wide it overflows to infinity has no nice ticks; fall back to the
     // endpoints rather than driving the magnitude search into non-finite arithmetic.
@@ -256,6 +311,10 @@ fn search(dmin: f64, dmax: f64, target: usize) -> Option<Candidate> {
                 for dz in 0..MAX_MAGNITUDE_STEPS {
                     let z = z0 + dz;
                     let step = skip_f * step_value * 10f64.powi(z);
+                    if step < min_step {
+                        // Whole-number axes: a finer step is not a candidate.
+                        continue;
+                    }
                     let span = step * (count as f64 - 1.0);
                     let c_max = coverage_max(dmin, dmax, span);
                     if score(s_max, c_max, d_max) <= best_score {
@@ -301,7 +360,12 @@ fn search(dmin: f64, dmax: f64, target: usize) -> Option<Candidate> {
     best
 }
 
-fn materialize(candidate: &Candidate) -> Ticks {
+fn materialize(
+    candidate: &Candidate,
+    options: &TickOptions,
+    factor: f64,
+    unit_name: &str,
+) -> Ticks {
     let mut mantissas: Vec<i128> = (0..candidate.count)
         .map(|t| (candidate.start + t as i128 * candidate.skip) * candidate.step_mantissa)
         .collect();
@@ -312,31 +376,85 @@ fn materialize(candidate: &Candidate) -> Ticks {
         }
         exp10 += 1;
     }
-    let scaling = scaling(&mantissas, exp10);
+    let scaling = match (&options.unit, scaling(&mantissas, exp10)) {
+        // Binary bytes carry their own prefix and a bare suffix carries none:
+        // neither takes an SI prefix; only the exponent form survives.
+        (Unit::Bytes | Unit::Suffix(_), Scaling::Prefix { .. }) => Scaling::Plain,
+        (_, scaling) => scaling,
+    };
     let ticks: Vec<Tick> = mantissas
         .iter()
-        .map(|&mantissa| Tick {
-            value: value_of(mantissa, exp10),
-            label: match scaling {
+        .map(|&mantissa| {
+            let numeric = match scaling {
                 // On a prefixed or exponent axis zero is deliberately bare.
                 Scaling::Prefix { .. } | Scaling::Exponent(_) if mantissa == 0 => "0".to_string(),
-                Scaling::Prefix { shift, suffix } => {
-                    format!("{}{suffix}", format::decimal(mantissa, exp10 - shift))
-                }
+                Scaling::Prefix { shift, .. } => format::decimal(mantissa, exp10 - shift),
                 Scaling::Exponent(exponent) => {
                     format!("{}e{exponent}", format::decimal(mantissa, exp10 - exponent))
                 }
                 Scaling::Plain => format::decimal(mantissa, exp10),
-            },
+            };
+            let prefix = match scaling {
+                // A plain prefixed zero stays a bare `0`; with a unit the
+                // prefix is the axis's and every label reads in it.
+                Scaling::Prefix { .. } if mantissa == 0 && options.unit.is_plain() => String::new(),
+                Scaling::Prefix { suffix, .. } => suffix.to_string(),
+                _ => String::new(),
+            };
+            let label = match &options.unit {
+                Unit::Plain => format!("{numeric}{prefix}"),
+                Unit::Si(unit) => format!("{numeric} {prefix}{unit}"),
+                Unit::Suffix(suffix) => format!("{numeric}{suffix}"),
+                Unit::Bytes => format!("{numeric} {unit_name}"),
+            };
+            Tick {
+                value: value_of(mantissa, exp10) * factor,
+                label,
+            }
         })
         .collect();
     // Computed from the integer mantissa difference, so the step itself is
     // decimal-exact (0.8, never 0.8000000000000003).
-    let step = value_of(mantissas[1] - mantissas[0], exp10);
+    let step = value_of(mantissas[1] - mantissas[0], exp10) * factor;
     Ticks {
         ticks,
         step: Some(step),
     }
+}
+
+/// Endpoint fallback ticks carrying the axis's unit: the bytes factor
+/// restored, the unit or suffix appended, an SI prefix on the label spaced
+/// off from the number.
+fn with_unit(ticks: Vec<Tick>, factor: f64, unit_name: &str, unit: &Unit) -> Vec<Tick> {
+    ticks
+        .into_iter()
+        .map(|tick| {
+            let label = match unit {
+                Unit::Plain => tick.label,
+                Unit::Suffix(suffix) => format!("{}{suffix}", tick.label),
+                Unit::Bytes => format!("{} {unit_name}", tick.label),
+                Unit::Si(unit) => {
+                    let prefixed = tick
+                        .label
+                        .chars()
+                        .last()
+                        .is_some_and(|last| "kMGTµnp".contains(last));
+                    if prefixed {
+                        let (number, prefix) = tick.label.split_at(
+                            tick.label.len() - tick.label.chars().last().map_or(0, char::len_utf8),
+                        );
+                        format!("{number} {prefix}{unit}")
+                    } else {
+                        format!("{} {unit}", tick.label)
+                    }
+                }
+            };
+            Tick {
+                value: tick.value * factor,
+                label,
+            }
+        })
+        .collect()
 }
 
 /// Formats `10^power` with Unicode superscripts: `1`, `10`, `10²`, `10⁻³`.

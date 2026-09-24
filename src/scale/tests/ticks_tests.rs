@@ -1,4 +1,5 @@
-use super::Ticks;
+use super::{TickOptions, Ticks};
+use crate::scale::Unit;
 
 fn labels(ticks: &Ticks) -> Vec<&str> {
     ticks.iter().map(|tick| tick.label.as_str()).collect()
@@ -411,4 +412,77 @@ fn strided_decades_prefer_multiples_of_the_stride() {
     // No stride: every decade, unchanged.
     let ticks = Ticks::log10(1.0, 1e4, 8);
     assert_eq!(ticks.len(), 5);
+}
+
+#[test]
+fn integer_ticks_never_step_below_one() {
+    let options = TickOptions::new().integer();
+    assert_eq!(
+        labels(&Ticks::linear_with(0.0, 3.0, 12, &options)),
+        ["0", "1", "2", "3"]
+    );
+    assert_eq!(
+        labels(&Ticks::linear_with(0.0, 1.0, 8, &options)),
+        ["0", "1"]
+    );
+    // Large ranges are untouched: their steps were whole already.
+    assert_eq!(
+        Ticks::linear_with(0.0, 100.0, 6, &options),
+        Ticks::linear(0.0, 100.0, 6)
+    );
+}
+
+#[test]
+fn units_label_the_axis_and_keep_the_values() {
+    let si = TickOptions::new().unit(Unit::si("B"));
+    let ticks = Ticks::linear_with(0.0, 50_000.0, 6, &si);
+    assert_eq!(
+        labels(&ticks),
+        ["0 kB", "10 kB", "20 kB", "30 kB", "40 kB", "50 kB"]
+    );
+    assert_eq!(ticks.as_slice()[1].value, 10_000.0);
+    let small = Ticks::linear_with(0.0, 12.0, 4, &si);
+    assert_eq!(labels(&small), ["0 B", "4 B", "8 B", "12 B"]);
+
+    let suffix = TickOptions::new().unit(Unit::suffix("%"));
+    assert_eq!(
+        labels(&Ticks::linear_with(0.0, 100.0, 6, &suffix)),
+        ["0%", "20%", "40%", "60%", "80%", "100%"]
+    );
+    // A suffix never takes an SI prefix, however large the axis.
+    let big = Ticks::linear_with(0.0, 50_000.0, 6, &suffix);
+    assert!(
+        big.iter().all(|t| !t.label.contains('k')),
+        "{:?}",
+        labels(&big)
+    );
+
+    let bytes = TickOptions::new().unit(Unit::Bytes);
+    let ticks = Ticks::linear_with(0.0, 1_200_000.0, 6, &bytes);
+    assert!(
+        ticks.iter().all(|t| t.label.ends_with(" MiB")),
+        "{:?}",
+        labels(&ticks)
+    );
+    // Ticks are nice in MiB and exact in bytes: 0.2 MiB is 209715.2 B.
+    let fifth = ticks
+        .iter()
+        .find(|t| t.label.starts_with("0.2"))
+        .expect("a fifth-of-a-MiB tick");
+    assert_eq!(fifth.value, 0.2 * 1_048_576.0);
+    let tiny = Ticks::linear_with(0.0, 800.0, 5, &bytes);
+    assert!(
+        tiny.iter().all(|t| t.label.ends_with(" B")),
+        "{:?}",
+        labels(&tiny)
+    );
+    // Equal bounds carry the unit too.
+    assert_eq!(
+        labels(&Ticks::linear_with(2048.0, 2048.0, 3, &bytes)),
+        ["2 KiB"]
+    );
+    assert_eq!(
+        labels(&Ticks::linear_with(25_000.0, 25_000.0, 3, &si)),
+        ["25.00 kB"]
+    );
 }

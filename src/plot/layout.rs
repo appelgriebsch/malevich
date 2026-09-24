@@ -3,7 +3,7 @@
 use crate::plot::frame::Frame;
 use crate::plot::resolve::{ResolvedLayer, extent, union};
 use crate::render::{Charset, display_width};
-use crate::scale::{Band, Colormap, Linear, Scale, Ticks};
+use crate::scale::{Band, Colormap, Linear, Scale, TickOptions, Ticks, Unit};
 
 /// A colorbar: the colormap strip drawn down the right edge, legending a Cells
 /// layer's value range.
@@ -124,6 +124,9 @@ pub(crate) struct Layout<'p> {
     pub colorbar: Option<Colorbar>,
     /// Whether axis lines, ticks, and tick labels are drawn at all.
     pub axes: bool,
+    /// The units the axes' labels and readouts carry.
+    pub x_unit: &'p Unit,
+    pub y_unit: &'p Unit,
 }
 
 impl<'p> Layout<'p> {
@@ -138,12 +141,22 @@ impl<'p> Layout<'p> {
         layers: &[ResolvedLayer<'p>],
         has_title: bool,
         scales: (&'p Scale, &'p Scale),
+        units: (&'p Unit, &'p Unit),
         axis_labels: (Option<&str>, Option<&str>),
         domains: Domains,
         furniture: (bool, bool),
     ) -> Layout<'p> {
         let (colorbar_requested, axes) = furniture;
         let (x_spec, y_spec) = scales;
+        let (x_unit, y_unit) = units;
+        let x_options = TickOptions {
+            unit: x_unit.clone(),
+            integer: matches!(x_spec, Scale::Integer),
+        };
+        let y_options = TickOptions {
+            unit: y_unit.clone(),
+            integer: matches!(y_spec, Scale::Integer),
+        };
         let (has_x_label, has_y_label) = (axis_labels.0.is_some(), axis_labels.1.is_some());
         let (px, py) = density;
         // An explicit Bands spec wins; otherwise band layers imply the categories.
@@ -273,7 +286,7 @@ impl<'p> Layout<'p> {
                 frame.charset.chrome().ellipsis,
             )
         } else {
-            fit_y_ticks(y_data, plot_rows, py, (time_y, log_y, y_fixed))
+            fit_y_ticks(y_data, plot_rows, py, (time_y, log_y, y_fixed), &y_options)
         };
         let mut label_width = if axes {
             y_ticks
@@ -342,7 +355,15 @@ impl<'p> Layout<'p> {
                     (plot_cols / 10).clamp(2, 8),
                 ))
             } else {
-                fit_x_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
+                fit_x_ticks(
+                    x_data,
+                    plot_cols,
+                    plot_sub_w,
+                    px,
+                    gutter,
+                    frame.width,
+                    &x_options,
+                )
             }
         } else {
             None
@@ -396,6 +417,8 @@ impl<'p> Layout<'p> {
             y_categories,
             colorbar,
             axes,
+            x_unit,
+            y_unit,
         }
     }
 }
@@ -452,7 +475,13 @@ fn labels_fit(
 /// engine, and whether the domain is manual (honored exactly) or grows to
 /// its ticks. At the sparsest target the ticks are returned as they are —
 /// a plot too short for two labels sheds at chrome.
-fn fit_y_ticks(data: (f64, f64), plot_rows: usize, py: usize, kind: (bool, bool, bool)) -> Ticks {
+fn fit_y_ticks(
+    data: (f64, f64),
+    plot_rows: usize,
+    py: usize,
+    kind: (bool, bool, bool),
+    options: &TickOptions,
+) -> Ticks {
     let (time, log, fixed) = kind;
     let densest = (plot_rows / 2).clamp(2, 8);
     let sub_h = (plot_rows * py).max(1);
@@ -463,7 +492,7 @@ fn fit_y_ticks(data: (f64, f64), plot_rows: usize, py: usize, kind: (bool, bool,
         } else if log {
             Ticks::log10(data.0, data.1, target)
         } else {
-            Ticks::linear(data.0, data.1, target)
+            Ticks::linear_with(data.0, data.1, target, options)
         };
         let domain = if fixed {
             data
@@ -513,6 +542,7 @@ fn fit_time_ticks(
 
 /// Chooses the densest x labeling whose labels fit without collisions: centered
 /// under their ticks, clamped to the frame, at least two cells apart.
+#[allow(clippy::too_many_arguments)]
 fn fit_x_ticks(
     data: (f64, f64),
     plot_cols: usize,
@@ -520,10 +550,11 @@ fn fit_x_ticks(
     px: usize,
     gutter: usize,
     frame_width: usize,
+    options: &TickOptions,
 ) -> Option<Ticks> {
     let densest = (plot_cols / 8).clamp(2, 12);
     for target in (2..=densest).rev() {
-        let ticks = Ticks::linear(data.0, data.1, target);
+        let ticks = Ticks::linear_with(data.0, data.1, target, options);
         let domain = domain_with_ticks(data, &ticks);
         if labels_fit(&ticks, domain, plot_sub_w, px, gutter, frame_width) {
             return Some(ticks);
