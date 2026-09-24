@@ -3,9 +3,10 @@
 //! The execution model follows the operation: [`Moments`], [`Fit`], [`Bins`], and
 //! [`M4`] are online accumulators with explicit merge contracts; [`Reducer`] maps a
 //! collection to one value and buffers only for order statistics; [`Window`], KDE,
-//! ECDF, LTTB, contours, and stacking are batch transforms. The plot pipeline
-//! inserts [`m4`] automatically for large line layers; everything is also public
-//! API for direct use.
+//! ECDF, LTTB, contours, stacking, and the series maps ([`cumsum`], [`diff`],
+//! [`rank`], [`normalize`]) are batch transforms. The plot pipeline inserts
+//! [`m4`] automatically for large line layers; everything is also public API
+//! for direct use.
 
 mod agg;
 mod bin;
@@ -18,6 +19,7 @@ mod fit;
 mod kde;
 mod lttb;
 mod m4;
+mod map;
 mod moments;
 mod nearest;
 mod reducer;
@@ -40,10 +42,11 @@ pub use kde::kde;
 pub use lttb::lttb;
 pub use m4::{M4, m4};
 pub(crate) use m4::{m4_mapped, m4_mapped_categories};
+pub use map::{cumsum, diff, normalize, rank};
 pub use moments::Moments;
 pub use nearest::nearest;
 pub(crate) use reducer::ReducerState;
 pub use reducer::{Reducer, quantiles};
 pub use roc::{auc, roc};
 pub use stack::{StackOffset, StackOptions, StackOrder, stack, stack_with};
-pub use window::Window;
+pub use window::{Window, WindowAnchor};

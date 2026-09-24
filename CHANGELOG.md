@@ -5,6 +5,16 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Window::anchor(WindowAnchor::{Start, Middle, End})` places the window
+  ahead of, around, or behind each position — a centered moving average sits
+  on the data instead of trailing it by half a window — and
+  `Window::strict()` answers only complete windows, a gap elsewhere. The
+  default stays the trailing, partial-window form, byte-identical for every
+  existing caller. `stat::cumsum`, `diff`, `rank`, and
+  `normalize(values, basis: Reducer)` are the series maps beside `ewma`:
+  cumulative totals, day-over-day deltas, ranks, and index-to-first or
+  percent-of-peak lines through the one reducer vocabulary. The `bollinger`
+  gallery example draws a centered window's mean ± 2σ from these parts.
 - `stat::stack_with(series, StackOptions)` chooses a stack's offset and
   order: `StackOffset::Normalize` scales every position's bands to fill
   `[0, 1]` (the 100 % stack — breakdown bars, share-of-total areas),

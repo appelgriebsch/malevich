@@ -145,6 +145,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                 "energy",
                 "Stacked areas via the Stack stat: each layer sits on the sum of the ones below.",
             ),
+            (
+                "bollinger",
+                "Bollinger bands from the grammar, no preset: a centered Window's \
+                 mean and sample deviation — two reducers from the one vocabulary — \
+                 as ±2σ edge lines around a dashed mean and the price itself.",
+            ),
         ],
     ),
     (

@@ -73,7 +73,12 @@ A data operation that runs before scales see the data. The word follows
 seaborn.objects (`Stat`) and ggplot (`stat_*`). It is the module-level
 umbrella, not one execution algebra: a stat may be an online accumulator, a
 reducer, keyed orchestration, or a batch transform. Maps to the `stat`
-module — `M4`, `Bins`/`bins2`, `Agg`, `BoxStats`, `kde`, `Window`, `ecdf`,
+module — `M4`, `Bins`/`bins2`, `Agg`, `BoxStats`, `kde`, `Window` (a
+sliding window anchored at its end by default, or centered or leading via
+`WindowAnchor`; `strict` gaps the positions whose window is incomplete),
+`cumsum`/`diff`/`rank`/`normalize` (the series maps: running sums,
+differences, ranks, and division by a reducer of the whole series — index
+charts, percent-of-peak), `ecdf`,
 `roc`/`auc`, `ewma`, `stack`/`stack_with` (cumulative bands, positives
 above the baseline and negatives below it; `StackOffset::Normalize` is the
 100 % stack, `Center` the streamgraph silhouette, `StackOrder::Sum` piles the
@@ -110,7 +115,8 @@ result for one collection, not a public merge operation. Maps to
 
 An operation that consumes a complete ordered collection and emits another
 collection or structured result: `Window`, `kde`, `ecdf`, `roc`, `auc`,
-`ewma`, `lttb`, contours, stacking, `bins2`, `BoxStats`. A batch transform
+`ewma`, `lttb`, `cumsum`, `diff`, `rank`, `normalize`, contours, stacking,
+`bins2`, `BoxStats`. A batch transform
 may use online accumulators internally; that does not make the transform
 itself mergeable.
 

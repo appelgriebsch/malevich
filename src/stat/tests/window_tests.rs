@@ -1,4 +1,4 @@
-use super::Window;
+use super::{Window, WindowAnchor};
 use crate::stat::Reducer;
 
 #[test]
@@ -84,4 +84,74 @@ fn an_overflowing_mean_does_not_poison_later_windows() {
 #[should_panic(expected = "Reducer::Percentile requires a position in [0, 1]")]
 fn invalid_percentiles_are_rejected_even_for_empty_input() {
     Window::new(3).reduce(&[], Reducer::Percentile(2.0));
+}
+
+#[test]
+fn anchors_shift_the_window_and_strict_windows_gap_the_ends() {
+    let values = [1.0, 2.0, 3.0, 4.0, 5.0];
+    let trailing = Window::new(3).mean(&values);
+    assert_eq!(trailing, [1.0, 1.5, 2.0, 3.0, 4.0]);
+    let centered = Window::new(3).anchor(WindowAnchor::Middle).mean(&values);
+    assert_eq!(centered, [1.5, 2.0, 3.0, 4.0, 4.5]);
+    let leading = Window::new(3).anchor(WindowAnchor::Start).mean(&values);
+    assert_eq!(leading, [2.0, 3.0, 4.0, 4.5, 5.0]);
+    // An even size leans left when centered: [i-1, i+2].
+    let even = Window::new(4).anchor(WindowAnchor::Middle).sum(&values);
+    assert_eq!(even, [6.0, 10.0, 14.0, 12.0, 9.0]);
+
+    let strict = Window::new(3).strict().mean(&values);
+    assert!(strict[0].is_nan() && strict[1].is_nan());
+    assert_eq!(&strict[2..], [2.0, 3.0, 4.0]);
+    let strict_centered = Window::new(3)
+        .anchor(WindowAnchor::Middle)
+        .strict()
+        .mean(&values);
+    assert!(strict_centered[0].is_nan() && strict_centered[4].is_nan());
+    assert_eq!(&strict_centered[1..4], [2.0, 3.0, 4.0]);
+    // A window wider than the series reduces the whole series everywhere.
+    let wide = Window::new(9).anchor(WindowAnchor::Middle).max(&values);
+    assert_eq!(wide, [5.0; 5]);
+    assert!(
+        Window::new(9)
+            .strict()
+            .max(&values)
+            .iter()
+            .all(|v| v.is_nan())
+    );
+}
+
+#[test]
+fn anchored_windows_match_one_shot_reduction_of_their_exact_span() {
+    let values: Vec<f64> = (0..97)
+        .map(|index| match index % 13 {
+            0 => f64::NAN,
+            _ => ((index * 31) % 47) as f64 - 20.0,
+        })
+        .collect();
+    for size in [1usize, 2, 3, 8, 50] {
+        for anchor in [WindowAnchor::Start, WindowAnchor::Middle, WindowAnchor::End] {
+            let back = match anchor {
+                WindowAnchor::Start => 0,
+                WindowAnchor::Middle => (size - 1) / 2,
+                WindowAnchor::End => size - 1,
+            };
+            for reducer in [
+                Reducer::Mean,
+                Reducer::Median,
+                Reducer::Deviation,
+                Reducer::Last,
+            ] {
+                let actual = Window::new(size).anchor(anchor).reduce(&values, reducer);
+                for (position, &got) in actual.iter().enumerate() {
+                    let start = position.saturating_sub(back);
+                    let end = (position + size - back).min(values.len());
+                    let expected = reducer.reduce(&values[start..end]);
+                    assert!(
+                        (got.is_nan() && expected.is_nan()) || (got - expected).abs() < 1e-9,
+                        "size {size}, {anchor:?}, {reducer:?}, at {position}: {got} vs {expected}"
+                    );
+                }
+            }
+        }
+    }
 }

@@ -555,6 +555,34 @@ Source: [examples/energy.rs](examples/energy.rs)
     0     10      20     30      40     50     60      70     80
 ```
 
+### bollinger
+
+Bollinger bands from the grammar, no preset: a centered Window's mean and sample deviation — two reducers from the one vocabulary — as ±2σ edge lines around a dashed mean and the price itself.
+Source: [examples/bollinger.rs](examples/bollinger.rs)
+
+```text
+       Bollinger bands: a centered window's mean ± 2σ (synthetic)
+                    ── ±2σ  ── 20-day mean  ── price
+102.5 ┤⠊⠉⠒⠤⡀              ⢀⡀   ⡤⠤⣄⣀
+      │⢠⣰  ⠱⡀           ⣠⠒⠁⠑⠒⡒⣎⠁   ⠉⠢⡀
+100.0 ┤⠃⠃⡇  ⢇        ⢀⠴⠊ ⢀  ⣄⠟⢈⡆⢀⡶⡀  ⡇                ⣄⣀⡀
+      │⠢⡀⢸  ⠈⢆      ⢠⠊  ⢠⣜⢷⢸⠉⠁ ⠙⡼⡇⡇  ⠸⡀             ⢀⠔⠁ ⢣     ⢀⣀⡀   ⢀⣀⣠⠄
+ 97.5 ┤  ⠒⢇  ⠈⠱⠒⢚⡖⠊⡊⠁   ⡾ ⠘⠃⣀⡤⠤⡀ ⠈⢸   ⠱⡀        ⢀⠤⠤⠴⢁    ⢇   ⢀⠇ ⠓⠤⠼⠉⠉⢀⡸⠆
+      │   ⠘⡕⠆⣀⣆ ⡸⠘⢴⣱⡀⠔⣶⡸   ⡎   ⢇   ⣧⡓⡄ ⠘⡄    ⢀⠔⠚⠁⢀⢶⢠⠎⠣⣤  ⠈⡆ ⢠⠃   ⡀⡆ ⢀⡮⠅⠆
+ 95.0 ┤⢆   ⠱⢆⡸⢸⢠⠋⠉⠈ ⣇⠶⠁⠃ ⡠⠊     ⠑⡄ ⠃⠱⢇  ⠘⡄⢀⠤⠊⠉ ⣀⣶⢼⠒⠿⠢⠄⠏⢇  ⠘⣄⠎   ⡰⡹⠼⠣⠼
+      │⠈⡆   ⠘⣁⡨⠮⢄⣀⣠⠔⢻⡀⢀⣀⡸        ⠱⡀  ⠸⡢⢀ ⠘⠁⢠⣀⣠⠎⢹ ⠟⣀⣠ ⠈⠣⠸⡀     ⢠⡸⡷⠁ ⢀⠤⠤⠤⠂
+ 92.5 ┤ ⠘⠢⢄⢀⡰⠁       ⠈⠉           ⢣   ⢇⣌⡵⣸⢷⡻ ⠉ ⡠⠤⠚ ⠈⢆  ⠑⡇     ⡧⠋ ⢀⠖⠁
+      │    ⠁                       ⡇  ⠈⢸⠁⢋⣈⣡⠤⠊⠊     ⠘⡄  ⢱⢄   ⣠⠇ ⢀⠎
+ 90.0 ┤                            ⠘⣄⢀⣀⣀⠔⠁           ⠸⡀  ⢣⠐⠒⠃⡜  ⡜
+      │                              ⠋                ⡇   ⡇⡄⢰⠁  ⡇
+ 87.5 ┤                                               ⢣   ⠟⠘⠇  ⢰⠁
+      │                                                ⢣   ⣀⡀ ⡠⠃
+ 85.0 ┤                                                 ⣇⡠⠎ ⠑⠒⠃
+      └┬───────┬───────┬───────┬───────┬───────┬───────┬───────┬───────┬
+       0      20      40      60      80      100     120     140    160
+                                      day
+```
+
 ## The ML set
 
 The charts a training loop needs, every one a grammar composition.
