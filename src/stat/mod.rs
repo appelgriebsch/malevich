@@ -38,7 +38,7 @@ pub use dodge::dodge;
 pub use ecdf::ecdf;
 pub use ewma::ewma;
 pub use fit::Fit;
-pub use kde::kde;
+pub use kde::{Bandwidth, KdeOptions, kde, kde_with};
 pub use lttb::lttb;
 pub use m4::{M4, m4};
 pub(crate) use m4::{m4_mapped, m4_mapped_categories};

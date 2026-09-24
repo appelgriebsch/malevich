@@ -172,6 +172,30 @@ m 200 ┤        ⢀⣼⣿⣆         ⢀⣠⣶⣿⣿⣿⣿⣿⣶⣄⡀         
               Adelie         Chinstrap        Gentoo
 ```
 
+### latency
+
+A bounded density: kernels reflected at zero keep a latency distribution's mass where the data lives, beside the unbounded estimate that leaks below it.
+Source: [examples/latency.rs](examples/latency.rs)
+
+```text
+               request latency, density (synthetic)
+                  ── unbounded  ── bounded at 0
+0.15 ┤    ⣥⡀
+     │    ⠄⠱⡄
+     │    ⠂⢀⡱⡀
+0.10 ┤    ⡁⠊ ⢳
+     │    ⠴⠁  ⠳⡀
+     │    ⡆    ⠱⡄
+     │   ⢠⡁     ⠙⢆
+0.05 ┤   ⠘⠄       ⠱⣄
+     │   ⡇⠂        ⠈⠑⢦⣀
+     │  ⢰ ⡁           ⠈⠙⠲⠤⣄⣀
+0.00 ┤⣀⡤⠁ ⠄                 ⠉⠉⠒⠒⠒⠢⠤⠤⠤⠤⠤⠤⢤⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀
+     └────┬──────────┬──────────┬──────────┬──────────┬──────────┬
+          0         10         20         30         40         50
+                                   ms
+```
+
 ### ridgeline
 
 A ridgeline of gradient distributions over training - rows rendered back to front at fixed elevation, each a lifted KDE in the corners style so nearer rows overwrite what they cross: the TensorBoard histogram view, and the terminal's honest 3D surface.

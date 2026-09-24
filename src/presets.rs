@@ -182,44 +182,69 @@ impl Default for EcdfOptions {
 }
 
 /// Configuration for [`density_with`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub struct DensityOptions {
     /// Number of positions at which to evaluate the KDE.
     pub samples: usize,
+    /// The KDE's bandwidth, bounds, padding, and cumulative form.
+    pub kde: crate::stat::KdeOptions,
 }
 
 impl DensityOptions {
-    /// Evaluates the density at `samples` positions.
+    /// Evaluates the density at `samples` positions with the default KDE.
     pub const fn new(samples: usize) -> DensityOptions {
-        DensityOptions { samples }
+        DensityOptions {
+            samples,
+            kde: crate::stat::KdeOptions::new(),
+        }
+    }
+
+    /// Replaces the KDE options — bandwidth rule, bounds, cut, cumulative.
+    #[must_use]
+    pub const fn kde(mut self, kde: crate::stat::KdeOptions) -> DensityOptions {
+        self.kde = kde;
+        self
     }
 }
 
 impl Default for DensityOptions {
     fn default() -> DensityOptions {
-        DensityOptions { samples: 256 }
+        DensityOptions::new(256)
     }
 }
 
 /// Configuration for [`violin_with`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub struct ViolinOptions {
     /// Number of KDE positions along each violin.
     pub samples: usize,
+    /// The KDE's bandwidth, bounds, and padding; a cumulative form makes no
+    /// violin and is ignored.
+    pub kde: crate::stat::KdeOptions,
 }
 
 impl ViolinOptions {
-    /// Evaluates each violin at `samples` positions.
+    /// Evaluates each violin at `samples` positions with the default KDE.
     pub const fn new(samples: usize) -> ViolinOptions {
-        ViolinOptions { samples }
+        ViolinOptions {
+            samples,
+            kde: crate::stat::KdeOptions::new(),
+        }
+    }
+
+    /// Replaces the KDE options — bandwidth rule, bounds, cut.
+    #[must_use]
+    pub const fn kde(mut self, kde: crate::stat::KdeOptions) -> ViolinOptions {
+        self.kde = kde;
+        self
     }
 }
 
 impl Default for ViolinOptions {
     fn default() -> ViolinOptions {
-        ViolinOptions { samples: 128 }
+        ViolinOptions::new(128)
     }
 }
 
@@ -971,12 +996,14 @@ pub fn density<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
     density_with(values, DensityOptions::default()).expect("default density options are valid")
 }
 
-/// A Gaussian KDE evaluated at a caller-selected number of positions.
+/// A Gaussian KDE evaluated at a caller-selected number of positions, with
+/// the KDE's own options — a bandwidth rule, bounds that keep a latency
+/// density above zero, a cumulative form.
 ///
 /// # Errors
 ///
 /// Returns an error when `options.samples` is below two or exceeds the
-/// defensive statistics limit.
+/// defensive statistics limit, or when the KDE options are invalid.
 pub fn density_with<'a>(
     values: impl IntoSeries<'a>,
     options: DensityOptions,
@@ -988,10 +1015,12 @@ pub fn density_with<'a>(
         "density samples must be at least two",
     )?;
     let series = values.into_series();
-    Ok(match crate::stat::kde(series.as_slice(), options.samples) {
-        Some((positions, densities)) => Plot::new().layer(Line::xy(positions, densities)),
-        None => Plot::new(),
-    })
+    Ok(
+        match crate::stat::kde_with(series.as_slice(), options.samples, options.kde)? {
+            Some((positions, densities)) => Plot::new().layer(Line::xy(positions, densities)),
+            None => Plot::new(),
+        },
+    )
 }
 
 /// Violin plots: one mirrored density per category, each scaled to the same width.
@@ -1016,12 +1045,12 @@ pub fn violin<'a>(
         .expect("violin requires one category per group and valid default options")
 }
 
-/// Violin plots with a caller-selected KDE sample count.
+/// Violin plots with a caller-selected KDE sample count and KDE options.
 ///
 /// # Errors
 ///
-/// Returns an error for fewer than two samples, excessive total KDE output, or a
-/// category/group length mismatch.
+/// Returns an error for fewer than two samples, excessive total KDE output,
+/// invalid KDE options, or a category/group length mismatch.
 pub fn violin_with<'a>(
     categories: impl IntoIterator<Item = impl Into<String>>,
     groups: impl IntoIterator<Item = impl IntoSeries<'a>>,
@@ -1052,10 +1081,14 @@ pub fn violin_with<'a>(
             limit: crate::stat::MAX_STAT_ELEMENTS,
         });
     }
+    let kde = crate::stat::KdeOptions {
+        cumulative: false,
+        ..options.kde
+    };
     let densities: Vec<Option<(Vec<f64>, Vec<f64>)>> = groups
         .iter()
-        .map(|group| crate::stat::kde(group.as_slice(), options.samples))
-        .collect();
+        .map(|group| crate::stat::kde_with(group.as_slice(), options.samples, kde))
+        .collect::<crate::Result<_>>()?;
     // The Bands spec declares the categorical axis; the violins themselves are
     // horizontal areas over the band centers.
     let mut plot = Plot::new().x_scale(crate::scale::Scale::bands(categories));

@@ -65,6 +65,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                  not a summary.",
             ),
             (
+                "latency",
+                "A bounded density: kernels reflected at zero keep a latency \
+                 distribution's mass where the data lives, beside the unbounded \
+                 estimate that leaks below it.",
+            ),
+            (
                 "ridgeline",
                 "A ridgeline of gradient distributions over training - rows rendered \
                  back to front at fixed elevation, each a lifted KDE in the corners \

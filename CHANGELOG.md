@@ -5,6 +5,14 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `stat::kde_with(values, points, KdeOptions)` chooses the bandwidth
+  (`Bandwidth::Silverman`, `Scale(factor)`, `Fixed(width)`), bounds the
+  support — kernels reflect at a bound, so a latency density keeps its mass
+  above zero and a fraction stays inside `[0, 1]` — sets the padding in
+  bandwidths (`cut`), and evaluates the cumulative density. `DensityOptions`
+  and `ViolinOptions` carry a `kde` field for the same choices; the defaults
+  reproduce `kde`, `density`, and `violin` exactly. The `latency` gallery
+  example shows the bounded estimate beside the leaking one.
 - `Window::anchor(WindowAnchor::{Start, Middle, End})` places the window
   ahead of, around, or behind each position — a centered moving average sits
   on the data instead of trailing it by half a window — and
