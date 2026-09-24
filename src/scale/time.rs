@@ -89,8 +89,10 @@ impl Ticks {
     /// (UTC), with multi-scale labels.
     ///
     /// Calendar labels support years -999999 through 999999. Finite timestamps
-    /// outside that range fall back to numeric endpoint labels. Targets above 200
-    /// are capped, and generation has an independent 512-tick safety bound.
+    /// outside that range fall back to the numeric bounds, labeled at the
+    /// shared significant-digit budget like a linear axis's endpoint
+    /// fallback. Targets above 200 are capped, and generation has an
+    /// independent 512-tick safety bound.
     ///
     /// # Panics
     ///
@@ -137,28 +139,17 @@ fn calendar_seconds(lo: f64, hi: f64) -> Option<(i64, i64)> {
     Some((lo as i64, hi as i64))
 }
 
+/// Instants outside the supported calendar: the numeric bounds, labeled by the
+/// same endpoint formatter the linear axis falls back to.
 fn numeric_fallback(lo: f64, hi: f64) -> Ticks {
-    let mut ticks = vec![Tick {
-        value: lo,
-        label: lo.to_string(),
-    }];
-    if hi != lo {
-        ticks.push(Tick {
-            value: hi,
-            label: hi.to_string(),
-        });
-    }
-    Ticks::from_time(ticks)
+    Ticks::from_time(super::ticks::endpoint_ticks(lo, hi))
 }
 
 fn calendar_point(value: f64, stamp: i64) -> Ticks {
     let mut tick = label(&[stamp], Interval::Seconds(1))
         .into_iter()
         .next()
-        .unwrap_or(Tick {
-            value,
-            label: value.to_string(),
-        });
+        .unwrap_or_else(|| super::ticks::endpoint_ticks(value, value).remove(0));
     tick.value = value;
     Ticks::from_time(vec![tick])
 }

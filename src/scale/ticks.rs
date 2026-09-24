@@ -40,7 +40,11 @@ pub struct Tick {
     /// Label text: an exact decimal rendering of `value`, which parses back to it.
     /// Axes reaching ten thousand (or a ten-thousandth) carry one shared SI prefix
     /// (`20k`, `2.5M`, `100µ`); the numeric part times the prefix factor still
-    /// equals `value` exactly. Zero is always plain `0`.
+    /// equals `value` exactly. Zero is always plain `0`. The one exception is a
+    /// range no nice step can cover — equal bounds, or a span past what the
+    /// exact mantissa holds — whose two endpoint ticks carry the bounds
+    /// rounded to the shared significant-digit budget (`1.798e308`), the same
+    /// formatter every readout uses.
     pub label: String,
 }
 
@@ -60,9 +64,11 @@ impl Ticks {
     ///
     /// The bounds may be given in either order. A `target` below 2 is treated as 2,
     /// and the returned count is close to, not exactly, `target`. Equal bounds yield
-    /// a single tick at that value. The chosen ticks may extend beyond the data range
-    /// (that is the algorithm's coverage trade-off), typically by less than one step
-    /// on either side.
+    /// a single tick at that value; a span the search cannot cover (one that
+    /// overflows, or a huge magnitude with a tiny span) yields the two bounds,
+    /// labeled at the shared significant-digit budget. The chosen ticks may
+    /// extend beyond the data range (that is the algorithm's coverage
+    /// trade-off), typically by less than one step on either side.
     ///
     /// # Panics
     ///
@@ -76,26 +82,14 @@ impl Ticks {
         let target = target.max(2);
         if lo == hi {
             return Ticks {
-                ticks: vec![Tick {
-                    value: lo,
-                    label: lo.to_string(),
-                }],
+                ticks: endpoint_ticks(lo, hi),
                 step: None,
             };
         }
         match search(lo, hi, target) {
             Some(best) => materialize(&best),
             None => Ticks {
-                ticks: vec![
-                    Tick {
-                        value: lo,
-                        label: lo.to_string(),
-                    },
-                    Tick {
-                        value: hi,
-                        label: hi.to_string(),
-                    },
-                ],
+                ticks: endpoint_ticks(lo, hi),
                 step: Some(hi - lo),
             },
         }
@@ -302,18 +296,21 @@ fn materialize(candidate: &Candidate) -> Ticks {
         }
         exp10 += 1;
     }
-    let prefix = si_prefix(&mantissas, exp10);
+    let scaling = scaling(&mantissas, exp10);
     let ticks: Vec<Tick> = mantissas
         .iter()
         .map(|&mantissa| Tick {
             value: value_of(mantissa, exp10),
-            label: match prefix {
-                Some((shift, suffix)) if mantissa != 0 => {
+            label: match scaling {
+                // On a prefixed or exponent axis zero is deliberately bare.
+                Scaling::Prefix { .. } | Scaling::Exponent(_) if mantissa == 0 => "0".to_string(),
+                Scaling::Prefix { shift, suffix } => {
                     format!("{}{suffix}", format::decimal(mantissa, exp10 - shift))
                 }
-                // On a prefixed axis zero is deliberately bare.
-                Some(_) => "0".to_string(),
-                None => format::decimal(mantissa, exp10),
+                Scaling::Exponent(exponent) => {
+                    format!("{}e{exponent}", format::decimal(mantissa, exp10 - exponent))
+                }
+                Scaling::Plain => format::decimal(mantissa, exp10),
             },
         })
         .collect();
@@ -349,21 +346,34 @@ fn power_of_ten_label(power: i32) -> String {
     }
 }
 
-/// Chooses one SI prefix for a whole axis, from the magnitude of its largest tick:
-/// engaged at ten thousand and up (`k`, `M`, `G`, `T`) or below a thousandth
-/// (`µ`, `n`, `p`). Zero keeps its bare label. The numeric part of a prefixed label
-/// times the prefix factor equals the tick value exactly.
-fn si_prefix(mantissas: &[i128], exp10: i32) -> Option<(i32, char)> {
-    let max = mantissas.iter().map(|m| m.unsigned_abs()).max()?;
+/// How one axis's labels are scaled: plain decimals, one SI prefix, or one
+/// power of ten.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Scaling {
+    Plain,
+    Prefix { shift: i32, suffix: char },
+    Exponent(i32),
+}
+
+/// Chooses one scaling for a whole axis, from the magnitude of its largest tick:
+/// an SI prefix at ten thousand and up (`k`, `M`, `G`, `T`) or below a
+/// thousandth (`µ`, `n`, `p`), and one shared power of ten beyond the prefix
+/// table (`8.796e-100`), so no label ever spells a hundred zeros. Zero keeps
+/// its bare label. The numeric part of a scaled label times its factor equals
+/// the tick value exactly.
+fn scaling(mantissas: &[i128], exp10: i32) -> Scaling {
+    let Some(max) = mantissas.iter().map(|m| m.unsigned_abs()).max() else {
+        return Scaling::Plain;
+    };
     if max == 0 {
-        return None;
+        return Scaling::Plain;
     }
     let digits = max.to_string().len() as i32;
     let magnitude = digits - 1 + exp10;
     if magnitude < 4 && magnitude > -4 {
-        return None;
+        return Scaling::Plain;
     }
-    let shift = (3 * magnitude.div_euclid(3)).clamp(-12, 12);
+    let shift = 3 * magnitude.div_euclid(3);
     let suffix = match shift {
         3 => 'k',
         6 => 'M',
@@ -372,23 +382,64 @@ fn si_prefix(mantissas: &[i128], exp10: i32) -> Option<(i32, char)> {
         -6 => '\u{00B5}',
         -9 => 'n',
         -12 => 'p',
-        _ => return None,
+        _ => return Scaling::Exponent(magnitude),
     };
-    Some((shift, suffix))
+    Scaling::Prefix { shift, suffix }
 }
+
+/// The fallback ticks for a range the search cannot cover — equal bounds, a
+/// span that overflows, a magnitude whose start index the exact mantissa
+/// cannot hold: the bounds themselves, formatted by the shared set formatter
+/// at its significant-digit budget (one SI prefix or one power of ten for
+/// both), widened just enough that two distinct bounds read differently.
+/// These labels are the data's bounds rounded to a budget and never a chosen
+/// tick; the search's ticks stay exact decimals.
+pub(crate) fn endpoint_ticks(lo: f64, hi: f64) -> Vec<Tick> {
+    if lo == hi {
+        return vec![Tick {
+            value: lo,
+            label: format::NumberFormat::for_values(&[lo]).format(lo),
+        }];
+    }
+    let mut set = format::NumberFormat::for_values(&[lo, hi]);
+    for _ in 0..MAX_ENDPOINT_WIDENING {
+        if set.format(lo) != set.format(hi) {
+            break;
+        }
+        set = set.widened(1);
+    }
+    vec![
+        Tick {
+            value: lo,
+            label: set.format(lo),
+        },
+        Tick {
+            value: hi,
+            label: set.format(hi),
+        },
+    ]
+}
+
+/// Fraction digits an endpoint fallback may add to separate two bounds;
+/// seventeen significant digits distinguish any two `f64`s that differ.
+const MAX_ENDPOINT_WIDENING: usize = 20;
 
 /// Converts `mantissa * 10^exp10` to the nearest `f64`.
 ///
 /// For `|exp10| <= 22` the power of ten is exact and the single multiplication or
 /// division rounds correctly, so the result equals what parsing the decimal label
-/// produces.
+/// produces. Beyond that the decimal is parsed outright — the standard parser
+/// rounds correctly where a chain of multiplications would not — so a label
+/// still decodes to its tick at every magnitude.
 fn value_of(mantissa: i128, exp10: i32) -> f64 {
     let m = mantissa as f64;
     let e = exp10.unsigned_abs() as usize;
     match POW10.get(e) {
         Some(&p) if exp10 >= 0 => m * p,
         Some(&p) => m / p,
-        None => m * 10f64.powi(exp10),
+        None => format!("{mantissa}e{exp10}")
+            .parse()
+            .unwrap_or_else(|_| m * 10f64.powi(exp10)),
     }
 }
 
@@ -406,17 +457,23 @@ fn simplicity_max(rank: usize, skip: f64) -> f64 {
     1.0 - rank as f64 / n - skip + 1.0
 }
 
+/// The paper's coverage term, `1 − ½ · ((dmax − lmax)² + (dmin − lmin)²) / (0.1 · range)²`,
+/// computed on overshoot *ratios* so a range near `1e300` (whose square
+/// overflows) or `1e-200` (whose square underflows) scores like any other:
+/// a `NaN` here would defeat every pruning comparison and leave the search
+/// enumerating its whole space before giving up.
 fn coverage(dmin: f64, dmax: f64, l_min: f64, l_max: f64) -> f64 {
     let range = dmax - dmin;
-    let over = (dmax - l_max).powi(2) + (dmin - l_min).powi(2);
-    1.0 - 0.5 * over / (0.1 * range).powi(2)
+    let high = (dmax - l_max) / range;
+    let low = (dmin - l_min) / range;
+    1.0 - 50.0 * (high * high + low * low)
 }
 
 fn coverage_max(dmin: f64, dmax: f64, span: f64) -> f64 {
     let range = dmax - dmin;
     if span > range {
-        let half = (span - range) / 2.0;
-        1.0 - half.powi(2) / (0.1 * range).powi(2)
+        let half = (span - range) / 2.0 / range;
+        1.0 - 100.0 * half * half
     } else {
         1.0
     }

@@ -37,20 +37,47 @@ pub(crate) fn decimal(mantissa: i128, exp10: i32) -> String {
 /// The fixed significant-digit budget a value set is formatted at.
 const SIGNIFICANT_DIGITS: i32 = 4;
 
-/// Powers of ten that are exactly representable in `f64`.
-const POW10: [f64; 23] = [
-    1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16,
-    1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
-];
+/// The shortest decimal that round-trips to `value`, as an integer digit
+/// string and its power of ten: `0.1 + 0.2` is `(30000000000000004, -17)`.
+/// Rounding those digits to a budget is integer arithmetic, so a label never
+/// inherits a binary-float artifact and never passes through a second,
+/// cheaper formatter — at any magnitude, including the ends of the range
+/// where a power of ten is no longer exact.
+fn shortest_digits(value: f64) -> (i128, i32) {
+    let text = format!("{:e}", value.abs());
+    let (mantissa, exponent) = text.split_once('e').unwrap_or((text.as_str(), "0"));
+    let exponent: i32 = exponent.parse().unwrap_or(0);
+    let fraction_digits = mantissa
+        .find('.')
+        .map_or(0, |point| mantissa.len() - point - 1) as i32;
+    let digits: i128 = mantissa
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect::<String>()
+        .parse()
+        .unwrap_or(0);
+    (digits, exponent - fraction_digits)
+}
 
-/// `value * 10^exp10`, multiplying or dividing by an exact power of ten where one
-/// exists, so a single correctly-rounded operation carries the scaling.
-fn scale_by_pow10(value: f64, exp10: i32) -> f64 {
-    let e = exp10.unsigned_abs() as usize;
-    match POW10.get(e) {
-        Some(&p) if exp10 >= 0 => value * p,
-        Some(&p) => value / p,
-        None => value * 10f64.powi(exp10),
+/// `digits × 10^power`, rounded half away from zero to an integer, or `None`
+/// when the product needs more than an `i128` holds.
+fn scale_digits(digits: i128, power: i32) -> Option<i128> {
+    if power >= 0 {
+        if power > 36 {
+            return None;
+        }
+        digits.checked_mul(10i128.pow(power as u32))
+    } else if power < -38 {
+        Some(0)
+    } else {
+        let divisor = 10i128.pow(power.unsigned_abs());
+        let quotient = digits / divisor;
+        let remainder = digits % divisor;
+        Some(if remainder * 2 >= divisor {
+            quotient + 1
+        } else {
+            quotient
+        })
     }
 }
 
@@ -60,12 +87,14 @@ fn scale_by_pow10(value: f64, exp10: i32) -> f64 {
 /// [`NumberFormat::for_values`] derives a shared resolution from the set's
 /// largest magnitude — a fixed significant-digit budget — and one SI prefix for
 /// the whole set (`k`, `M`, `µ`, …), engaged at ten thousand and up or below a
-/// thousandth, exactly like an axis. [`NumberFormat::format`] then renders any
-/// value at that resolution as an exact decimal: every value carries the same
-/// number of fraction digits, so a right-aligned column aligns at the decimal
-/// point. Non-finite values format as `—`, the gap convention; zero on a
-/// prefixed set is bare `0`, like a tick; an unprefixed set of whole numbers
-/// keeps whole labels (a count column never reads `7.000`).
+/// thousandth, exactly like an axis — or, beyond the prefix table, one power
+/// of ten the whole set is written against (`1.798e308`). [`NumberFormat::format`]
+/// then renders any value at that resolution as an exact decimal: every value
+/// carries the same number of fraction digits, so a right-aligned column
+/// aligns at the decimal point. Non-finite values format as `—`, the gap
+/// convention; zero on a prefixed set is bare `0`, like a tick; an unprefixed
+/// set of whole numbers keeps whole labels (a count column never reads
+/// `7.000`).
 ///
 /// ```
 /// use malevich::scale::NumberFormat;
@@ -84,6 +113,9 @@ pub struct NumberFormat {
     prefix: Option<(i32, char)>,
     /// Fraction digits every rendered value carries.
     fraction: i32,
+    /// The power of ten every value is written against when the set lies
+    /// beyond the SI table (`1.798e308`); `None` is the plain decimal form.
+    exponent: Option<i32>,
 }
 
 impl NumberFormat {
@@ -100,11 +132,12 @@ impl NumberFormat {
             return NumberFormat {
                 prefix: None,
                 fraction: 0,
+                exponent: None,
             };
         }
         let magnitude = max_abs.log10().floor() as i32;
         let prefix = if magnitude >= 4 || magnitude <= -4 {
-            let shift = (3 * magnitude.div_euclid(3)).clamp(-12, 12);
+            let shift = 3 * magnitude.div_euclid(3);
             let suffix = match shift {
                 3 => Some('k'),
                 6 => Some('M'),
@@ -119,43 +152,77 @@ impl NumberFormat {
         } else {
             None
         };
+        // Beyond the prefix table — past `T`, below `p` — the set is written
+        // against one power of ten instead: `1.798e308`, never 309 digits, and
+        // never a `Display` fallback that a smaller chart would not use.
+        let exponent =
+            (prefix.is_none() && (magnitude >= 4 || magnitude <= -4)).then_some(magnitude);
         let shift = prefix.map_or(0, |(shift, _)| shift);
         // A set of whole numbers keeps whole labels — a count column never
         // reads `7.000`. Under a prefix the budget stays: `98.5k` needs it.
         let whole = prefix.is_none()
+            && exponent.is_none()
             && values
                 .iter()
                 .filter(|value| value.is_finite())
                 .all(|value| value.fract() == 0.0);
         let fraction = if whole {
             0
+        } else if exponent.is_some() {
+            SIGNIFICANT_DIGITS - 1
         } else {
             (SIGNIFICANT_DIGITS - 1 - (magnitude - shift)).max(0)
         };
-        NumberFormat { prefix, fraction }
+        NumberFormat {
+            prefix,
+            fraction,
+            exponent,
+        }
+    }
+
+    /// The same format with `extra` more fraction digits — how an endpoint
+    /// fallback keeps two distinct bounds distinct without abandoning the
+    /// set's prefix or exponent.
+    pub(crate) fn widened(mut self, extra: i32) -> NumberFormat {
+        self.fraction += extra;
+        self
     }
 
     /// Renders `value` at the set's resolution.
     ///
-    /// Non-finite values are `—`. A value far outside the derived resolution's
-    /// integer range falls back to Rust's plain `Display`.
+    /// Non-finite values are `—`. A set beyond the SI table writes every
+    /// value against its power of ten (`1.798e308`, `2.500e-20`), still at the
+    /// shared budget; a mantissa no integer can hold (only a widened fallback
+    /// could ask) collapses to the exponent form at that budget.
     pub fn format(&self, value: f64) -> String {
         if !value.is_finite() {
             return "\u{2014}".to_string();
         }
-        let shift = self.prefix.map_or(0, |(shift, _)| shift);
-        let mantissa = scale_by_pow10(value, self.fraction - shift).round();
-        if mantissa.abs() >= 1e30 {
-            return format!("{value}");
-        }
-        let mantissa = mantissa as i128;
+        let shift = self
+            .exponent
+            .unwrap_or_else(|| self.prefix.map_or(0, |(shift, _)| shift));
+        let (digits, exp10) = shortest_digits(value);
+        let sign = if value.is_sign_negative() { -1 } else { 1 };
+        let Some(mantissa) = scale_digits(digits, exp10 + self.fraction - shift) else {
+            // More integer digits than a mantissa can hold (only a widened
+            // fallback far from its set can ask): the value at the budget,
+            // against its own power of ten.
+            let magnitude = exp10 + digits.to_string().len() as i32 - 1;
+            let mantissa =
+                scale_digits(digits, exp10 + SIGNIFICANT_DIGITS - 1 - magnitude).unwrap_or(0);
+            return exponent_label(sign * mantissa, 1 - SIGNIFICANT_DIGITS, magnitude);
+        };
+        let mantissa = sign * mantissa;
         if mantissa == 0 {
-            // A prefixed zero is deliberately bare, like a tick's.
-            return if self.prefix.is_some() {
+            // A prefixed or exponent zero is deliberately bare, like a tick's.
+            return if self.prefix.is_some() || self.exponent.is_some() {
                 "0".to_string()
             } else {
                 decimal(0, -self.fraction)
             };
+        }
+        if let Some(exponent) = self.exponent {
+            return exponent_label(mantissa, -self.fraction, exponent);
         }
         let mut label = decimal(mantissa, -self.fraction);
         if let Some((_, suffix)) = self.prefix {
@@ -163,6 +230,19 @@ impl NumberFormat {
         }
         label
     }
+}
+
+/// `mantissa × 10^exp10` written against `exponent`: `1.798e308`. A rounded
+/// mantissa that would overflow the finite range on parsing (only the very
+/// top of it can) steps back one unit, so every label parses to a finite
+/// value at or below the one it names.
+fn exponent_label(mantissa: i128, exp10: i32, exponent: i32) -> String {
+    let label = format!("{}e{exponent}", decimal(mantissa, exp10));
+    if label.parse::<f64>().is_ok_and(f64::is_infinite) {
+        let stepped = mantissa - mantissa.signum();
+        return format!("{}e{exponent}", decimal(stepped, exp10));
+    }
+    label
 }
 
 #[cfg(test)]

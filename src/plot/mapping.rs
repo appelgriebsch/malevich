@@ -330,8 +330,9 @@ fn decimal_at(value: f64, step: f64) -> String {
     };
     let scaled = value * 10f64.powi(decimals);
     if scaled.abs() >= 1e15 {
-        // Beyond exact-integer range the decimal would lie; fall back.
-        return format!("{value}");
+        // Beyond exact-integer range the decimal would lie: the set formatter
+        // writes the value at its budget instead, prefix or exponent form.
+        return crate::scale::NumberFormat::for_values(&[value]).format(value);
     }
     crate::scale::format::decimal(scaled.round() as i128, -decimals)
 }

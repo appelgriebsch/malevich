@@ -108,3 +108,11 @@ fn subsecond_domains_still_produce_ticks() {
     assert!(!ticks.is_empty());
     assert!(ticks.len() <= MAX_TIME_TICKS);
 }
+
+#[test]
+fn out_of_calendar_fallbacks_share_the_endpoint_formatter() {
+    let both = Ticks::time(-f64::MAX, f64::MAX, 5);
+    assert_eq!(labels(&both), ["-1.797e308", "1.797e308"]);
+    let one = Ticks::time(f64::MAX, f64::MAX, 5);
+    assert_eq!(labels(&one), ["1.797e308"]);
+}

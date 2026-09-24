@@ -128,11 +128,15 @@ The axis values a scale chooses to label, placed by the extended Wilkinson
 algorithm (Talbot, Lin, Hanrahan 2010) — scored for simplicity, coverage,
 density, and legibility. Ticks are computed, never supplied as strings, and
 carry exact-decimal labels: they parse back to their values, share one
-fraction width and one SI prefix per axis, and never show float artifacts.
-Maps to `scale::Ticks`. `scale::NumberFormat` makes the same label decisions
+fraction width and one SI prefix per axis (one power of ten beyond the
+prefix table, `8.796e-100`), and never show float artifacts. A range no
+nice step can cover — equal bounds, a span past the exact mantissa — falls
+back to its two bounds, formatted by the same formatter at its budget. Maps
+to `scale::Ticks`. `scale::NumberFormat` makes the same label decisions
 once for an arbitrary set of related values — one fraction width, one SI
-prefix, whole labels for whole-number sets, gaps as `—` — the per-column
-formatter behind `table`, usable for any readout. See
+prefix or power of ten, whole labels for whole-number sets, gaps as `—` —
+the per-column formatter behind `table`, usable for any readout; there is no
+second, cheaper formatter anywhere. See
 [The axes are the product](principles/axes-are-the-product.md).
 
 ## Frame

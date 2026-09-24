@@ -100,6 +100,19 @@ fn decode(label: &str) -> (&str, f64) {
     (label, 1.0)
 }
 
+/// The value a label names, parsed in one step — `527.69847019259p` as
+/// `527.69847019259e-12` — so the check never rounds through a product.
+fn decoded(label: &str) -> f64 {
+    let (numeric, factor) = decode(label);
+    if factor == 1.0 {
+        return numeric.parse().unwrap_or_else(|_| panic!("{label} parses"));
+    }
+    let shift = factor.log10().round() as i32;
+    format!("{numeric}e{shift}")
+        .parse()
+        .unwrap_or_else(|_| panic!("{label} parses"))
+}
+
 #[test]
 fn labels_parse_back_to_their_exact_values() {
     for (lo, hi, target) in sweep() {
@@ -256,5 +269,126 @@ fn deterministic_extreme_ranges_remain_finite_ascending_and_bounded() {
                 "[{lo}, {hi}], {target}"
             );
         }
+    }
+}
+
+#[test]
+fn fallback_ticks_are_formatted_at_the_shared_budget_never_by_display() {
+    // Equal bounds: one tick, the set formatter's label — never `-0` or a
+    // float artifact.
+    assert_eq!(labels(&Ticks::linear(-0.0, -0.0, 5)), ["0"]);
+    assert_eq!(labels(&Ticks::linear(1e-7, 1e-7, 5)), ["100.0n"]);
+    assert_eq!(labels(&Ticks::linear(0.1 + 0.2, 0.1 + 0.2, 5)), ["0.3000"]);
+    // A span that overflows: the bounds in exponent form, not 309 digits.
+    let extreme = Ticks::linear(-f64::MAX, f64::MAX, 6);
+    assert_eq!(labels(&extreme), ["-1.797e308", "1.797e308"]);
+    // Beyond the prefix table the search's own ticks share one power of ten,
+    // exact and short, instead of a hundred zeros under a clamped prefix.
+    let tiny = Ticks::linear(8.796369082575082e-100, 8.796369082575112e-100, 5);
+    for tick in &tiny {
+        assert!(tick.label.ends_with("e-100"), "{}", tick.label);
+        assert!(tick.label.len() < 24, "{}", tick.label);
+        let parsed: f64 = tick.label.parse().expect("exponent labels parse");
+        assert_eq!(parsed, tick.value, "{}", tick.label);
+    }
+    // Two distinct bounds that the budget would merge widen until they differ.
+    let narrow = super::endpoint_ticks(1e15, 1e15 + 1.0);
+    assert_ne!(narrow[0].label, narrow[1].label);
+    for tick in &narrow {
+        let parsed: f64 = tick.label.parse().expect("exponent labels parse");
+        assert_eq!(parsed, tick.value, "{}", tick.label);
+    }
+}
+
+/// The value of one unit in a label's last digit: `1.234e5` resolves to
+/// `1e2`, `0.50` to `0.01`, `7` to `1`.
+fn resolution(numeric: &str) -> f64 {
+    let (mantissa, exponent) = numeric.split_once('e').unwrap_or((numeric, "0"));
+    let exponent: i32 = exponent.parse().unwrap();
+    let fraction = mantissa
+        .find('.')
+        .map_or(0, |point| mantissa.len() - point - 1) as i32;
+    // Parsed, not `powi`: a chain of multiplications loses digits in the
+    // subnormal range, where the sweep also goes.
+    format!("1e{}", exponent - fraction).parse().unwrap()
+}
+
+/// A deterministic xorshift generator, so the sweep below is reproducible
+/// without a dependency.
+struct Xorshift(u64);
+
+impl Xorshift {
+    fn next(&mut self) -> u64 {
+        let mut x = self.0;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.0 = x;
+        x
+    }
+
+    fn unit(&mut self) -> f64 {
+        (self.next() >> 11) as f64 / (1u64 << 53) as f64
+    }
+}
+
+#[test]
+fn a_random_sweep_over_every_magnitude_keeps_the_label_contract() {
+    let mut random = Xorshift(0x9E37_79B9_7F4A_7C15);
+    for case in 0..20_000 {
+        // Log-uniform bounds across the whole finite range, signed, with a
+        // span that ranges from the ulp scale to the full magnitude.
+        let magnitude = random.unit() * 600.0 - 300.0;
+        let lo = 10f64.powf(magnitude) * if random.next().is_multiple_of(2) { 1.0 } else { -1.0 };
+        let span = 10f64.powf(magnitude - random.unit() * 20.0);
+        let hi = if case % 7 == 0 { lo } else { lo + span };
+        if !(lo.is_finite() && hi.is_finite()) {
+            continue;
+        }
+        let target = 2 + (random.next() % 12) as usize;
+        let ticks = Ticks::linear(lo, hi, target);
+        assert!((1..=200).contains(&ticks.len()), "[{lo}, {hi}] × {target}");
+        let values: Vec<f64> = ticks.iter().map(|tick| tick.value).collect();
+        assert!(values.iter().all(|v| v.is_finite()), "[{lo}, {hi}]");
+        assert!(
+            values.windows(2).all(|pair| pair[0] < pair[1]),
+            "not ascending in [{lo}, {hi}]: {values:?}"
+        );
+        let all_labels = labels(&ticks);
+        for (index, label) in all_labels.iter().enumerate() {
+            assert!(!label.is_empty(), "[{lo}, {hi}]");
+            assert_ne!(*label, "-0", "[{lo}, {hi}]");
+            assert!(!label.starts_with("-0.0") || values[index] != 0.0);
+            assert!(
+                !label.contains("00000000000"),
+                "a Display-style label leaked in [{lo}, {hi}]: {label}"
+            );
+            // Every label decodes to its value within the budget it was
+            // written at (exactly, for the search's ticks).
+            let (numeric, factor) = decode(label);
+            let parsed = decoded(label);
+            let value = values[index];
+            // The search's ticks decode exactly; an endpoint fallback (two
+            // bounds, or one) decodes within half a unit of its last digit.
+            let tolerance = if ticks.len() > 2 {
+                0.0
+            } else {
+                // Half a unit of the last digit, plus the ulp the parsed
+                // label and the value may each sit on.
+                0.5 * resolution(numeric) * factor + 2.0 * (value.next_up() - value).abs()
+            };
+            assert!(
+                (parsed - value).abs() <= tolerance,
+                "label {label} decodes to {parsed} for value {value} in [{lo}, {hi}]"
+            );
+        }
+        // Distinct ticks carry distinct labels.
+        let mut sorted = all_labels.clone();
+        sorted.dedup();
+        assert_eq!(
+            sorted.len(),
+            all_labels.len(),
+            "[{lo}, {hi}]: {all_labels:?}"
+        );
     }
 }

@@ -95,3 +95,44 @@ fn unprefixed_zero_aligns_with_its_column() {
     assert_eq!(format.format(0.0), "0.0000");
     assert_eq!(format.format(0.482), "0.4820");
 }
+
+#[test]
+fn sets_beyond_the_prefix_table_write_against_one_power_of_ten() {
+    let huge = NumberFormat::for_values(&[f64::MAX, -f64::MAX]);
+    // Rounding 1.7976… up to 1.798 would parse to infinity, so the label
+    // steps back one unit: finite, and at or below the value it names.
+    assert_eq!(huge.format(f64::MAX), "1.797e308");
+    assert_eq!(huge.format(-f64::MAX), "-1.797e308");
+    assert_eq!(huge.format(0.0), "0");
+    let quadrillions = NumberFormat::for_values(&[1e15, 5e15]);
+    assert_eq!(quadrillions.format(1e15), "1.000e15");
+    assert_eq!(quadrillions.format(2e14), "0.200e15");
+    let tiny = NumberFormat::for_values(&[2.5e-20]);
+    assert_eq!(tiny.format(2.5e-20), "2.500e-20");
+    // Every exponent label parses back to the value at its budget.
+    for value in [f64::MAX, 1e15, 2.5e-20, -3.14159e40] {
+        let label = NumberFormat::for_values(&[value]).format(value);
+        let parsed: f64 = label.parse().expect("an exponent label parses");
+        assert!(
+            (parsed - value).abs() <= 1e-3 * value.abs(),
+            "{label} vs {value}"
+        );
+    }
+}
+
+#[test]
+fn the_prefix_table_still_ends_at_tera_and_pico() {
+    assert_eq!(NumberFormat::for_values(&[9e14]).format(9e14), "900.0T");
+    assert_eq!(NumberFormat::for_values(&[2e-12]).format(2e-12), "2.000p");
+    assert_eq!(
+        NumberFormat::for_values(&[2e-13]).format(2e-13),
+        "2.000e-13"
+    );
+}
+
+#[test]
+fn widening_adds_fraction_digits_under_the_same_prefix() {
+    let set = NumberFormat::for_values(&[125_000.0]).widened(2);
+    assert_eq!(set.format(125_000.0), "125.000k");
+    assert_eq!(NumberFormat::for_values(&[-0.0]).format(-0.0), "0");
+}

@@ -5,6 +5,19 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- Every tick label comes from one formatter. The three fallback paths that
+  formatted with Rust's `Display` — equal bounds, a span the search cannot
+  cover, timestamps outside the calendar — now format at the shared
+  significant-digit budget, so an axis never reads `-0`, `0.0000001`, or a
+  309-digit label. Sets beyond the SI prefix table (`T`, `p`) write against
+  one power of ten (`1.797e308`, `8.796e-100`), in `NumberFormat` and on axes
+  alike; `NumberFormat` rounds the shortest round-trip digits with integer
+  arithmetic, so no magnitude passes through a lossy power of ten. The
+  search's coverage score no longer overflows past `1e154`, where it fell
+  back to endpoints after enumerating its whole candidate space. A
+  deterministic 20,000-case sweep over every magnitude pins the contract:
+  finite, ascending, distinct labels that decode to their ticks.
+
 ## 1.22.0 (Lady at the Poster Column) — 2026-09-14
 
 The terminal is a category, not a device: any host that draws a cell grid is
