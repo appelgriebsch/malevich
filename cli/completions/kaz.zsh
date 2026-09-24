@@ -22,6 +22,13 @@ _kaz() {
     '--log-y[log-scale y]' \
     '--time-x[read x as time]' \
     '--bins[histogram bin count]:n:' \
+    '--binwidth[histogram bin width]:w:' \
+    '--horizontal[bar: sideways]' \
+    '--stack[bar: stack value columns]' \
+    '--group[bar: group value columns]' \
+    '--unit[value axis unit]:unit:' \
+    '*--hline[horizontal reference line]:v:' \
+    '*--vline[vertical reference line]:v:' \
     '--normalize[histogram heights]:n:(count probability percent density)' \
     '--cumulative[accumulate histogram bins]' \
     '--colormap[heatmap/hist2d colors]:map:(viridis magma cividis greys red-blue purple-orange)' \
@@ -43,7 +50,7 @@ _kaz() {
     '--rate[plot counter deltas]' \
     '--version[print version]' \
     '--help[show help]' \
-    '1:chart:(line scatter bar hist count density ecdf box violin hist2d heatmap spark)' \
+    '1:chart:(line scatter bar hist count density ecdf box violin hist2d heatmap spark describe table caps spec)' \
     '*:file:_files'
 }
 

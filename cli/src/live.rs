@@ -1,4 +1,6 @@
-//! Live mode (`--live`): read stdin forever, repaint a sliding window in place.
+//! Live mode (`--live`): read stdin forever, repaint a sliding window in place —
+//! one line per numeric field of the input, or every value since the start
+//! with `--window 0`.
 //!
 //! This is the library's [`stream`](malevich::stream) module, exposed: a
 //! thread-shared [`Ring`] the reader fills while the render loop takes cheap
@@ -17,6 +19,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
+
+use std::sync::Mutex;
 
 use malevich::stream::{Live, Rate, Ring};
 use malevich::{Line, Plot};
@@ -44,16 +48,16 @@ pub fn run(args: &Args) -> io::Result<()> {
 fn drive<W: Write + IsTerminal>(handle: fn() -> W, args: &Args) -> io::Result<()> {
     // Size the window from the frame width once; the loop re-detects size every
     // repaint so resizes are followed.
+    // `--window 0` is the growing window: every value since the start.
     let window = args
         .window
-        .unwrap_or_else(|| output::frame_for(&handle(), args).width.max(1))
-        .max(1);
+        .unwrap_or_else(|| output::frame_for(&handle(), args).width.max(1));
     let fps = args.fps.unwrap_or(10).max(1);
     // Never zero: past 1000 fps the throttle bottoms out at 1 ms, not a busy spin.
     let interval = Duration::from_millis((1000 / fps as u64).max(1));
 
-    let ring = Ring::new(window);
-    let done = spawn_reader(ring.clone(), args.delimiter, args.rate);
+    let rings = Rings::new(window);
+    let done = spawn_reader(rings.clone(), args.delimiter, args.rate);
 
     // Hide the cursor for the duration of the repaint (restored below no matter how
     // the loop ends — EOF, interrupt, or a broken pipe) — only where the
@@ -65,7 +69,7 @@ fn drive<W: Write + IsTerminal>(handle: fn() -> W, args: &Args) -> io::Result<()
         let _ = cursor.flush();
     }
 
-    let result = repaint(handle, &ring, args, done, interval);
+    let result = repaint(handle, &rings, args, done, interval);
 
     if terminal {
         let _ = write!(cursor, "\x1b[?25h");
@@ -82,7 +86,7 @@ fn drive<W: Write + IsTerminal>(handle: fn() -> W, args: &Args) -> io::Result<()
 /// The repaint loop: snapshot, draw, throttle — until EOF, interrupt, or error.
 fn repaint<W: Write + IsTerminal>(
     handle: fn() -> W,
-    ring: &Ring,
+    rings: &Rings,
     args: &Args,
     done: Arc<AtomicBool>,
     interval: Duration,
@@ -90,7 +94,7 @@ fn repaint<W: Write + IsTerminal>(
     let mut live = Live::detect(handle());
     loop {
         let frame = output::frame_for(&handle(), args);
-        let plot = plot(ring.snapshot(), args);
+        let plot = plot(rings.snapshot(), args);
         live.draw(&plot, &frame)?;
         // Draw the latest frame, then stop once the input is exhausted or Ctrl-C
         // arrived — the last frame reflects the complete window.
@@ -101,11 +105,66 @@ fn repaint<W: Write + IsTerminal>(
     }
 }
 
-/// Builds the live `line` plot from the window, applying the furniture that makes
-/// sense for a sliding index axis (title, labels, y limits and log). The x axis is
-/// the moving window, so x-domain, x-log, and time-x are deliberately not applied.
-fn plot(values: Vec<f64>, args: &Args) -> Plot<'static> {
-    let mut plot = Plot::new().layer(Line::y(values));
+/// One window per numeric field of the input, sized alike, shared with the
+/// reader. The field count is the first sample's; later samples pad with gaps
+/// or drop extras, so every series stays aligned by sample index.
+#[derive(Clone)]
+struct Rings {
+    window: usize,
+    rings: Arc<Mutex<Vec<Ring>>>,
+}
+
+impl Rings {
+    fn new(window: usize) -> Rings {
+        Rings {
+            window,
+            rings: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    fn ring(&self) -> Ring {
+        if self.window == 0 {
+            Ring::growing()
+        } else {
+            Ring::new(self.window)
+        }
+    }
+
+    /// Pushes one sample: a value per series, gaps for the fields it lacks.
+    fn push(&self, sample: &[f64]) {
+        let mut rings = self.rings.lock().expect("rings lock");
+        if rings.is_empty() {
+            rings.extend((0..sample.len().max(1)).map(|_| self.ring()));
+        }
+        for (index, ring) in rings.iter().enumerate() {
+            ring.push(sample.get(index).copied().unwrap_or(f64::NAN));
+        }
+    }
+
+    fn snapshot(&self) -> Vec<Vec<f64>> {
+        self.rings
+            .lock()
+            .expect("rings lock")
+            .iter()
+            .map(Ring::snapshot)
+            .collect()
+    }
+}
+
+/// Builds the live `line` plot from the windows, one line per series, applying
+/// the furniture that makes sense for a sliding index axis (title, labels, unit,
+/// y limits and log). The x axis is the moving window, so x-domain, x-log, and
+/// time-x are deliberately not applied.
+fn plot(series: Vec<Vec<f64>>, args: &Args) -> Plot<'static> {
+    let mut plot = series
+        .into_iter()
+        .fold(Plot::new(), |plot, values| plot.layer(Line::y(values)));
+    for &value in &args.hlines {
+        plot = plot.layer(malevich::Rule::h(value));
+    }
+    if let Some(unit) = &args.unit {
+        plot = plot.y_unit(unit.clone());
+    }
     if let Some(title) = &args.title {
         plot = plot.title(title);
     }
@@ -124,42 +183,57 @@ fn plot(values: Vec<f64>, args: &Args) -> Plot<'static> {
     plot
 }
 
-/// Spawns the reader: one value per input line into `ring`, forever. Returns a flag
-/// it raises at EOF so the render loop can draw a final frame and stop.
-fn spawn_reader(ring: Ring, delimiter: Option<char>, rate: bool) -> Arc<AtomicBool> {
+/// Spawns the reader: the numeric fields of each input line into `rings`,
+/// forever. Returns a flag it raises at EOF so the render loop can draw a final
+/// frame and stop.
+fn spawn_reader(rings: Rings, delimiter: Option<char>, rate: bool) -> Arc<AtomicBool> {
     let done = Arc::new(AtomicBool::new(false));
     let eof = done.clone();
     thread::spawn(move || {
         let stdin = io::stdin();
-        let mut rate_tracker = Rate::new();
+        let mut trackers: Vec<Rate> = Vec::new();
         for line in stdin.lock().lines() {
             let Ok(line) = line else { break };
             if line.trim().is_empty() {
                 continue;
             }
-            // A non-numeric line is a missed sample — an honest gap, not a value.
-            let sample = first_number(&line, delimiter).unwrap_or(f64::NAN);
-            let value = if rate {
-                rate_tracker.delta(sample)
-            } else {
-                sample
-            };
-            ring.push(value);
+            // A line without numbers is a missed sample — an honest gap, not
+            // a value; so is a field a series lacks.
+            let mut sample = numbers(&line, delimiter);
+            if sample.is_empty() {
+                sample.push(f64::NAN);
+            }
+            if rate {
+                if trackers.len() < sample.len() {
+                    trackers.resize_with(sample.len(), Rate::new);
+                }
+                for (value, tracker) in sample.iter_mut().zip(&mut trackers) {
+                    *value = tracker.delta(*value);
+                }
+            }
+            rings.push(&sample);
         }
         eof.store(true, Ordering::Relaxed);
     });
     done
 }
 
-/// The first field of `line` that parses as a finite number.
-fn first_number(line: &str, delimiter: Option<char>) -> Option<f64> {
+/// Every field of `line` that parses as a finite number, in order.
+fn numbers(line: &str, delimiter: Option<char>) -> Vec<f64> {
     let fields: Box<dyn Iterator<Item = &str>> = match delimiter {
         Some(sep) => Box::new(line.split(sep)),
         None => Box::new(line.split_whitespace()),
     };
     fields
         .filter_map(|field| field.trim().parse::<f64>().ok())
-        .find(|value| value.is_finite())
+        .filter(|value| value.is_finite())
+        .collect()
+}
+
+/// The first field of `line` that parses as a finite number.
+#[cfg(test)]
+fn first_number(line: &str, delimiter: Option<char>) -> Option<f64> {
+    numbers(line, delimiter).first().copied()
 }
 
 /// Installs a SIGINT handler that flips [`INTERRUPTED`]; the render loop notices it

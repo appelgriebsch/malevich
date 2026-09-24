@@ -9,12 +9,12 @@ use std::path::PathBuf;
 
 use lexopt::prelude::*;
 use malevich::Charset;
-use malevich::scale::Colormap;
+use malevich::scale::{Colormap, Unit};
 use malevich::stat::{Normalization, Reducer};
 
 const MAX_FRAME_DIMENSION: usize = 4096;
 const MAX_FRAME_CELLS: usize = 4 * 1024 * 1024;
-const MAX_BINS: usize = 1_000_000;
+pub(crate) const MAX_BINS: usize = 1_000_000;
 const MAX_WINDOW: usize = 1_000_000;
 const MAX_FPS: usize = 1_000;
 
@@ -33,6 +33,10 @@ pub enum Command {
     Hist2d,
     Heatmap,
     Spark,
+    Describe,
+    Table,
+    Caps,
+    Spec,
 }
 
 impl Command {
@@ -51,6 +55,10 @@ impl Command {
             "hist2d" => Command::Hist2d,
             "heatmap" => Command::Heatmap,
             "spark" => Command::Spark,
+            "describe" => Command::Describe,
+            "table" => Command::Table,
+            "caps" => Command::Caps,
+            "spec" => Command::Spec,
             _ => return None,
         })
     }
@@ -76,6 +84,10 @@ impl Command {
             Command::Hist2d => "hist2d",
             Command::Heatmap => "heatmap",
             Command::Spark => "spark",
+            Command::Describe => "describe",
+            Command::Table => "table",
+            Command::Caps => "caps",
+            Command::Spec => "spec",
         }
     }
 }
@@ -187,6 +199,18 @@ pub struct Args {
     pub time_x: bool,
     /// Explicit histogram bin count (`--bins`); auto when absent.
     pub bins: Option<usize>,
+    /// Explicit histogram bin width (`--binwidth`); auto when absent.
+    pub binwidth: Option<f64>,
+    /// Sideways bars (`--horizontal`): categories down the y axis.
+    pub horizontal: bool,
+    /// How several value columns become bars (`--stack`, `--group`).
+    pub bar_layout: BarLayout,
+    /// The unit the value axis's labels carry (`--unit`).
+    pub unit: Option<Unit>,
+    /// Horizontal reference lines (`--hline`, repeatable).
+    pub hlines: Vec<f64>,
+    /// Vertical reference lines (`--vline`, repeatable).
+    pub vlines: Vec<f64>,
     /// Histogram bar heights (`--normalize`): counts unless told otherwise.
     pub normalize: Normalization,
     /// Accumulate histogram bins left to right (`--cumulative`).
@@ -221,6 +245,18 @@ pub struct Args {
     pub fps: Option<usize>,
     /// Plot the per-sample delta of a monotonic counter (`--rate`).
     pub rate: bool,
+}
+
+/// How `bar` lays out several value columns per label.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BarLayout {
+    /// One value column, one bar per label.
+    #[default]
+    Single,
+    /// Columns stacked on one bar per label (`--stack`).
+    Stack,
+    /// Columns side by side within each label's band (`--group`).
+    Group,
 }
 
 /// What a parse resolved to: run a chart, or a meta action that prints and exits.
@@ -272,6 +308,12 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
     let mut log_y = false;
     let mut time_x = false;
     let mut bins = None;
+    let mut binwidth = None;
+    let mut horizontal = false;
+    let mut bar_layout = BarLayout::Single;
+    let mut unit = None;
+    let mut hlines = Vec::new();
+    let mut vlines = Vec::new();
     let mut normalize = Normalization::Count;
     let mut cumulative = false;
     let mut colormap = None;
@@ -389,6 +431,15 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
                 };
             }
             Long("cumulative") => cumulative = true,
+            Long("binwidth") => {
+                binwidth = Some(parse_positive("--binwidth", &parser.value()?.string()?)?);
+            }
+            Long("horizontal") => horizontal = true,
+            Long("stack") => bar_layout = choose_layout(bar_layout, BarLayout::Stack)?,
+            Long("group") => bar_layout = choose_layout(bar_layout, BarLayout::Group)?,
+            Long("unit") => unit = Some(parse_unit(&parser.value()?.string()?)),
+            Long("hline") => hlines.push(parse_finite("--hline", &parser.value()?.string()?)?),
+            Long("vline") => vlines.push(parse_finite("--vline", &parser.value()?.string()?)?),
             Long("cols") => {
                 let value = parser.value()?.string()?;
                 let selectors: Vec<String> = value
@@ -478,10 +529,11 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             Short('q') | Long("quiet") => quiet = true,
             Long("live") => live = true,
             Long("window") => {
+                // Zero is the growing window: every value since the start.
                 window = Some(parse_bounded(
                     "--window",
                     &parser.value()?.string()?,
-                    1,
+                    0,
                     MAX_WINDOW,
                 )?);
             }
@@ -556,6 +608,62 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
             "--normalize and --cumulative only apply to hist, not `{}`",
             command.name()
         )));
+    }
+    if binwidth.is_some() && command != Command::Hist {
+        return Err(Fail(format!(
+            "--binwidth only applies to hist, not `{}`",
+            command.name()
+        )));
+    }
+    if bins.is_some() && binwidth.is_some() {
+        return Err(Fail(
+            "--bins and --binwidth are exclusive: a bin count or a bin width, not both".into(),
+        ));
+    }
+    if (horizontal || bar_layout != BarLayout::Single) && command != Command::Bar {
+        return Err(Fail(format!(
+            "--horizontal, --stack, and --group only apply to bar, not `{}`",
+            command.name()
+        )));
+    }
+    if unit.is_some()
+        && matches!(
+            command,
+            Command::Heatmap
+                | Command::Hist2d
+                | Command::Table
+                | Command::Describe
+                | Command::Caps
+                | Command::Spec
+        )
+    {
+        return Err(Fail(format!(
+            "--unit labels a value axis; `{}` has none",
+            command.name()
+        )));
+    }
+    if (!hlines.is_empty() || !vlines.is_empty())
+        && matches!(
+            command,
+            Command::Table | Command::Describe | Command::Caps | Command::Spec
+        )
+    {
+        return Err(Fail(format!(
+            "--hline and --vline only apply to charts with axes, not `{}`",
+            command.name()
+        )));
+    }
+    if command == Command::Caps && (input.is_some() || passthrough || emit_code || live) {
+        return Err(Fail(
+            "caps reports the terminal and takes no input; -O, --emit-code, and --live do not apply"
+                .into(),
+        ));
+    }
+    if command == Command::Spec && (emit_code || live) {
+        return Err(Fail(
+            "--emit-code and --live do not apply to spec: a document is already a program's data"
+                .into(),
+        ));
     }
     if fmt.is_some() && !matches!(command, Command::Line | Command::Scatter) {
         return Err(Fail(format!(
@@ -641,6 +749,12 @@ pub(crate) fn parse_from(mut parser: lexopt::Parser) -> Result<Outcome, Fail> {
         log_y,
         time_x,
         bins,
+        binwidth,
+        horizontal,
+        bar_layout,
+        unit,
+        hlines,
+        vlines,
         normalize,
         cumulative,
         colormap,
@@ -688,6 +802,53 @@ fn parse_bounded(flag: &str, value: &str, minimum: usize, maximum: usize) -> Res
 }
 
 /// Parses a `A,B` numeric pair for `--xlim` / `--ylim`.
+/// A finite number for a value flag.
+fn parse_finite(flag: &str, value: &str) -> Result<f64, Fail> {
+    value
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|parsed| parsed.is_finite())
+        .ok_or_else(|| Fail(format!("{flag} needs a finite number, got `{value}`")))
+}
+
+/// A finite, strictly positive number for a width flag.
+fn parse_positive(flag: &str, value: &str) -> Result<f64, Fail> {
+    let parsed = parse_finite(flag, value)?;
+    if parsed <= 0.0 {
+        return Err(Fail(format!("{flag} must be positive, got `{value}`")));
+    }
+    Ok(parsed)
+}
+
+/// The unit a `--unit` value names: `bytes` for binary bytes with ticks nice
+/// in KiB/MiB, a value starting with `%` (or another symbol) as a bare
+/// suffix, anything else as an SI unit taking the axis's one prefix.
+fn parse_unit(value: &str) -> Unit {
+    let text = value.trim();
+    if text.eq_ignore_ascii_case("bytes") {
+        Unit::Bytes
+    } else if text
+        .chars()
+        .next()
+        .is_some_and(|first| !first.is_alphanumeric())
+    {
+        Unit::suffix(text)
+    } else {
+        Unit::si(text)
+    }
+}
+
+/// `--stack` and `--group` name one layout each; both is a contradiction.
+fn choose_layout(current: BarLayout, requested: BarLayout) -> Result<BarLayout, Fail> {
+    if current != BarLayout::Single && current != requested {
+        return Err(Fail(
+            "--stack and --group are exclusive: bars stack or sit side by side".into(),
+        ));
+    }
+    Ok(requested)
+}
+
 fn parse_pair(flag: &str, value: &str) -> Result<(f64, f64), Fail> {
     let (a, b) = value
         .split_once(',')

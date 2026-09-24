@@ -66,6 +66,18 @@ Shade a row\-major matrix (first line on top).
 .TP
 .B spark
 Sparkline: bars from zero, no axes, one row tall.
+.TP
+.B describe
+Summary statistics per column (columns are groups).
+.TP
+.B table
+The numbers as an aligned table.
+.TP
+.B spec
+Render a serialized malevich document (JSON).
+.TP
+.B caps
+What detection sees for this terminal.
 .SH OPTIONS
 .TP
 .BI \-o " TARGET"
@@ -107,6 +119,23 @@ Read the x column as time: unix epoch, or an ISO\-8601 subset.
 .TP
 .BI \-\-bins " N"
 Histogram bin count (1..1000000; default: automatic).
+.TP
+.BI \-\-binwidth " W"
+Histogram bin width; exclusive with \fB\-\-bins\fR.
+.TP
+.B \-\-horizontal
+Bar: sideways, categories down the y axis.
+.TP
+.B \-\-stack\fR, \fB\-\-group
+Bar: \fIlabel v1 v2 …\fR rows stack their value columns on one bar, or sit
+side by side within each label's band.
+.TP
+.BI \-\-unit " U"
+Label the value axis: an SI unit (\fBs\fR, \fBB/s\fR), \fBbytes\fR, or a
+suffix such as \fB%\fR.
+.TP
+.BI \-\-hline " V"\fR, \fB\-\-vline " V"
+A horizontal or vertical reference line at \fIV\fR; repeatable.
 .TP
 .BI \-\-normalize " N"
 Histogram bar heights: \fBcount\fR (default, on a whole\-number axis),

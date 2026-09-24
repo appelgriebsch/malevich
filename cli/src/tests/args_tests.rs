@@ -134,7 +134,8 @@ fn window_fps_and_rate_require_live() {
 
 #[test]
 fn window_and_fps_reject_zero() {
-    assert!(parse(&["line", "--live", "--window", "0"]).is_err());
+    // Zero is the growing window, not an error.
+    assert!(parse(&["line", "--live", "--window", "0"]).is_ok());
     assert!(parse(&["line", "--live", "--fps", "0"]).is_err());
     assert!(parse(&["line", "--live", "--window", "1000001"]).is_err());
     assert!(parse(&["line", "--live", "--fps", "1001"]).is_err());
@@ -340,4 +341,43 @@ fn heatmap_flags_stay_off_other_charts_and_conflicts_fail() {
             .as_ref()
             .is_some_and(|map| map.is_log())
     );
+}
+
+#[test]
+fn the_new_chart_flags_are_checked_against_their_charts() {
+    assert!(parse(&["bar", "--stack"]).is_ok());
+    assert!(parse(&["bar", "--group", "--horizontal"]).is_ok());
+    assert!(parse(&["bar", "--stack", "--group"]).is_err());
+    assert!(parse(&["line", "--horizontal"]).is_err());
+    assert!(parse(&["hist", "--binwidth", "2.5"]).is_ok());
+    assert!(parse(&["hist", "--binwidth", "0"]).is_err());
+    assert!(parse(&["hist", "--binwidth", "2", "--bins", "3"]).is_err());
+    assert!(parse(&["line", "--binwidth", "2"]).is_err());
+    assert!(
+        parse(&[
+            "line", "--unit", "ms", "--hline", "1", "--hline", "2", "--vline", "0.5"
+        ])
+        .is_ok()
+    );
+    assert!(parse(&["heatmap", "--unit", "ms"]).is_err());
+    assert!(parse(&["table", "--hline", "1"]).is_err());
+    assert!(parse(&["line", "--hline", "nan"]).is_err());
+    assert!(parse(&["caps"]).is_ok());
+    assert!(parse(&["caps", "--emit-code"]).is_err());
+    assert!(parse(&["spec", "--emit-code"]).is_err());
+    assert!(parse(&["describe", "-H"]).is_ok());
+}
+
+#[test]
+fn units_parse_by_shape() {
+    use malevich::scale::Unit;
+
+    let unit = |text: &str| match parse(&["line", "--unit", text]) {
+        Ok(Outcome::Run(args)) => args.unit.clone().unwrap(),
+        other => panic!("expected a run, got {other:?}"),
+    };
+    assert_eq!(unit("bytes"), Unit::Bytes);
+    assert_eq!(unit("%"), Unit::suffix("%"));
+    assert_eq!(unit("ms"), Unit::si("ms"));
+    assert_eq!(unit("B/s"), Unit::si("B/s"));
 }

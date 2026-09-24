@@ -21,6 +21,10 @@ pub fn text(topic: Option<Command>) -> &'static str {
         Some(Command::Hist2d) => HIST2D,
         Some(Command::Heatmap) => HEATMAP,
         Some(Command::Spark) => SPARK,
+        Some(Command::Describe) => DESCRIBE,
+        Some(Command::Table) => TABLE,
+        Some(Command::Caps) => CAPS,
+        Some(Command::Spec) => SPEC,
     }
 }
 
@@ -44,6 +48,10 @@ Charts:
   hist2d       2D histogram (density grid)         xy
   heatmap      shade a row-major matrix            rows of numbers
   spark        sparkline: bars, no axes, one row   columns of numbers
+  describe     summary statistics per column       columns are groups
+  table        the numbers as an aligned table     rows of numbers
+  spec         render a serialized document        JSON from stdin or FILE
+  caps         what detection sees for this terminal
 
 The plot goes to stderr, so stdout stays the data channel; -O echoes the input
 through, letting the plot sit in the middle of a pipeline:
@@ -74,9 +82,17 @@ Options:
   --log-y        log-scale the y axis
   --time-x       read the x column as time (unix seconds or ISO 8601)
   --bins N       histogram bin count (hist; 1..1000000; default: automatic)
+  --binwidth W   histogram bin width (hist; exclusive with --bins)
   --normalize N  histogram heights: count (default) | probability | percent |
                  density
   --cumulative   accumulate histogram bins left to right
+  --horizontal   bar: sideways, categories down the y axis
+  --stack        bar: `label v1 v2 …` rows stack their columns on one bar
+  --group        bar: `label v1 v2 …` rows sit side by side within each band
+  --unit U       label the value axis: an SI unit (s, B/s), bytes, or a
+                 suffix such as %
+  --hline V      draw a horizontal reference line at V (repeatable)
+  --vline V      draw a vertical reference line at V (repeatable)
   --colormap M   heatmap/hist2d colors: viridis (default) | magma | cividis |
                  greys | red-blue | purple-orange
   --midpoint V   center the colormap on value V (for signed data; heatmap/hist2d)
@@ -89,7 +105,8 @@ Options:
   --pixels WHEN  auto (default) | always | never   — sixel/kitty/iTerm2 image panel
   -q             suppress the unparsed-values tally
   --live         stream stdin, repainting a line in place (see below)
-  --window N     live sliding-window length (1..1000000; default: frame width)
+  --window N     live sliding-window length (0..1000000; default: frame width;
+                 0 keeps every value, a window that grows)
   --fps N        live repaint throttle (1..1000; default: 10)
   --rate         live: plot the per-sample delta of a monotonic counter
   --version      print version
@@ -102,9 +119,10 @@ follow the terminal; set MALEVICH_GRAPHICS to kitty, sixel, iterm2, or none
 when the sniff cannot tell.
 
 Live mode (line only):
-  --live reads stdin forever, one value per line, and repaints a sliding window
-  in place — the final frame stays in your scrollback, and Ctrl-C restores the
-  cursor. Feed it a live source:
+  --live reads stdin forever, a line per sample with one or more numeric
+  fields — every field is a line of its own — and repaints a sliding window in
+  place (--window 0 grows instead). The final frame stays in your scrollback,
+  and Ctrl-C restores the cursor. Feed it a live source:
 
     ping -i.2 host | grep -oE 'time=[0-9.]+' | tr -d 'time=' | kaz line --live
     vmstat 1 | awk 'NR>2{print $1}' | kaz line --live -t runnable
@@ -185,12 +203,17 @@ Usage:
   kaz bar FILE [options]
 
 Input: `label value` per row — the first field names the bar, the second is its
-height. Rows with no value leave a gap.
+height. Rows with no value leave a gap. With --stack or --group, `label v1 v2 …`
+rows carry one bar segment per value column, named by the header (-H).
+--horizontal turns any of them sideways, which is where long labels go.
 
 Examples:
   printf 'a 3\\nb 7\\nc 5\\n' | kaz bar
   awk '{print $1, $2}' totals.tsv | kaz bar -t revenue
   kaz bar sales.tsv -H
+  kaz bar regions.tsv -H --horizontal
+  kaz bar quarters.tsv -H --stack -t revenue by product
+  kaz bar quarters.tsv -H --group
 
 For value frequencies (counting bare labels), use `kaz count`.
 
@@ -206,7 +229,7 @@ Usage:
 
 Input: every numeric field is pooled into one distribution. Bins are sized
 automatically (Sturges / Freedman-Diaconis) with nice decimal edges, or fixed
-with --bins N. Heights are counts on a whole-number axis; --normalize
+with --bins N or --binwidth W. Heights are counts on a whole-number axis; --normalize
 rescales them to probability, percent (a % axis), or density per unit of x,
 and --cumulative accumulates the bins so the last bar carries the total.
 
@@ -372,6 +395,81 @@ Examples:
   git log --format='%ad' --date=short | uniq -c | awk '{print $1}' | kaz spark
   cut -f2 latencies.tsv | kaz spark -w 60
   seq 1 40 | awk '{print sin($1/4)}' | kaz spark -h 3
+
+Shared options: kaz --help
+";
+
+const DESCRIBE: &str = "\
+kaz describe — summary statistics per column
+
+Usage:
+  <data> | kaz describe [options]
+  kaz describe FILE [options]
+
+Input: columns are groups, named by the header (-H) or their position. Each
+row of the output summarizes one column: count, mean, sd, min, quartiles, max —
+the numbers a box plot draws, printed.
+
+Examples:
+  kaz describe latency.tsv -H
+  cut -f2,3 samples.tsv | kaz describe
+
+Shared options: kaz --help
+";
+
+const TABLE: &str = "\
+kaz table — the numbers as an aligned table
+
+Usage:
+  <data> | kaz table [options]
+  kaz table FILE [options]
+
+Input: rows of numbers; columns are named by the header (-H) or their
+position. A first column that never parses as a number names the rows.
+Every column shares one number format, so the values align.
+
+Examples:
+  kaz table results.tsv -H
+  printf 'small 1 2\\nlarge 30 400\\n' | kaz table
+
+Shared options: kaz --help
+";
+
+const SPEC: &str = "\
+kaz spec — render a serialized malevich document
+
+Usage:
+  <json> | kaz spec [options]
+  kaz spec FILE [options]
+
+Input: a malevich Document as JSON — a plot or a grid serialized through serde,
+from a notebook, another language's rim, or a file in a repository. A plot
+document takes the usual furniture flags (-t, --xlabel, --ylim, …) on top;
+a grid renders as it is. --emit-code does not apply: the document is already
+a program's data.
+
+Examples:
+  kaz spec chart.json
+  curl -s https://example.org/latest.json | kaz spec -t nightly
+
+Shared options: kaz --help
+";
+
+const CAPS: &str = "\
+kaz caps — what detection sees for this terminal
+
+Usage:
+  kaz caps [options]
+
+Prints the frame detection would use for the plot destination (stderr, or
+stdout with -o -): charset, color tier, size, the pixel protocols on offer,
+the cell size, and whether the terminal answered a probe or only the
+environment was read. The answer to \"why is my plot ASCII\" and \"why no image\".
+
+Examples:
+  kaz caps
+  kaz caps -o -
+  MALEVICH_GRAPHICS=none kaz caps
 
 Shared options: kaz --help
 ";

@@ -7,10 +7,10 @@
 
 use std::fmt;
 
-use malevich::scale::Colormap;
+use malevich::scale::{Colormap, Unit};
 use malevich::stat::Normalization;
 
-use crate::args::{Args, Command};
+use crate::args::{Args, BarLayout, Command};
 use crate::input::{self, Table};
 use crate::series::{self, Dataset};
 
@@ -44,6 +44,23 @@ pub(crate) enum Chart {
     },
     Bars {
         labels: Vec<String>,
+        values: Vec<f64>,
+        horizontal: bool,
+    },
+    BarGroups {
+        labels: Vec<String>,
+        names: Vec<String>,
+        series: Vec<Vec<f64>>,
+        layout: BarLayout,
+        horizontal: bool,
+    },
+    Describe {
+        names: Vec<String>,
+        groups: Vec<Vec<f64>>,
+    },
+    Table {
+        rows: Vec<String>,
+        columns: Vec<String>,
         values: Vec<f64>,
     },
     Distribution {
@@ -99,6 +116,34 @@ pub(crate) struct Furniture {
     pub time_x: bool,
     pub log_x: bool,
     pub log_y: bool,
+    /// The unit the value axis's labels carry.
+    pub unit: Option<Unit>,
+    /// Whether the value axis is x (sideways bars), so the unit goes there.
+    pub unit_on_x: bool,
+    /// Horizontal reference lines, drawn after the chart's own layers.
+    pub hlines: Vec<f64>,
+    /// Vertical reference lines.
+    pub vlines: Vec<f64>,
+}
+
+impl Furniture {
+    /// The furniture an invocation asks for, chart-independent.
+    pub(crate) fn from_args(args: &Args) -> Furniture {
+        Furniture {
+            title: args.title.clone(),
+            xlabel: args.xlabel.clone(),
+            ylabel: args.ylabel.clone(),
+            xlim: args.xlim,
+            ylim: args.ylim,
+            time_x: args.time_x,
+            log_x: args.log_x,
+            log_y: args.log_y,
+            unit: args.unit.clone(),
+            unit_on_x: args.horizontal && args.command == Command::Bar,
+            hlines: args.hlines.clone(),
+            vlines: args.vlines.clone(),
+        }
+    }
 }
 
 /// Dimensions captured for generated programs. Runtime output still applies
@@ -158,14 +203,60 @@ pub(crate) fn prepare(args: &Args, mut table: Table) -> Result<Recipe, PrepareEr
         (Command::Line, _) => value(&table, args, ValueMark::Line),
         (Command::Scatter, _) => value(&table, args, ValueMark::Scatter),
         (Command::Hist, _) => histogram(&table, args)?,
-        (Command::Bar, _) => {
+        (Command::Bar, _) if args.bar_layout == BarLayout::Single => {
             let (labels, values, unparsed) = series::labeled_values(&table);
-            (Chart::Bars { labels, values }, unparsed)
+            (
+                Chart::Bars {
+                    labels,
+                    values,
+                    horizontal: args.horizontal,
+                },
+                unparsed,
+            )
+        }
+        (Command::Bar, _) => {
+            let (labels, names, series, unparsed) = series::labeled_series(&table);
+            (
+                Chart::BarGroups {
+                    labels,
+                    names,
+                    series,
+                    layout: args.bar_layout,
+                    horizontal: args.horizontal,
+                },
+                unparsed,
+            )
         }
         (Command::Count, _) => {
             let (labels, values) = series::counts(&table).into_iter().unzip();
-            (Chart::Bars { labels, values }, 0)
+            (
+                Chart::Bars {
+                    labels,
+                    values,
+                    horizontal: false,
+                },
+                0,
+            )
         }
+        (Command::Describe, _) => {
+            let (names, groups, unparsed) = series::groups(&table);
+            (Chart::Describe { names, groups }, unparsed)
+        }
+        (Command::Table, _) => {
+            let (rows, columns, values, unparsed) = series::table_cells(&table);
+            let chart = if rows.is_empty() || columns.is_empty() {
+                Chart::Empty
+            } else {
+                Chart::Table {
+                    rows,
+                    columns,
+                    values,
+                }
+            };
+            (chart, unparsed)
+        }
+        // Both are answered before any input is framed; see `main`.
+        (Command::Caps | Command::Spec, _) => (Chart::Empty, 0),
         (Command::Density, _) => distribution(&table, DistributionKind::Density),
         (Command::Spark, _) => {
             let (values, unparsed) = series::flatten(&table);
@@ -239,16 +330,7 @@ pub(crate) fn prepare(args: &Args, mut table: Table) -> Result<Recipe, PrepareEr
     Ok(Recipe {
         command: args.command,
         chart,
-        furniture: Furniture {
-            title: args.title.clone(),
-            xlabel: args.xlabel.clone(),
-            ylabel: args.ylabel.clone(),
-            xlim: args.xlim,
-            ylim: args.ylim,
-            time_x: args.time_x,
-            log_x: args.log_x,
-            log_y: args.log_y,
-        },
+        furniture: Furniture::from_args(args),
         frame: FrameSize {
             width: args.width,
             height: args.height,
@@ -271,9 +353,10 @@ fn histogram(table: &Table, args: &Args) -> Result<(Chart, usize), malevich::Err
     use malevich::stat::Bins;
 
     let (values, unparsed) = series::flatten(table);
-    let bins = match args.bins {
-        Some(count) => Bins::try_uniform(&values, count)?,
-        None => Bins::try_auto(&values, malevich::HistogramOptions::default().max_bins)?,
+    let bins = match (args.bins, args.binwidth) {
+        (Some(count), _) => Bins::try_uniform(&values, count)?,
+        (None, Some(width)) => bins_of_width(&values, width)?,
+        (None, None) => Bins::try_auto(&values, malevich::HistogramOptions::default().max_bins)?,
     };
     let chart = match bins {
         Some(bins) => Chart::Histogram {
@@ -285,6 +368,42 @@ fn histogram(table: &Table, args: &Args) -> Result<(Chart, usize), malevich::Err
         None => Chart::Empty,
     };
     Ok((chart, unparsed))
+}
+
+/// Bins of a fixed `width` covering the finite values: the first edge is the
+/// multiple of the width at or below the minimum, and the maximum lands in
+/// the last bin (its right edge is inclusive). `None` without finite values.
+fn bins_of_width(
+    values: &[f64],
+    width: f64,
+) -> Result<Option<malevich::stat::Bins>, malevich::Error> {
+    use malevich::stat::Bins;
+
+    let mut extent: Option<(f64, f64)> = None;
+    for &value in values {
+        if value.is_finite() {
+            let (lo, hi) = extent.get_or_insert((value, value));
+            *lo = lo.min(value);
+            *hi = hi.max(value);
+        }
+    }
+    let Some((min, max)) = extent else {
+        return Ok(None);
+    };
+    let start = (min / width).floor() * width;
+    let count = ((max - start) / width).ceil().max(1.0);
+    if !count.is_finite() || count > crate::args::MAX_BINS as f64 {
+        return Err(malevich::Error::DimensionTooLarge {
+            what: "histogram bin count",
+            requested: usize::MAX,
+            limit: crate::args::MAX_BINS,
+        });
+    }
+    let mut bins = Bins::try_new(start, width, count as usize)?;
+    for &value in values {
+        bins.add(value);
+    }
+    Ok(Some(bins))
 }
 
 fn distribution(table: &Table, kind: DistributionKind) -> (Chart, usize) {

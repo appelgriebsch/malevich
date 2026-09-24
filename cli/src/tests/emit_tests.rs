@@ -76,7 +76,7 @@ fn a_centered_colormap_emits_its_named_constant() {
 /// every emission shape as its own binary.
 #[test]
 fn emitted_programs_compile() {
-    let cases: [(&[&str], &str); 9] = [
+    let cases: [(&[&str], &str); 16] = [
         (
             &["line", "--fmt", "xyy", "-t", "training"],
             "1 4 5\n2 3 4\n3 2.5 3.5\n",
@@ -87,6 +87,22 @@ fn emitted_programs_compile() {
         ),
         (&["hist", "--bins", "4"], "1\n2\n2.5\nbad\n3\n"),
         (&["bar"], "mon 3\ntue 7\n"),
+        (&["bar", "--horizontal"], "mon 3\ntue 7\n"),
+        (&["bar", "-H", "--stack"], "q a b\nQ1 3 4\nQ2 5 1\n"),
+        (
+            &["bar", "-H", "--group", "--horizontal", "--unit", "%"],
+            "q a b\nQ1 3 4\nQ2 5 1\n",
+        ),
+        (
+            &["hist", "--binwidth", "10", "--unit", "ms", "--hline", "5"],
+            "1\n12\n25\n33\n47\n",
+        ),
+        (
+            &["line", "--unit", "bytes", "--vline", "1", "--hline", "2.5"],
+            "1\n2\n3\n",
+        ),
+        (&["describe", "-H"], "a b\n1 10\n2 20\n3 30\n"),
+        (&["table"], "small 1 2\nlarge 30 400\n"),
         (&["count"], "200\n404\n200\n"),
         (&["ecdf", "--xlim", "0,10"], "1\n2\n3\n"),
         (&["box"], "1 4\n2 5\n3 6\n"),

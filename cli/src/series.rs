@@ -361,3 +361,74 @@ pub fn counts(table: &Table) -> Vec<(String, f64)> {
 #[cfg(test)]
 #[path = "tests/series_tests.rs"]
 mod tests;
+
+/// `label v1 v2 …` rows for stacked or grouped bars: the labels, one series
+/// per value column named by its header (else its 1-based position among
+/// the value columns), and the unparsed tally. A missing field is a gap.
+pub fn labeled_series(table: &Table) -> (Vec<String>, Vec<String>, Vec<Vec<f64>>, usize) {
+    let width = table.width().saturating_sub(1);
+    let names = (0..width)
+        .map(|index| label(table, index + 1).unwrap_or_else(|| (index + 1).to_string()))
+        .collect();
+    let mut labels = Vec::with_capacity(table.rows.len());
+    let mut series: Vec<Vec<f64>> = vec![Vec::with_capacity(table.rows.len()); width];
+    let mut unparsed = 0;
+    for row in &table.rows {
+        let Some(name) = row.first() else { continue };
+        labels.push(name.clone());
+        for (index, column) in series.iter_mut().enumerate() {
+            column.push(match row.get(index + 1) {
+                Some(field) => parse_number(field).unwrap_or_else(|| {
+                    unparsed += 1;
+                    f64::NAN
+                }),
+                None => f64::NAN,
+            });
+        }
+    }
+    (labels, names, series, unparsed)
+}
+
+/// Rows of numbers as a table's cells: row names, column names, and the
+/// row-major values. A first column no row can read as a number names the
+/// rows; otherwise rows are numbered from one. Columns take their header
+/// names (else 1-based positions).
+pub fn table_cells(table: &Table) -> (Vec<String>, Vec<String>, Vec<f64>, usize) {
+    let width = table.width();
+    let named_rows = width > 1
+        && !table.rows.is_empty()
+        && table.rows.iter().all(|row| {
+            row.first()
+                .is_some_and(|field| parse_number(field).is_none())
+        });
+    let first = usize::from(named_rows);
+    let rows: Vec<String> = table
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(index, row)| {
+            if named_rows {
+                row.first().cloned().unwrap_or_default()
+            } else {
+                (index + 1).to_string()
+            }
+        })
+        .collect();
+    let columns: Vec<String> = (first..width)
+        .map(|index| label(table, index).unwrap_or_else(|| (index + 1 - first).to_string()))
+        .collect();
+    let mut values = Vec::with_capacity(rows.len() * columns.len());
+    let mut unparsed = 0;
+    for row in &table.rows {
+        for index in first..width {
+            values.push(match row.get(index) {
+                Some(field) => parse_number(field).unwrap_or_else(|| {
+                    unparsed += 1;
+                    f64::NAN
+                }),
+                None => f64::NAN,
+            });
+        }
+    }
+    (rows, columns, values, unparsed)
+}

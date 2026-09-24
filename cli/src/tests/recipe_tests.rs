@@ -86,3 +86,71 @@ fn selector_failures_remain_input_errors() {
     assert!(matches!(error, PrepareError::Input(_)));
     assert!(error.to_string().contains("column index 4"));
 }
+
+#[test]
+fn stacked_bars_carry_one_series_per_value_column() {
+    let args = args(&["bar", "-H", "--stack"]);
+    let table = input::frame("q a b\nQ1 3 4\nQ2 5 x\n", None, true);
+    let recipe = prepare(&args, table).unwrap();
+    let Chart::BarGroups {
+        labels,
+        names,
+        series,
+        layout,
+        horizontal,
+    } = recipe.chart
+    else {
+        panic!("expected bar groups")
+    };
+    assert_eq!(labels, ["Q1", "Q2"]);
+    assert_eq!(names, ["a", "b"]);
+    assert_eq!(series[0], [3.0, 5.0]);
+    assert!(series[1][1].is_nan(), "an unparsable field is a gap");
+    assert_eq!(layout, crate::args::BarLayout::Stack);
+    assert!(!horizontal);
+    assert_eq!(recipe.unparsed, 1);
+}
+
+#[test]
+fn a_fixed_bin_width_starts_on_a_multiple_of_itself() {
+    let args = args(&["hist", "--binwidth", "10"]);
+    let table = input::frame("3\n12\n25\n33\n47\n", None, false);
+    let recipe = prepare(&args, table).unwrap();
+    let Chart::Histogram {
+        start,
+        width,
+        heights,
+        ..
+    } = recipe.chart
+    else {
+        panic!("expected histogram geometry")
+    };
+    assert_eq!((start, width), (0.0, 10.0));
+    assert_eq!(heights, [1.0, 1.0, 1.0, 1.0, 1.0]);
+}
+
+#[test]
+fn tables_name_their_rows_from_a_textual_first_column() {
+    let args = args(&["table"]);
+    let named = prepare(
+        &args,
+        input::frame("small 1 2\nlarge 30 400\n", None, false),
+    )
+    .unwrap();
+    let Chart::Table {
+        rows,
+        columns,
+        values,
+    } = named.chart
+    else {
+        panic!("expected a table")
+    };
+    assert_eq!(rows, ["small", "large"]);
+    assert_eq!(columns, ["1", "2"]);
+    assert_eq!(values, [1.0, 2.0, 30.0, 400.0]);
+    let numbered = prepare(&args, input::frame("1 2\n3 4\n", None, false)).unwrap();
+    let Chart::Table { rows, .. } = numbered.chart else {
+        panic!("expected a table")
+    };
+    assert_eq!(rows, ["1", "2"]);
+}

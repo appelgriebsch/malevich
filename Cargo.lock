@@ -1034,6 +1034,7 @@ dependencies = [
  "lexopt",
  "libc",
  "malevich",
+ "serde_json",
 ]
 
 [[package]]

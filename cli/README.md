@@ -72,7 +72,7 @@ man ./man/kaz.1
 |---|---|---|---|
 | `line` | `l` | line chart, one line per series | `y` \| `xy` \| `xyy` \| `xyxy` \| `yx` |
 | `scatter` | `s` | scatter plot | `xy` \| `xyy` |
-| `bar` | `b` | one bar per label | `label value` |
+| `bar` | `b` | one bar per label (`--horizontal`, `--stack`, `--group`) | `label value` \| `label v1 v2 …` |
 | `hist` | — | histogram (`--bins N` to fix the count; `--normalize`, `--cumulative`) | columns of numbers |
 | `count` | `c` | value frequencies as bars | one column of labels |
 | `density` | `d` | kernel density estimate | columns of numbers |
@@ -82,6 +82,10 @@ man ./man/kaz.1
 | `hist2d` | — | 2D histogram (density grid) | `xy` |
 | `heatmap` | — | shade a row-major matrix | rows of numbers |
 | `spark` | — | sparkline: bars from zero, no axes, one row tall | columns of numbers |
+| `describe` | — | summary statistics per column | columns are groups |
+| `table` | — | the numbers as an aligned table | rows of numbers |
+| `spec` | — | render a serialized malevich document | JSON |
+| `caps` | — | what detection sees for this terminal | — |
 
 `ecdf`, `violin`, and `hist2d` are charts no other CLI plotter ships.
 
@@ -120,6 +124,13 @@ the data upstream (`xsv select …`, `mlr --c2t …`) and pipe the result in.
 --log-x  --log-y
 --time-x       read the x column as time (unix seconds or ISO 8601)
 --bins N       histogram bin count (hist; 1..1000000; default: automatic)
+--binwidth W   histogram bin width (exclusive with --bins)
+--horizontal   bar: sideways
+--stack        bar: stack the value columns of `label v1 v2 …` rows
+--group        bar: group them side by side within each band
+--unit U       label the value axis: an SI unit, bytes, or a suffix such as %
+--hline V      horizontal reference line (repeatable)
+--vline V      vertical reference line (repeatable)
 --normalize N  histogram heights: count (default) | probability | percent | density
 --cumulative   accumulate histogram bins left to right
 --cols LIST    select/reorder columns: header names (with -H) or 0-based indices

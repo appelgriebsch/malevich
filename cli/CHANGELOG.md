@@ -18,6 +18,18 @@ malevich API.
 - Detection reads `FORCE_COLOR`, `TERM=*-direct`, `TERM=unknown`, `COLUMNS`
   and `LINES` for a piped render, and `MALEVICH_GRAPHICS` for the pixel
   protocol, as the library does.
+- The CLI catches up with the library. `kaz describe` prints summary
+  statistics per column, `kaz table` the numbers as an aligned table,
+  `kaz spec` renders a serialized malevich document (a plot or a grid, as
+  JSON) through the same destination path as every chart, and `kaz caps`
+  reports what detection sees — charset, color, size, pixel protocols, and
+  whether the terminal answered a probe. `bar --horizontal` turns bars
+  sideways; `--stack` and `--group` take `label v1 v2 …` rows through the
+  library's `stack` and `dodge`. `hist --binwidth W` fixes the bin width.
+  `--unit U` labels the value axis (an SI unit, `bytes`, or a suffix such
+  as `%`); `--hline V` and `--vline V` draw reference lines. `--live` draws
+  every numeric field of a line as its own series, and `--window 0` keeps
+  every value, a window that grows. Every new shape emits its program.
 
 ## 0.3.0 — 2026-08-26
 

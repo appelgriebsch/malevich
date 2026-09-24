@@ -25,13 +25,44 @@ pub fn program(recipe: &Recipe) -> String {
             heights,
             normalization,
         } => histogram(&mut body, *start, *width, heights, *normalization),
-        Chart::Bars { labels, values } => {
-            let chart = bars(&mut body, labels, values);
+        Chart::Bars {
+            labels,
+            values,
+            horizontal,
+        } => {
+            let chart = bars(&mut body, labels, values, *horizontal);
             if recipe.command == crate::args::Command::Count {
                 format!("{chart}\n        .y_scale(malevich::Scale::Integer)")
             } else {
                 chart
             }
+        }
+        Chart::BarGroups {
+            labels,
+            names,
+            series,
+            layout,
+            horizontal,
+        } => bar_groups(&mut body, labels, names, series, *layout, *horizontal),
+        Chart::Describe { names, groups } => {
+            let _ = writeln!(body, "    let names: Vec<&str> = {};", strings(names));
+            for (index, group) in groups.iter().enumerate() {
+                let _ = writeln!(body, "    let group{index}: Vec<f64> = {};", floats(group));
+            }
+            let refs: Vec<String> = (0..groups.len())
+                .map(|index| format!("&group{index}[..]"))
+                .collect();
+            format!("malevich::describe(names, [{}])", refs.join(", "))
+        }
+        Chart::Table {
+            rows,
+            columns,
+            values,
+        } => {
+            let _ = writeln!(body, "    let rows: Vec<&str> = {};", strings(rows));
+            let _ = writeln!(body, "    let columns: Vec<&str> = {};", strings(columns));
+            let _ = writeln!(body, "    let values: Vec<f64> = {};", floats(values));
+            "malevich::table(rows, columns, values)".to_string()
         }
         Chart::Distribution { kind, values } => distribution(&mut body, *kind, values),
         Chart::Spark { values } => {
@@ -153,10 +184,79 @@ fn histogram(
     )
 }
 
-fn bars(body: &mut String, labels: &[String], values: &[f64]) -> String {
+fn bars(body: &mut String, labels: &[String], values: &[f64], horizontal: bool) -> String {
     let _ = writeln!(body, "    let labels: Vec<&str> = {};", strings(labels));
     let _ = writeln!(body, "    let values: Vec<f64> = {};", floats(values));
-    "malevich::bar(labels, values)".to_string()
+    if horizontal {
+        "malevich::Plot::new()\n        .layer(malevich::Bars::new(labels, values).horizontal())"
+            .to_string()
+    } else {
+        "malevich::bar(labels, values)".to_string()
+    }
+}
+
+/// Stacked or grouped bars through the library's own stats, one layer per
+/// value column.
+fn bar_groups(
+    body: &mut String,
+    labels: &[String],
+    names: &[String],
+    series: &[Vec<f64>],
+    layout: crate::args::BarLayout,
+    horizontal: bool,
+) -> String {
+    let _ = writeln!(body, "    let labels: Vec<&str> = {};", strings(labels));
+    for (index, values) in series.iter().enumerate() {
+        let _ = writeln!(
+            body,
+            "    let series{index}: Vec<f64> = {};",
+            floats(values)
+        );
+    }
+    let refs: Vec<String> = (0..series.len())
+        .map(|index| format!("&series{index}[..]"))
+        .collect();
+    let sideways = if horizontal { ".horizontal()" } else { "" };
+    let mut chart = String::new();
+    match layout {
+        crate::args::BarLayout::Group => {
+            let step = 0.8 / series.len().max(1) as f64;
+            let _ = writeln!(
+                body,
+                "    let positions = malevich::stat::dodge(&[{}], {});",
+                refs.join(", "),
+                float(step)
+            );
+            chart.push_str("malevich::Plot::new()");
+            for (index, name) in names.iter().enumerate() {
+                let _ = write!(
+                    chart,
+                    "\n        .layer(malevich::Bars::at(&positions[{index}][..], {}, &series{index}[..]).label({name:?}){sideways})",
+                    float(step * 0.9)
+                );
+            }
+            let axis = if horizontal { "y_scale" } else { "x_scale" };
+            let _ = write!(
+                chart,
+                "\n        .{axis}(malevich::Scale::bands(labels.iter().copied()))"
+            );
+        }
+        _ => {
+            let _ = writeln!(
+                body,
+                "    let bands = malevich::stat::stack(&[{}]);",
+                refs.join(", ")
+            );
+            chart.push_str("malevich::Plot::new()");
+            for (index, name) in names.iter().enumerate() {
+                let _ = write!(
+                    chart,
+                    "\n        .layer(malevich::Bars::new(labels.iter().copied(), &series{index}[..]).base(&bands[{index}].0[..]).label({name:?}){sideways})"
+                );
+            }
+        }
+    }
+    chart
 }
 
 fn distribution(body: &mut String, kind: DistributionKind, values: &[f64]) -> String {
@@ -277,7 +377,32 @@ fn furniture(mut chart: String, furniture: &Furniture) -> String {
     if furniture.log_y {
         push(".log_y()".to_string());
     }
+    if let Some(unit) = &furniture.unit {
+        let axis = if furniture.unit_on_x {
+            "x_unit"
+        } else {
+            "y_unit"
+        };
+        push(format!(".{axis}({})", unit_expression(unit)));
+    }
+    for &value in &furniture.hlines {
+        push(format!(".layer(malevich::Rule::h({}))", float(value)));
+    }
+    for &value in &furniture.vlines {
+        push(format!(".layer(malevich::Rule::v({}))", float(value)));
+    }
     chart
+}
+
+/// The constructor expression for a parsed unit.
+fn unit_expression(unit: &malevich::scale::Unit) -> String {
+    use malevich::scale::Unit;
+    match unit {
+        Unit::Bytes => "malevich::scale::Unit::Bytes".to_string(),
+        Unit::Si(name) => format!("malevich::scale::Unit::si({name:?})"),
+        Unit::Suffix(suffix) => format!("malevich::scale::Unit::suffix({suffix:?})"),
+        _ => "malevich::scale::Unit::Plain".to_string(),
+    }
 }
 
 /// The named-constant expression for a parsed colormap, re-centered as needed.

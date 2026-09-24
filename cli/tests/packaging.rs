@@ -8,9 +8,9 @@ const FISH: &str = include_str!("../completions/kaz.fish");
 const MAN: &str = include_str!("../man/kaz.1");
 
 /// Every chart subcommand `kaz` accepts.
-const CHARTS: [&str; 12] = [
+const CHARTS: [&str; 16] = [
     "line", "scatter", "bar", "hist", "count", "density", "ecdf", "box", "violin", "hist2d",
-    "heatmap", "spark",
+    "heatmap", "spark", "describe", "table", "caps", "spec",
 ];
 
 #[test]
@@ -37,7 +37,8 @@ fn packaging_covers_the_value_flag_choices() {
     // The enumerated flag values must stay in sync too — a missing charset tier or
     // color mode is a silent completion gap.
     for choice in [
-        "braille", "octant", "sextant", "always", "never", "xyxy", "percent",
+        "braille", "octant", "sextant", "always", "never", "xyxy", "percent", "stack", "binwidth",
+        "unit", "hline",
     ] {
         assert!(BASH.contains(choice), "bash completion missing `{choice}`");
         assert!(ZSH.contains(choice), "zsh completion missing `{choice}`");

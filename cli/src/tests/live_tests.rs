@@ -28,7 +28,7 @@ fn the_live_plot_carries_the_window_and_furniture() {
         a.title = Some("ping".into());
         a.ylim = Some((0.0, 10.0));
     });
-    let plot = plot(vec![1.0, 3.0, 2.0, 8.0], &args);
+    let plot = plot(vec![vec![1.0, 3.0, 2.0, 8.0]], &args);
     let text = plot.render(&Frame::plain(40, 8));
     assert!(text.contains("ping"), "title is drawn");
     // The fixed y range means the top axis label is 10.
@@ -40,7 +40,7 @@ fn the_live_plot_is_a_single_line_over_indices() {
     // No x furniture leaks in: even with --time-x set on the args, the sliding
     // window plots against its index, not a mangled time axis.
     let args = args_with(|a| a.time_x = true);
-    let plot = plot(vec![0.0, 1.0, 2.0], &args);
+    let plot = plot(vec![vec![0.0, 1.0, 2.0]], &args);
     let text = plot.render(&Frame::plain(30, 6));
     assert!(!text.contains("1970"), "indices are not read as unix time");
 }
@@ -66,6 +66,12 @@ fn args_with(f: impl FnOnce(&mut crate::args::Args)) -> crate::args::Args {
         log_y: false,
         time_x: false,
         bins: None,
+        binwidth: None,
+        horizontal: false,
+        bar_layout: crate::args::BarLayout::Single,
+        unit: None,
+        hlines: Vec::new(),
+        vlines: Vec::new(),
         normalize: malevich::stat::Normalization::Count,
         cumulative: false,
         colormap: None,
@@ -86,4 +92,25 @@ fn args_with(f: impl FnOnce(&mut crate::args::Args)) -> crate::args::Args {
     };
     f(&mut args);
     args
+}
+
+#[test]
+fn every_numeric_field_becomes_a_series() {
+    assert_eq!(numbers("1 10 x 3", None), vec![1.0, 10.0, 3.0]);
+    assert_eq!(numbers("a,7,b", Some(',')), vec![7.0]);
+    assert!(numbers("no numbers here", None).is_empty());
+    let rings = Rings::new(0);
+    rings.push(&[1.0, 10.0]);
+    rings.push(&[2.0]);
+    rings.push(&[3.0, 30.0, 300.0]);
+    let snapshot = rings.snapshot();
+    assert_eq!(snapshot.len(), 2, "the first sample fixes the series count");
+    assert_eq!(snapshot[0], [1.0, 2.0, 3.0]);
+    assert!(snapshot[1][1].is_nan(), "a missing field is a gap");
+    assert_eq!(snapshot[1][2], 30.0);
+    let sliding = Rings::new(2);
+    for value in 0..5 {
+        sliding.push(&[f64::from(value)]);
+    }
+    assert_eq!(sliding.snapshot()[0], [3.0, 4.0]);
 }

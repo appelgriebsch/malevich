@@ -620,3 +620,127 @@ fn version_prints() {
     assert!(out.status.success());
     assert!(stdout(&out).starts_with("kaz "));
 }
+
+#[test]
+fn describe_and_table_match_their_goldens() {
+    assert_eq!(
+        plain(
+            &["describe", "-H"],
+            "90",
+            "8",
+            "a b\n1 10\n2 20\n3 30\n4 40\n"
+        ),
+        include_str!("golden/describe.txt")
+    );
+    assert_eq!(
+        plain(&["table"], "40", "6", "small 1 2.5\nlarge 30 400\n"),
+        include_str!("golden/table.txt")
+    );
+}
+
+#[test]
+fn stacked_and_grouped_bars_match_their_goldens() {
+    let input = "q a b\nQ1 3 4\nQ2 5 1\nQ3 2 6\n";
+    assert_eq!(
+        plain(&["bar", "-H", "--stack"], "40", "10", input),
+        include_str!("golden/bar_stack.txt")
+    );
+    assert_eq!(
+        plain(&["bar", "-H", "--group"], "40", "10", input),
+        include_str!("golden/bar_group.txt")
+    );
+    assert_eq!(
+        plain(&["bar", "--horizontal"], "40", "8", "mon 3\ntue 7\n"),
+        include_str!("golden/bar_horizontal.txt")
+    );
+}
+
+#[test]
+fn bin_width_units_and_rules_reach_the_plot() {
+    let input: String = (1..=50).map(|n| format!("{n}\n")).collect();
+    let out = plain(
+        &["hist", "--binwidth", "10", "--unit", "ms", "--hline", "5"],
+        "44",
+        "8",
+        &input,
+    );
+    assert!(
+        out.contains(" ms"),
+        "the value axis carries the unit:\n{out}"
+    );
+    assert!(out.contains("50"), "five bins of ten cover 1..50:\n{out}");
+    let sideways = plain(
+        &["bar", "--horizontal", "--unit", "%"],
+        "40",
+        "8",
+        "mon 30\ntue 70\n",
+    );
+    assert!(
+        sideways.contains('%'),
+        "sideways bars put the unit on x:\n{sideways}"
+    );
+}
+
+#[test]
+fn caps_reports_the_destination() {
+    let out = run(&["caps"], "");
+    assert!(out.status.success(), "{}", stderr(&out));
+    let report = stdout(&out);
+    for key in [
+        "destination:",
+        "charset:",
+        "color:",
+        "size:",
+        "graphics:",
+        "cell:",
+        "source:",
+    ] {
+        assert!(report.contains(key), "{report}");
+    }
+    assert!(report.contains("not a terminal"), "{report}");
+}
+
+#[test]
+fn spec_renders_a_serialized_document() {
+    let plot = malevich::Plot::new()
+        .layer(malevich::Line::y(vec![1.0, 5.0, 2.0, 8.0]))
+        .title("from json");
+    let json = serde_json::to_string(&malevich::Document::plot(plot.clone()).unwrap()).unwrap();
+    let out = plain(&["spec", "-t", "renamed"], "40", "10", &json);
+    let frame = malevich::Frame {
+        charset: malevich::Charset::Braille,
+        ..malevich::Frame::plain(40, 10)
+    };
+    assert_eq!(
+        out.trim_end_matches('\n'),
+        plot.title("renamed").render(&frame).trim_end_matches('\n')
+    );
+    let grid = malevich::Grid::new(2)
+        .with(malevich::Plot::new().title("left"))
+        .with(malevich::Plot::new().title("right"));
+    let json = serde_json::to_string(&malevich::Document::grid(grid).unwrap()).unwrap();
+    let out = plain(&["spec"], "60", "8", &json);
+    assert!(out.contains("left") && out.contains("right"), "{out}");
+    let out = run(&["spec"], "{\"version\": 1");
+    assert_eq!(out.status.code(), Some(2));
+    assert!(stderr(&out).contains("spec:"), "{}", stderr(&out));
+}
+
+#[test]
+fn live_draws_every_column_and_can_grow() {
+    let out = run(
+        &[
+            "line", "--live", "--window", "0", "-w", "30", "-h", "6", "--color", "never",
+        ],
+        "1 10\n2 20\n3 15\n",
+    );
+    assert!(out.status.success(), "{}", stderr(&out));
+    let frames = stderr(&out);
+    let last = frames.trim_end().lines().rev().take(6).collect::<Vec<_>>();
+    let text = last.join("\n");
+    assert!(
+        text.contains("20"),
+        "the second column sets the range:\n{frames}"
+    );
+    assert!(text.contains('2'), "three samples span 0..2:\n{frames}");
+}

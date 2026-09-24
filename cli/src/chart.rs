@@ -3,8 +3,9 @@
 
 use malevich::scale::Unit;
 use malevich::stat::Normalization;
-use malevich::{Bars, Cells, Line, Plot, Points, Scale};
+use malevich::{Bars, Cells, Line, Plot, Points, Rule, Scale};
 
+use crate::args::BarLayout;
 use crate::recipe::{Chart, DistributionKind, Furniture, GroupedKind, Recipe, ValueMark};
 use crate::series::{Dataset, Series};
 
@@ -36,8 +37,16 @@ pub fn build(recipe: &Recipe) -> malevich::Result<Built<'_>> {
                 _ => plot,
             }
         }
-        Chart::Bars { labels, values } => {
-            let plot = malevich::bar(labels.iter().map(String::as_str), values);
+        Chart::Bars {
+            labels,
+            values,
+            horizontal,
+        } => {
+            let plot = if *horizontal {
+                Plot::new().layer(Bars::new(labels.iter().map(String::as_str), values).horizontal())
+            } else {
+                malevich::bar(labels.iter().map(String::as_str), values)
+            };
             // Frequencies are whole: the count chart's axis says so.
             if recipe.command == crate::args::Command::Count {
                 plot.y_scale(Scale::Integer)
@@ -45,6 +54,26 @@ pub fn build(recipe: &Recipe) -> malevich::Result<Built<'_>> {
                 plot
             }
         }
+        Chart::BarGroups {
+            labels,
+            names,
+            series,
+            layout,
+            horizontal,
+        } => bar_groups(labels, names, series, *layout, *horizontal),
+        Chart::Describe { names, groups } => malevich::describe(
+            names.iter().map(String::as_str),
+            groups.iter().map(Vec::as_slice),
+        ),
+        Chart::Table {
+            rows,
+            columns,
+            values,
+        } => malevich::try_table(
+            rows.iter().map(String::as_str),
+            columns.iter().map(String::as_str),
+            values,
+        )?,
         Chart::Distribution { kind, values } => match kind {
             DistributionKind::Density => malevich::density(values),
             DistributionKind::Ecdf => malevich::ecdf(values),
@@ -98,6 +127,51 @@ pub fn build(recipe: &Recipe) -> malevich::Result<Built<'_>> {
     })
 }
 
+/// Several value columns per label as stacked or grouped bars — the
+/// library's `stack` and `dodge` stats feeding `Bars::base` and `Bars::at`,
+/// exactly as the gallery composes them.
+fn bar_groups<'a>(
+    labels: &'a [String],
+    names: &'a [String],
+    series: &'a [Vec<f64>],
+    layout: BarLayout,
+    horizontal: bool,
+) -> Plot<'a> {
+    let slices: Vec<&[f64]> = series.iter().map(Vec::as_slice).collect();
+    let sideways = |bars: Bars<'a>| if horizontal { bars.horizontal() } else { bars };
+    match layout {
+        BarLayout::Stack | BarLayout::Single => {
+            let bands = malevich::stat::stack(&slices);
+            bands.into_iter().zip(series).zip(names).fold(
+                Plot::new(),
+                |plot, (((low, _), values), name)| {
+                    let bars = Bars::new(labels.iter().map(String::as_str), values.as_slice())
+                        .base(low)
+                        .label(name.as_str());
+                    plot.layer(sideways(bars))
+                },
+            )
+        }
+        BarLayout::Group => {
+            let step = 0.8 / slices.len().max(1) as f64;
+            let positions = malevich::stat::dodge(&slices, step);
+            let plot = positions.into_iter().zip(series).zip(names).fold(
+                Plot::new(),
+                |plot, ((at, values), name)| {
+                    let bars = Bars::at(at, step * 0.9, values.as_slice()).label(name.as_str());
+                    plot.layer(sideways(bars))
+                },
+            );
+            let bands = Scale::bands(labels.iter().map(String::as_str));
+            if horizontal {
+                plot.y_scale(bands)
+            } else {
+                plot.x_scale(bands)
+            }
+        }
+    }
+}
+
 /// Line and scatter: one layer per normalized series.
 fn value_plot<'a>(data: &'a Dataset, mark: ValueMark) -> Plot<'a> {
     data.series
@@ -135,7 +209,20 @@ fn named<M>(mark: M, label: Option<&str>, set: impl FnOnce(M, &str) -> M) -> M {
 
 impl Furniture {
     /// Applies the shared title, axes, domains, and scale choices.
-    fn apply<'a>(&self, mut plot: Plot<'a>) -> Plot<'a> {
+    pub(crate) fn apply<'a>(&self, mut plot: Plot<'a>) -> Plot<'a> {
+        for &value in &self.hlines {
+            plot = plot.layer(Rule::h(value));
+        }
+        for &value in &self.vlines {
+            plot = plot.layer(Rule::v(value));
+        }
+        if let Some(unit) = &self.unit {
+            plot = if self.unit_on_x {
+                plot.x_unit(unit.clone())
+            } else {
+                plot.y_unit(unit.clone())
+            };
+        }
         if let Some(title) = &self.title {
             plot = plot.title(title);
         }

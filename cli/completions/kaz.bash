@@ -8,9 +8,9 @@ _kaz() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local subcommands="line scatter bar hist count density ecdf box violin hist2d heatmap spark"
+    local subcommands="line scatter bar hist count density ecdf box violin hist2d heatmap spark describe table caps spec"
     local flags="-o -O -d -H --fmt -w -h -t --xlabel --ylabel --xlim --ylim \
-        --log-x --log-y --time-x --bins --normalize --cumulative --colormap --midpoint --log-color --labels-x --labels-y --reduce --cols --by --emit-code \
+        --log-x --log-y --time-x --bins --binwidth --normalize --cumulative --horizontal --stack --group --unit --hline --vline --colormap --midpoint --log-color --labels-x --labels-y --reduce --cols --by --emit-code \
         --color --charset --pixels -q \
         --live --window --fps --rate --version --help"
 

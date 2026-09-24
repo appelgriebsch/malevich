@@ -22,7 +22,9 @@ path = "src/main.rs"
 # The CLI contains zero rendering logic: it parses arguments, frames stdin, and
 # calls the public malevich API. `pixel` rides along so a plot from a pipe can
 # upgrade to a real image where the terminal speaks the protocol (D-C10).
-malevich = { path = "..", version = "1.18", features = ["pixel"] }
+malevich = { path = "..", version = "1.18", features = ["pixel", "serde"] }
+# `kaz spec` reads a serialized Document; the crate is already in the workspace tree.
+serde_json = "1"
 # lexopt over clap: ~0 extra deps, no proc-macro tree, and enough for two-level
 # subcommands. The cost — writing --help by hand — is the point: curated,
 # runnable pipeline examples, reviewed like the gallery (D-C8).

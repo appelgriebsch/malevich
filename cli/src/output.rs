@@ -76,17 +76,37 @@ pub fn emit(args: &Args, built: &Built<'_>) -> Result<i32, EmitError> {
     Ok(0)
 }
 
+/// Writes already-rendered text — a grid document, a capabilities report —
+/// to the plot destination, the way [`emit`] writes a plot.
+pub fn emit_text(args: &Args, text: &str) -> Result<i32, EmitError> {
+    match &args.output {
+        Output::Stderr => write_to(io::stderr(), text)?,
+        Output::Stdout => write_to(io::stdout(), text)?,
+        Output::File(path) => write_to(File::create(path)?, text)?,
+    }
+    Ok(0)
+}
+
 /// Builds the frame for `dest`, renders the plot at the chosen tier, and writes it.
-fn plot_to<W: Write + IsTerminal>(
-    mut dest: W,
-    plot: &Plot<'_>,
-    args: &Args,
-) -> Result<(), EmitError> {
+fn plot_to<W: Write + IsTerminal>(dest: W, plot: &Plot<'_>, args: &Args) -> Result<(), EmitError> {
     let frame = frame_for(&dest, args);
     let text = render(plot, &frame, args.pixels, &dest)?;
+    write_to(dest, &text)
+}
+
+fn write_to<W: Write>(mut dest: W, text: &str) -> Result<(), EmitError> {
     dest.write_all(text.as_bytes())?;
     dest.write_all(b"\n")?;
     Ok(dest.flush()?)
+}
+
+/// The frame a document renders in: the frame [`frame_for`] builds for the
+/// configured destination.
+pub(crate) fn frame_for_output(args: &Args) -> Frame {
+    match &args.output {
+        Output::Stdout => frame_for(&io::stdout(), args),
+        _ => frame_for(&io::stderr(), args),
+    }
 }
 
 /// The frame for a destination: detection keyed to `dest`, then the `--charset`

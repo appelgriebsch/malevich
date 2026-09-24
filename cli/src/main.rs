@@ -6,6 +6,7 @@
 //! library's public surface, not a place for a back door.
 
 mod args;
+mod caps;
 mod chart;
 mod emit;
 mod help;
@@ -14,6 +15,7 @@ mod live;
 mod output;
 mod recipe;
 mod series;
+mod spec;
 mod time;
 
 use std::io::{self, BufRead, Read, Write};
@@ -55,8 +57,15 @@ fn execute(args: &Args) -> Result<i32, Fail> {
             Err(error) => Err(Fail(format!("live: {error}"))),
         };
     }
+    if args.command == args::Command::Caps {
+        print!("{}", caps::report(args));
+        return Ok(0);
+    }
 
     let raw = read_input(args)?;
+    if args.command == args::Command::Spec {
+        return spec::run(args, &raw);
+    }
     let table = input::frame(&raw, args.delimiter, args.header);
     drop(raw);
     let recipe = recipe::prepare(args, table).map_err(|error| Fail(error.to_string()))?;
