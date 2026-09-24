@@ -210,7 +210,7 @@ impl Default for EcdfOptions {
 }
 
 /// Configuration for [`density_with`].
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct DensityOptions {
     /// Number of positions at which to evaluate the KDE.
@@ -243,7 +243,7 @@ impl Default for DensityOptions {
 }
 
 /// Configuration for [`violin_with`].
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct ViolinOptions {
     /// Number of KDE positions along each violin.

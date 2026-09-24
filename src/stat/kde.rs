@@ -1,7 +1,7 @@
 //! Kernel density estimation: a smooth distribution from a sample.
 
 /// How a KDE chooses its bandwidth.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 #[non_exhaustive]
 pub enum Bandwidth {
     /// Silverman's rule of thumb, `0.9 · min(σ, IQR / 1.34) · n^(−1/5)` — the
@@ -15,8 +15,37 @@ pub enum Bandwidth {
     Fixed(f64),
 }
 
+// Both option types compare their floats by bit pattern, so the preset
+// option types that hold them keep the `Eq` they promise; construction and
+// validation keep non-finite values out.
+impl PartialEq for Bandwidth {
+    fn eq(&self, other: &Bandwidth) -> bool {
+        match (self, other) {
+            (Bandwidth::Silverman, Bandwidth::Silverman) => true,
+            (Bandwidth::Scale(a), Bandwidth::Scale(b))
+            | (Bandwidth::Fixed(a), Bandwidth::Fixed(b)) => a.to_bits() == b.to_bits(),
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Bandwidth {}
+
+impl PartialEq for KdeOptions {
+    fn eq(&self, other: &KdeOptions) -> bool {
+        let bits = |bound: Option<f64>| bound.map(f64::to_bits);
+        self.bandwidth == other.bandwidth
+            && bits(self.bounds.0) == bits(other.bounds.0)
+            && bits(self.bounds.1) == bits(other.bounds.1)
+            && self.cut.to_bits() == other.cut.to_bits()
+            && self.cumulative == other.cumulative
+    }
+}
+
+impl Eq for KdeOptions {}
+
 /// Configuration for [`kde_with`].
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub struct KdeOptions {
     /// The bandwidth rule.
