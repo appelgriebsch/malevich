@@ -32,6 +32,7 @@ pub enum Command {
     Violin,
     Hist2d,
     Heatmap,
+    Spark,
 }
 
 impl Command {
@@ -49,6 +50,7 @@ impl Command {
             "violin" => Command::Violin,
             "hist2d" => Command::Hist2d,
             "heatmap" => Command::Heatmap,
+            "spark" => Command::Spark,
             _ => return None,
         })
     }
@@ -73,6 +75,7 @@ impl Command {
             Command::Violin => "violin",
             Command::Hist2d => "hist2d",
             Command::Heatmap => "heatmap",
+            Command::Spark => "spark",
         }
     }
 }

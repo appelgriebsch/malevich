@@ -102,6 +102,9 @@ pub(crate) fn frame_for<T: IsTerminal>(dest: &T, args: &Args) -> Frame {
     }
     if let Some(height) = args.height {
         frame.height = height;
+    } else if args.command == crate::args::Command::Spark {
+        // A sparkline is one row unless asked otherwise.
+        frame.height = 1;
     }
     frame
 }

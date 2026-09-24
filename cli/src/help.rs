@@ -20,6 +20,7 @@ pub fn text(topic: Option<Command>) -> &'static str {
         Some(Command::Violin) => VIOLIN,
         Some(Command::Hist2d) => HIST2D,
         Some(Command::Heatmap) => HEATMAP,
+        Some(Command::Spark) => SPARK,
     }
 }
 
@@ -42,6 +43,7 @@ Charts:
   violin       violin plot per column              columns are groups
   hist2d       2D histogram (density grid)         xy
   heatmap      shade a row-major matrix            rows of numbers
+  spark        sparkline: bars, no axes, one row   columns of numbers
 
 The plot goes to stderr, so stdout stays the data channel; -O echoes the input
 through, letting the plot sit in the middle of a pipeline:
@@ -342,6 +344,26 @@ Examples:
   cut -f2 species.tsv | kaz count
   awk '{print $9}' access.log | kaz count -t status-codes
   git log --format='%an' | kaz count -t commits-by-author
+
+Shared options: kaz --help
+";
+
+const SPARK: &str = "\
+kaz spark — a sparkline: bars from zero, no axes, one row tall
+
+Usage:
+  <data> | kaz spark [options]
+  kaz spark FILE [options]
+
+Input: every numeric field is pooled into one series, drawn as one bar per
+value with eighth-block heights. A gap stays blank. More values than columns
+keep the bar farthest from zero per column, so a spike survives. The default
+height is one row; -h raises it, -w sets the width.
+
+Examples:
+  git log --format='%ad' --date=short | uniq -c | awk '{print $1}' | kaz spark
+  cut -f2 latencies.tsv | kaz spark -w 60
+  seq 1 40 | awk '{print sin($1/4)}' | kaz spark -h 3
 
 Shared options: kaz --help
 ";

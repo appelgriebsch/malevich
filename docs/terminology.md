@@ -10,7 +10,8 @@ here only name their conclusions.
 ## Plot
 
 The retained description of a chart: layers plus scales plus furniture
-(title, labels, legend). A plain value — cloneable, inspectable,
+(title, labels, legend, and whether the axes are drawn at all — `axes(false)`
+is a sparkline's furniture). A plain value — cloneable, inspectable,
 serializable — with no connection to a terminal. Rendering is a pure function
 of a `Plot` and a `Frame`. Maps to `plot::Plot` (re-exported at the root).
 See [The frame is run state](principles/frame-is-run-state.md).
@@ -342,7 +343,7 @@ mode. Maps to `plot::Grid` (re-exported at the root).
 ## Preset
 
 A plain function composing the grammar into a named chart type: `line()`,
-`hist()`, `scatter()`, `table()`, `describe()`, …. Every preset is provably
+`hist()`, `scatter()`, `sparkline()`, `table()`, `describe()`, …. Every preset is provably
 equal to its grammar expansion (asserted byte-identical in tests). Presets are the front door; the
 grammar is discovered, not required. `_with` means "configured with an
 options value"; a `try_` prefix identifies the checked twin of an otherwise

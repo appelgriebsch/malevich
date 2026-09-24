@@ -5,6 +5,22 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Plot::axes(false)` omits the axes — no axis lines, ticks, tick labels,
+  or gutter; the data fills the frame and the domains are the data's own
+  extent. `sparkline(values)` is the preset over it: bars from zero, one per
+  value, eighth-block heights in a single row, gaps blank, a series of zeros
+  blank, proven byte-identical to its expansion. `kaz spark` renders it one
+  row tall from any column of numbers.
+- Bar ends map to subpixel edges instead of subpixel centers on cell
+  targets, so a bar of `v` units over a `v`-row axis fills exactly `v` rows
+  and the maximum reaches the panel's edge. At ten rows the difference is a
+  sixteenth of a cell in the partial glyph; at one row it was half the
+  sparkline.
+- Bars denser than the raster's cell columns thin to one per column — the
+  bar farthest from the baseline keeps its value, the rest become gaps — so
+  a spike among a thousand bars survives instead of the last bar drawn
+  overprinting the others: the bars' answer to M4. Stacks, grouped
+  categories, bands, and sideways bars draw whole.
 - `Rule::v_span(x0, x1)` and `Rule::h_span(y0, y1)` wash the band between
   two values across the whole plot in the rule's color — recessions,
   warm-up phases, tolerance windows, the annotation matplotlib calls

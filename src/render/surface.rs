@@ -632,6 +632,12 @@ impl Canvas for Surface {
     /// One bar as cell-aligned columns from the zero baseline, with eighth-block
     /// partial fills at the value end (upward bars) or coarse upper-block fills
     /// (downward bars — Unicode has no lower-anchored upper ramp).
+    ///
+    /// Scales map values onto subpixel *centers*; a bar's ends are edges, so
+    /// the ends are stretched from the center range `[0, n − 1]` onto the edge
+    /// range `[0, n]` before the fill is quantized — the maximum reaches the
+    /// panel's top edge and the baseline its bottom, which at one row is the
+    /// difference between a sparkline and half of one.
     fn bar(
         &mut self,
         span: (f64, f64),
@@ -645,8 +651,9 @@ impl Canvas for Surface {
         let ramp = self.charset.fill_ramp();
         let eighths = ramp.len() == 8;
         let mut buffer = [0u8; 4];
-        let baseline = baseline / py as f64;
-        let end = end / py as f64;
+        let edge = center_to_edge(rect.rows * py);
+        let baseline = edge(baseline) / py as f64;
+        let end = edge(end) / py as f64;
         let left = (span.0 / px as f64).round() as i64;
         let right = ((span.1 / px as f64).round() as i64).max(left + 1);
         // Clamp to the plot columns before iterating: a bar whose span maps far
@@ -728,8 +735,9 @@ impl Canvas for Surface {
         let ramp = self.charset.fill_ramp_left();
         let eighths = ramp.len() == 8;
         let mut buffer = [0u8; 4];
-        let baseline = baseline / px as f64;
-        let end = end / px as f64;
+        let edge = center_to_edge(rect.columns * px);
+        let baseline = edge(baseline) / px as f64;
+        let end = edge(end) / px as f64;
         // A bar fills the rows whose centers fall inside its span, plus the row
         // chrome gives the span's center (the subpixel rounded, then its cell) —
         // the band label's row. Whenever a band is at least one cell tall the
@@ -896,6 +904,19 @@ impl Canvas for Surface {
                 bottom_shade,
             ),
             (None, None) => {}
+        }
+    }
+}
+
+/// The map from a scale's subpixel-center range `[0, n − 1]` onto the edge
+/// range `[0, n]` of the same `n` subpixels — what a fill's ends want.
+fn center_to_edge(subpixels: usize) -> impl Fn(f64) -> f64 {
+    let n = subpixels as f64;
+    move |center: f64| {
+        if n > 1.0 {
+            center * n / (n - 1.0)
+        } else {
+            center
         }
     }
 }

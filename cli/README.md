@@ -81,6 +81,7 @@ man ./man/kaz.1
 | `violin` | — | a violin plot per column | columns are groups |
 | `hist2d` | — | 2D histogram (density grid) | `xy` |
 | `heatmap` | — | shade a row-major matrix | rows of numbers |
+| `spark` | — | sparkline: bars from zero, no axes, one row tall | columns of numbers |
 
 `ecdf`, `violin`, and `hist2d` are charts no other CLI plotter ships.
 

@@ -48,6 +48,9 @@ pub(crate) enum Chart {
         kind: DistributionKind,
         values: Vec<f64>,
     },
+    Spark {
+        values: Vec<f64>,
+    },
     Grouped {
         kind: GroupedKind,
         categories: Vec<String>,
@@ -162,6 +165,10 @@ pub(crate) fn prepare(args: &Args, mut table: Table) -> Result<Recipe, PrepareEr
             (Chart::Bars { labels, values }, 0)
         }
         (Command::Density, _) => distribution(&table, DistributionKind::Density),
+        (Command::Spark, _) => {
+            let (values, unparsed) = series::flatten(&table);
+            (Chart::Spark { values }, unparsed)
+        }
         (Command::Ecdf, _) => distribution(&table, DistributionKind::Ecdf),
         (Command::Box, _) => grouped(&table, GroupedKind::Box),
         (Command::Violin, _) => grouped(&table, GroupedKind::Violin),

@@ -25,6 +25,10 @@ pub fn program(recipe: &Recipe) -> String {
         } => histogram(&mut body, *start, *width, counts),
         Chart::Bars { labels, values } => bars(&mut body, labels, values),
         Chart::Distribution { kind, values } => distribution(&mut body, *kind, values),
+        Chart::Spark { values } => {
+            let _ = writeln!(body, "    let values: Vec<f64> = {};", floats(values));
+            "malevich::sparkline(values)".to_string()
+        }
         Chart::Grouped {
             kind,
             categories,
@@ -63,13 +67,18 @@ pub fn program(recipe: &Recipe) -> String {
     );
     program.push_str(&body);
     let _ = writeln!(program, "    let plot = {chart};");
-    let sized = recipe.frame.width.is_some() || recipe.frame.height.is_some();
+    // A sparkline is one row tall unless the invocation said otherwise.
+    let height = recipe
+        .frame
+        .height
+        .or_else(|| matches!(recipe.chart, Chart::Spark { .. }).then_some(1));
+    let sized = recipe.frame.width.is_some() || height.is_some();
     let binding = if sized { "let mut frame" } else { "let frame" };
     let _ = writeln!(program, "    {binding} = Frame::detect();");
     if let Some(width) = recipe.frame.width {
         let _ = writeln!(program, "    frame.width = {width};");
     }
-    if let Some(height) = recipe.frame.height {
+    if let Some(height) = height {
         let _ = writeln!(program, "    frame.height = {height};");
     }
     program.push_str("    println!(\"{}\", plot.render(&frame));\n}\n");

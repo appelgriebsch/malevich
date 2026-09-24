@@ -53,6 +53,24 @@ pub struct Plot<'a> {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     palette: Option<crate::scale::Palette>,
+    /// Whether the axes — lines, ticks, labels, gutter — are drawn; wire
+    /// documents omit it while they are.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "axes_default", skip_serializing_if = "axes_shown")
+    )]
+    axes: bool,
+}
+
+#[cfg(feature = "serde")]
+fn axes_default() -> bool {
+    true
+}
+
+#[cfg(feature = "serde")]
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn axes_shown(axes: &bool) -> bool {
+    *axes
 }
 
 /// The few choices that genuinely differ between cell and device-pixel targets.
@@ -121,7 +139,20 @@ impl<'a> Plot<'a> {
             y_domain: None,
             colorbar: false,
             palette: None,
+            axes: true,
         }
+    }
+
+    /// Draws or omits the axes: with `false`, no axis lines, ticks, tick
+    /// labels, or gutter — the data fills the frame and the domains are the
+    /// data's own extent, not grown to nice ticks. The furniture of a
+    /// sparkline, a strip in a table cell, a thumbnail. A title, a legend,
+    /// and annotations are still drawn when present. Axes are drawn by
+    /// default.
+    #[must_use]
+    pub fn axes(mut self, shown: bool) -> Plot<'a> {
+        self.axes = shown;
+        self
     }
 
     /// Replaces the categorical color scale `color_by` channels draw from;
@@ -304,6 +335,7 @@ impl<'a> Plot<'a> {
             y_domain: self.y_domain,
             colorbar: self.colorbar,
             palette: self.palette,
+            axes: self.axes,
         }
     }
 
@@ -803,7 +835,7 @@ impl<'a> Plot<'a> {
             (&self.x, &self.y),
             (self.x_label.as_deref(), self.y_label.as_deref()),
             (self.x_domain, self.y_domain),
-            self.colorbar,
+            (self.colorbar, self.axes),
         ))
     }
 
@@ -838,6 +870,7 @@ impl<'a> Plot<'a> {
             Some(layout) => Reduce::Mapped {
                 map: layout.x_scale,
                 columns: layout.plot_sub_w,
+                px: layout.px,
             },
             None => Reduce::None,
         };
@@ -871,7 +904,7 @@ impl<'a> Plot<'a> {
                 scales,
                 labels,
                 domains,
-                self.colorbar,
+                (self.colorbar, self.axes),
             )
         });
         Ok(PreparedRender { layout, layers })

@@ -122,6 +122,8 @@ pub(crate) struct Layout<'p> {
     pub categories: Option<&'p [String]>,
     pub y_categories: Option<&'p [String]>,
     pub colorbar: Option<Colorbar>,
+    /// Whether axis lines, ticks, and tick labels are drawn at all.
+    pub axes: bool,
 }
 
 impl<'p> Layout<'p> {
@@ -138,8 +140,9 @@ impl<'p> Layout<'p> {
         scales: (&'p Scale, &'p Scale),
         axis_labels: (Option<&str>, Option<&str>),
         domains: Domains,
-        colorbar_requested: bool,
+        furniture: (bool, bool),
     ) -> Layout<'p> {
+        let (colorbar_requested, axes) = furniture;
         let (x_spec, y_spec) = scales;
         let (has_x_label, has_y_label) = (axis_labels.0.is_some(), axis_labels.1.is_some());
         let (px, py) = density;
@@ -244,7 +247,10 @@ impl<'p> Layout<'p> {
         let has_legend = layers.iter().any(ResolvedLayer::has_legend);
         let legend_rows = usize::from(has_legend && frame.height >= 8);
         let chrome_top = title_rows + legend_rows;
+        // Without axes there is no axis row and no tick row: the data takes
+        // every remaining row.
         let axis_rows = match frame.height - chrome_top {
+            _ if !axes => 0,
             0..=1 => 0,
             2..=3 => 1,
             _ => 2,
@@ -269,14 +275,24 @@ impl<'p> Layout<'p> {
         } else {
             fit_y_ticks(y_data, plot_rows, py, (time_y, log_y, y_fixed))
         };
-        let mut label_width = y_ticks
-            .iter()
-            .map(|tick| display_width(&tick.label))
-            .max()
-            .unwrap_or(0);
+        let mut label_width = if axes {
+            y_ticks
+                .iter()
+                .map(|tick| display_width(&tick.label))
+                .max()
+                .unwrap_or(0)
+        } else {
+            0
+        };
         let y_label_cols = usize::from(has_y_label && frame.width >= label_width + 12) * 2;
-        let mut gutter = y_label_cols + label_width + 2;
-        if gutter + 4 > frame.width {
+        // Without axes the gutter is only the y title's columns: no tick
+        // labels, no axis line.
+        let mut gutter = if axes {
+            y_label_cols + label_width + 2
+        } else {
+            y_label_cols
+        };
+        if axes && gutter + 4 > frame.width {
             label_width = 0;
             gutter = usize::from(frame.width >= 2);
         }
@@ -306,7 +322,7 @@ impl<'p> Layout<'p> {
         let x_fixed = domains.0.is_some() && categories.is_none();
         let y_domain = match y_categories {
             Some(categories) => (0.0, categories.len().saturating_sub(1) as f64),
-            None if y_fixed => y_data,
+            None if y_fixed || !axes => y_data,
             None => domain_with_ticks_on(y_data, &y_ticks, log_y),
         };
         let plot_sub_w = (plot_cols * px).max(1);
@@ -316,7 +332,7 @@ impl<'p> Layout<'p> {
         let band = categories.map(|c| Band::new(c.len(), (0.0, (plot_sub_w - 1) as f64)));
         // The y band scale runs top-down: raster row 0 is band 0.
         let y_band = y_categories.map(|c| Band::new(c.len(), (0.0, (plot_sub_h - 1) as f64)));
-        let x_ticks = if band.is_none() && axis_rows == 2 {
+        let x_ticks = if axes && band.is_none() && axis_rows == 2 {
             if time_x {
                 fit_time_ticks(x_data, plot_cols, plot_sub_w, px, gutter, frame.width)
             } else if log_x {
@@ -333,7 +349,7 @@ impl<'p> Layout<'p> {
         };
         let x_domain = match (&band, &x_ticks) {
             (Some(band), _) => (0.0, (band.count() - 1) as f64),
-            (None, Some(_)) if x_fixed => x_data,
+            (None, Some(_)) if x_fixed || !axes => x_data,
             (None, Some(ticks)) => domain_with_ticks_on(x_data, ticks, log_x),
             (None, None) => x_data,
         };
@@ -379,6 +395,7 @@ impl<'p> Layout<'p> {
             categories,
             y_categories,
             colorbar,
+            axes,
         }
     }
 }

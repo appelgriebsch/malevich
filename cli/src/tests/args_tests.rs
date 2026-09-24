@@ -32,6 +32,7 @@ fn subcommands_and_their_aliases_resolve() {
     assert_eq!(run(&["violin"]).command, Command::Violin);
     assert_eq!(run(&["hist2d"]).command, Command::Hist2d);
     assert_eq!(run(&["heatmap"]).command, Command::Heatmap);
+    assert_eq!(run(&["spark"]).command, Command::Spark);
 }
 
 #[test]

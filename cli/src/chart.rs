@@ -29,6 +29,7 @@ pub fn build(recipe: &Recipe) -> malevich::Result<Built<'_>> {
             DistributionKind::Density => malevich::density(values),
             DistributionKind::Ecdf => malevich::ecdf(values),
         },
+        Chart::Spark { values } => malevich::sparkline(values),
         Chart::Grouped {
             kind,
             categories,

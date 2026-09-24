@@ -239,10 +239,10 @@ fn labeled_layers_grow_a_legend_row() {
 const BARS_WITH_TREND: &str = r"           bars with a trend line
 7.5 ┤                             ▃▃▃▃▃▃▃
     │                             ███████
-    │           ▁▁▁▁▁▁▁        ⢀⡠⠔███████
+    │                          ⢀⡠⠔███████
 5.0 ┤           ███████⠒⠢⠤⠤⠤⠤⠔⠊⠁  ███████
-    │         ⣀⠔███████  ▇▇▇▇▇▇▇  ███████
-2.5 ┤  ▆▆▆▆▆▆▆  ███████  ███████  ███████
+    │         ⣀⠔███████  ▆▆▆▆▆▆▆  ███████
+2.5 ┤  ▅▅▅▅▅▅▅  ███████  ███████  ███████
     │  ███████  ███████  ███████  ███████
     │  ███████  ███████  ███████  ███████
 0.0 ┤  ███████  ███████  ███████  ███████
@@ -264,14 +264,14 @@ fn bars_share_scales_with_a_line_overlay_in_the_snapshot() {
 
 const NEGATIVE_BARS: &str = r" 7.5 ┤            ▄▄▄▄
      │            ████            ▄▄▄▄
- 5.0 ┤            ████ ▁▁▁▁       ████      ▅▅▅▅
+ 5.0 ┤            ████            ████      ▄▄▄▄
      │            ████ ████       ████      ████
-     │ ▅▅▅▅       ████ ████       ████      ████
- 2.5 ┤ ████       ████ ████       ████ ▇▇▇▇ ████
+     │ ▄▄▄▄       ████ ████       ████      ████
+ 2.5 ┤ ████       ████ ████       ████ ▆▆▆▆ ████
      │ ████       ████ ████       ████ ████ ████
  0.0 ┤ ████  ████ ████ ████ ████  ████ ████ ████
-     │       ████           ▔▔▔▔
--2.5 ┤       ▔▔▔▔
+     │       ████           ▀▀▀▀
+-2.5 ┤       ▀▀▀▀
      └────────────────────────────────────────────
          a     b    c    d    e     f    g    h";
 
@@ -430,8 +430,8 @@ fn a_small_line_chart_matches_its_snapshot() {
 
 const SIMPLE_BARS: &str = r"            bars
 5 ┤         ██████
-  │         ██████  ▁▁▁▁▁▁
-  │  ▁▁▁▁▁▁ ██████  ██████
+  │         ██████
+  │         ██████  ██████
   │  ██████ ██████  ██████
 0 ┤  ██████ ██████  ██████
   └─────────────────────────
@@ -1738,9 +1738,9 @@ fn the_svg_card_draws_block_glyphs_as_rectangles_and_chrome_as_text() {
 
 const SIDEWAYS: &str = r"            sideways
       │
-alpha ┤        ██████▊
-      │        ████████████████▌
- beta ┤        ████████████████▌
+alpha ┤        ███████
+      │        █████████████████
+ beta ┤        █████████████████
 gamma ┤   ▐█████
       │
       └┬───────┬───────┬───────┬
@@ -1748,10 +1748,10 @@ gamma ┤   ▐█████
 
 const SIDEWAYS_ASCII: &str = r"            sideways
       |
-alpha +        ######
-      |        ################
- beta +        ################
-gamma +   #####
+alpha +        #######
+      |        #################
+ beta +        #################
+gamma +   ######
       |
       ++-------+-------+-------+
      -2.5     0.0     2.5    5.0";
@@ -1816,16 +1816,16 @@ fn horizontal_bars_put_their_bands_on_y_and_pin_zero_into_x() {
 }
 
 const SIDEWAYS_GROUPED: &str = r"    │
-    │███████████▌
-mon ┤███████████████████▏
-    │███████████████████▏
+    │███████████▋
+mon ┤███████████████████▍
+    │███████████████████▍
     │
-    │██████████████████████████▊
-tue ┤███████████████▎
+    │███████████████████████████▏
+tue ┤███████████████▌
     │
-    │███████████████████▏
-wed ┤███████████████████▏
-    │██████████████████████▉
+    │███████████████████▍
+wed ┤███████████████████▍
+    │███████████████████████▎
     │
     └┬──────────────┬──────────────┬
      0              4              8";
@@ -2090,4 +2090,105 @@ fn spans_wash_their_band_extend_the_axes_and_let_marks_show_through() {
             .layer(Line::y(&values[..]))
             .render(&frame)
     );
+}
+
+#[test]
+fn a_plot_without_axes_fills_the_frame_with_data() {
+    let values = [1.0, 4.0, 2.0, 5.0, 3.0];
+    let frame = Frame::portable(20, 4);
+    let bare = Plot::new()
+        .layer(crate::mark::Bars::spans(0.0, 1.0, &values[..]))
+        .axes(false)
+        .render(&frame);
+    for glyph in ['\u{2524}', '\u{2502}', '\u{2514}', '\u{2500}', '\u{252C}'] {
+        assert!(!bare.contains(glyph), "axis glyph {glyph:?} drawn:\n{bare}");
+    }
+    assert!(bare.lines().count() <= 4);
+    // The bars start in the first column: no gutter at all.
+    assert!(!bare.lines().last().unwrap().starts_with(' '), "{bare}");
+    // Title and legend still draw when present.
+    let titled = Plot::new()
+        .layer(Line::y(&values[..]).label("v"))
+        .axes(false)
+        .title("t")
+        .render(&Frame::portable(20, 8));
+    assert!(titled.lines().next().unwrap().trim() == "t", "{titled}");
+    assert!(titled.contains("\u{2500}\u{2500} v"), "{titled}");
+    // Domains are the data's own extent, not grown to ticks.
+    let mapping = Plot::new()
+        .layer(Line::y(&[0.3, 0.7][..]))
+        .axes(false)
+        .mapping(&Frame::portable(20, 4));
+    assert_eq!(mapping.y_domain(), (0.3, 0.7));
+}
+
+#[test]
+fn the_sparkline_preset_equals_its_grammar_expansion() {
+    use crate::mark::Bars;
+    let values = [1.0, 5.0, 2.0, 8.0, f64::NAN, 3.0, 0.0];
+    for frame in [
+        Frame::portable(14, 1),
+        Frame::plain(40, 3),
+        Frame::portable(7, 2),
+    ] {
+        let preset = crate::sparkline(&values[..]).render(&frame);
+        let grammar = Plot::new()
+            .layer(Bars::spans(0.0, 1.0, &values[..]))
+            .axes(false)
+            .render(&frame);
+        assert_eq!(preset, grammar);
+    }
+    // One row: eighth-block heights, a gap blank, a zero blank.
+    let strip = crate::sparkline(&values[..]).render(&Frame::portable(14, 1));
+    let glyphs: Vec<char> = strip.chars().collect();
+    assert_eq!(glyphs.len(), 12, "{strip:?}");
+    assert_eq!(
+        glyphs[6], '\u{2588}',
+        "the maximum is a full block: {strip:?}"
+    );
+    assert_eq!(glyphs[8], ' ', "a gap is blank: {strip:?}");
+    assert!(
+        glyphs[0] != ' ' && glyphs[0] < glyphs[2],
+        "heights rise: {strip:?}"
+    );
+    // All zeros draw nothing; a constant series draws full blocks.
+    assert_eq!(
+        crate::sparkline(&[0.0; 5][..]).render(&Frame::portable(10, 1)),
+        ""
+    );
+    assert_eq!(
+        crate::sparkline(&[3.0; 5][..]).render(&Frame::portable(10, 1)),
+        "\u{2588}".repeat(10)
+    );
+}
+
+#[test]
+fn bars_denser_than_the_columns_keep_the_extreme_per_column() {
+    use crate::mark::Bars;
+    // Four hundred bars in a forty-column frame: one spike among ones.
+    let mut values = vec![1.0; 400];
+    values[200] = 100.0;
+    values[150] = -60.0;
+    let frame = Frame::portable(40, 6);
+    let plot = Plot::new().layer(Bars::spans(0.0, 1.0, &values[..]));
+    let rendered = plot.render(&frame);
+    // The spike reaches the top row and the trough the bottom: neither was
+    // overprinted by the bars sharing its column.
+    let rows: Vec<&str> = rendered.lines().collect();
+    assert!(
+        rows[0].contains('\u{2588}') || rows[0].contains('\u{2580}'),
+        "the spike must reach the top row:\n{rendered}"
+    );
+    assert_eq!(
+        Plot::new()
+            .layer(Bars::spans(0.0, 1.0, &values[..]))
+            .render(&frame),
+        rendered,
+        "deterministic"
+    );
+    // A stack's segments never thin: every based layer draws whole.
+    let base = vec![0.5; 400];
+    let stacked = Plot::new().layer(Bars::spans(0.0, 1.0, &values[..]).base(&base[..]));
+    assert!(stacked.validate().is_ok());
+    let _ = stacked.render(&frame);
 }

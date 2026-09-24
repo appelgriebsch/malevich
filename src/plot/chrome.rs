@@ -77,7 +77,7 @@ pub(crate) fn draw(
         }
     }
 
-    if gutter >= 1 {
+    if gutter >= 1 && layout.axes {
         let axis_column = (gutter - 1) as i64;
         for row in 0..plot_rows {
             surface.text(
@@ -108,7 +108,7 @@ pub(crate) fn draw(
         }
     }
 
-    if axis_rows >= 1 {
+    if axis_rows >= 1 && layout.axes {
         let axis_row = (plot_top + plot_rows) as i64;
         if gutter >= 1 {
             surface.text((gutter - 1) as i64, axis_row, glyphs.corner, Color::Default);

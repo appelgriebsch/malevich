@@ -155,3 +155,12 @@ fn emitted_programs_compile() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn a_spark_program_is_the_sparkline_preset_one_row_tall() {
+    let code = emit(&["spark"], "1\n5\n2\n8\n");
+    assert!(code.contains("malevich::sparkline(values)"), "{code}");
+    assert!(code.contains("frame.height = 1;"), "{code}");
+    let tall = emit(&["spark", "-h", "3"], "1\n5\n");
+    assert!(tall.contains("frame.height = 3;"), "{tall}");
+}

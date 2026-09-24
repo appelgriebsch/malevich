@@ -564,3 +564,14 @@ fn rule_spans_round_trip_and_stay_off_the_line_wire() {
     let line = serde_json::to_string(&Plot::new().layer(Rule::h(2.5))).unwrap();
     assert!(!line.contains("Span"), "{line}");
 }
+
+#[test]
+fn axes_off_round_trips_and_stays_off_the_wire_when_shown() {
+    let shown = serde_json::to_string(&Plot::new().layer(Line::y(&[1.0, 2.0][..]))).unwrap();
+    assert!(!shown.contains("axes"), "{shown}");
+    let bare = Plot::new().layer(Line::y(&[1.0, 2.0][..])).axes(false);
+    let json = serde_json::to_string(&bare).unwrap();
+    assert!(json.contains("\"axes\":false"), "{json}");
+    let back: Plot<'static> = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.render(&frame()), bare.render(&frame()));
+}

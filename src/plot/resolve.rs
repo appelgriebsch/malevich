@@ -79,8 +79,8 @@ pub(crate) enum Reduce {
     /// The flags select positive-only summaries for log scales.
     Extent { x_positive: bool, y_positive: bool },
     /// Pixel-exact M4 bucketed by the rendered column, using the resolved layout's
-    /// scale and subpixel width.
-    Mapped { map: Map, columns: usize },
+    /// scale and subpixel width; `px` subpixels make one cell column.
+    Mapped { map: Map, columns: usize, px: usize },
 }
 
 /// How a resolved series layer draws its columns.
@@ -780,7 +780,7 @@ pub(crate) fn resolve<'p>(
             },
             Mark::Bars(bars) => ResolvedLayer::Bars {
                 placement: &bars.placement,
-                values: Cow::Borrowed(bars.values.as_slice()),
+                values: thinned_bars(bars, reduce),
                 base: bars.base.as_ref().map(crate::data::Series::as_slice),
                 color: colors.channel(bars.color_by.as_ref(), bars.color, bars.label.as_deref()),
                 horizontal: bars.horizontal,
@@ -942,11 +942,67 @@ fn reduced(x: Option<&[f64]>, y: &[f64], reduce: Reduce) -> Option<(Vec<f64>, Ve
             x_positive,
             y_positive,
         } => line_extent(x, y, x_positive, y_positive),
-        Reduce::Mapped { map, columns } if y.len() > 4 * columns.max(1) => {
+        Reduce::Mapped { map, columns, .. } if y.len() > 4 * columns.max(1) => {
             mapped_m4(x, y, map, columns)
         }
         Reduce::Mapped { .. } => None,
     }
+}
+
+/// Bars denser than the raster's cell columns thin to one per column: the
+/// bar farthest from the baseline keeps its value and the rest become gaps,
+/// so a spike survives — the bars' M4 — instead of the last bar drawn
+/// overprinting the others. Geometry is untouched: the kept bar draws at its
+/// own span. Only zero-based, single-colored, vertical numeric placements
+/// thin; a stack's segments, grouped categories, bands, and sideways bars
+/// draw whole.
+fn thinned_bars<'p>(bars: &'p crate::mark::Bars<'_>, reduce: Reduce) -> Cow<'p, [f64]> {
+    let values = bars.values.as_slice();
+    let Reduce::Mapped { map, columns, px } = reduce else {
+        return Cow::Borrowed(values);
+    };
+    let cells = columns / px.max(1);
+    if bars.horizontal
+        || bars.base.is_some()
+        || bars.color_by.is_some()
+        || cells == 0
+        || values.len() <= cells
+    {
+        return Cow::Borrowed(values);
+    }
+    let center = |index: usize| -> f64 {
+        match &bars.placement {
+            Placement::Bands(_) => f64::NAN,
+            Placement::Spans { start, width } => width.mul_add(index as f64 + 0.5, *start),
+            Placement::At { x, .. } => x.as_slice().get(index).copied().unwrap_or(f64::NAN),
+        }
+    };
+    if matches!(bars.placement, Placement::Bands(_)) {
+        return Cow::Borrowed(values);
+    }
+    // Per cell column, the index of the bar farthest from zero.
+    let mut kept: Vec<Option<usize>> = vec![None; cells];
+    for (index, &value) in values.iter().enumerate() {
+        if !value.is_finite() {
+            continue;
+        }
+        let sub = map.map(center(index));
+        if !sub.is_finite() || sub < 0.0 {
+            continue;
+        }
+        let column = (sub / px.max(1) as f64).floor() as usize;
+        let Some(slot) = kept.get_mut(column) else {
+            continue;
+        };
+        if slot.is_none_or(|best| value.abs() > values[best].abs()) {
+            *slot = Some(index);
+        }
+    }
+    let mut thinned = vec![f64::NAN; values.len()];
+    for index in kept.into_iter().flatten() {
+        thinned[index] = values[index];
+    }
+    Cow::Owned(thinned)
 }
 
 /// Reduces a categorical line without converting membership into numeric gaps.
@@ -959,7 +1015,7 @@ fn reduced_categories(
     reduce: Reduce,
 ) -> Option<(Vec<f64>, Vec<f64>, Vec<usize>)> {
     match reduce {
-        Reduce::Mapped { map, columns } if y.len() > 4 * columns.max(1) => {
+        Reduce::Mapped { map, columns, .. } if y.len() > 4 * columns.max(1) => {
             mapped_m4_categories(x, y, categories, map, columns)
         }
         Reduce::None | Reduce::Extent { .. } | Reduce::Mapped { .. } => None,

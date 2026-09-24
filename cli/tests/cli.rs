@@ -104,6 +104,27 @@ fn line_matches_golden() {
 }
 
 #[test]
+fn spark_matches_golden_one_row_tall() {
+    let out = run(
+        &[
+            "spark",
+            "-o",
+            "-",
+            "--color",
+            "never",
+            "--charset",
+            "quad",
+            "-w",
+            "16",
+        ],
+        "1\n5\n2\n8\nx\n3\n0\n4\n",
+    );
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert_eq!(stdout(&out), include_str!("golden/spark.txt"));
+    assert_eq!(stdout(&out).lines().count(), 1, "one row by default");
+}
+
+#[test]
 fn scatter_matches_golden() {
     let out = run(
         &[

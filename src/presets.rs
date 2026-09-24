@@ -367,6 +367,21 @@ pub fn scatter<'a>(x: impl IntoSeries<'a>, y: impl IntoSeries<'a>) -> Plot<'a> {
     Plot::new().layer(Points::xy(x, y))
 }
 
+/// A sparkline: `values` as bars from zero, one per value, in a frame with
+/// no axes — the strip beside a table row, the dashboard glance. Eighth-block
+/// fills give eight levels in one row; a gap (`NaN`) stays blank, and so does
+/// a series of zeros. More values than columns thin to the bar farthest from
+/// zero per column, so a spike survives. The expansion is
+/// `Bars::spans(0.0, 1.0, values)` under [`Plot::axes`]`(false)`.
+///
+/// ```
+/// let strip = malevich::sparkline(&[1.0, 5.0, 2.0, 8.0, f64::NAN, 3.0][..]);
+/// println!("{}", strip.render(&malevich::Frame::portable(12, 1)));
+/// ```
+pub fn sparkline<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
+    Plot::new().layer(Bars::spans(0.0, 1.0, values)).axes(false)
+}
+
 /// A bar chart: one labeled bar per category, rising from zero.
 ///
 /// ```
