@@ -24,8 +24,22 @@ export function hist(values: SeriesLike): Plot {
   return histWith(values, { maxBins: 60 });
 }
 
-export function histWith(values: SeriesLike, options: { maxBins?: number } = {}): Plot {
-  return fromPreset("hist", { max_bins: options.maxBins ?? 60 }, [toFloat64(values)]);
+/** How a histogram scales its bar heights from its counts. */
+export type Normalization = "Count" | "Probability" | "Percent" | "Density";
+
+export function histWith(
+  values: SeriesLike,
+  options: { maxBins?: number; normalization?: Normalization; cumulative?: boolean } = {},
+): Plot {
+  return fromPreset(
+    "hist",
+    {
+      max_bins: options.maxBins ?? 60,
+      normalization: options.normalization ?? "Count",
+      cumulative: options.cumulative ?? false,
+    },
+    [toFloat64(values)],
+  );
 }
 
 export function ecdf(values: SeriesLike): Plot {

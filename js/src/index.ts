@@ -45,6 +45,7 @@ export {
   hist,
   hist2d,
   histWith,
+  type Normalization,
   line,
   scatter,
   stairs,

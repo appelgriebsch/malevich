@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { Frame } from "../frame.js";
 import { Line, Rule, Text } from "../mark.js";
 import { Plot } from "../plot.js";
-import { bar, hist, line, scatter } from "../presets.js";
+import { bar, hist, histWith, line, scatter } from "../presets.js";
 
 const LINE = `7.5 ┤                                 ⡠⠊
     │                               ⡠⠊
@@ -59,6 +59,11 @@ test("scatter, bar, and hist render without throwing", () => {
   assert.ok(scatter([1, 2, 3], [2, 1, 3]).render(frame).length > 0);
   assert.ok(bar(["a", "b", "c"], [3, 7, 5]).render(frame).length > 0);
   assert.ok(hist([1, 2, 2.5, 2.7, 3, 3.1, 3.2, 4, 5.5]).render(frame).length > 0);
+  const share = histWith([1, 2, 2.5, 2.7, 3, 3.1, 3.2, 4, 5.5], {
+    normalization: "Percent",
+    cumulative: true,
+  }).render(frame);
+  assert.ok(share.includes("100%"), share);
 });
 
 test("console.log convenience uses inspect", async () => {

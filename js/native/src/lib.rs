@@ -124,7 +124,9 @@ pub fn expand_preset(name: &str, options: &str, columns: &JsValue) -> Result<Str
             let values = column(&columns, 0)?;
             malevich::hist_with(
                 values,
-                malevich::HistogramOptions::new(options.max_bins.unwrap_or(60)),
+                malevich::HistogramOptions::new(options.max_bins.unwrap_or(60))
+                    .normalization(options.normalization.unwrap_or_default())
+                    .cumulative(options.cumulative.unwrap_or(false)),
             )
             .map_err(js_error)?
         }
@@ -194,6 +196,8 @@ fn column(columns: &[Vec<f64>], index: usize) -> Result<&[f64], JsError> {
 #[derive(serde::Deserialize)]
 struct HistOptions {
     max_bins: Option<usize>,
+    normalization: Option<malevich::stat::Normalization>,
+    cumulative: Option<bool>,
 }
 
 #[derive(serde::Deserialize)]

@@ -7,6 +7,8 @@ The renderer underneath is whatever `engineVersion` reports.
 
 - `xScale` / `yScale` accept `"Integer"`, the crate's whole-number linear
   axis; `hist` counts on it.
+- `histWith` takes `normalization` (`"Count" | "Probability" | "Percent" |
+  "Density"`) and `cumulative`.
 
 ## 0.3.0 — 2026-09-07
 
