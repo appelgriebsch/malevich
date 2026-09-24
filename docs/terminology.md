@@ -394,7 +394,8 @@ crate root. See [Presets are packaging](principles/presets-are-packaging.md).
 ## Stream
 
 Live data machinery, kept at the edge of the crate: `stream::Ring` (a
-sliding window shared across threads — the one lock in the library),
+sliding window shared across threads — the one lock in the library — or,
+from `Ring::growing`, a window that keeps every value since the start),
 `stream::Rate` (counters into deltas), and `stream::Live` (in-place repaint:
 cursor up, erase down, one buffered write bracketed as a synchronized-output
 frame — flicker-free, scrollback-safe, never owning the screen; `Live::detect`

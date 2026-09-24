@@ -5,6 +5,10 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `stream::Ring::growing()` is the window that keeps every value pushed —
+  the chart of a run from its start, where the x axis lengthens instead of
+  sliding. `kaz --live --window 0` uses it.
+
 - Detection reads what the field agreed on. `FORCE_COLOR` (non-empty, not
   `0`) forces color like `CLICOLOR_FORCE`; a `TERM` ending in `-direct` is
   truecolor; `TERM=unknown` is as dumb as `dumb`; a `screen*` `TERM` caps

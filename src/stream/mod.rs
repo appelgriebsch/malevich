@@ -34,13 +34,14 @@ use std::sync::{Arc, Mutex};
 
 use crate::plot::{Frame, Plot};
 
-/// A sliding window of the most recent values, shared across threads.
+/// A sliding window of the most recent values, shared across threads — or,
+/// from [`Ring::growing`], a window that keeps everything.
 ///
 /// Cloning shares the same window. Pushing past `capacity` drops the oldest value.
 #[derive(Debug, Clone)]
 pub struct Ring {
     inner: Arc<Mutex<VecDeque<f64>>>,
-    capacity: usize,
+    capacity: Option<usize>,
 }
 
 impl Ring {
@@ -53,7 +54,17 @@ impl Ring {
         assert!(capacity > 0, "Ring::new requires a non-zero capacity");
         Ring {
             inner: Arc::new(Mutex::new(VecDeque::with_capacity(capacity))),
-            capacity,
+            capacity: Some(capacity),
+        }
+    }
+
+    /// An empty window that keeps every value pushed: the growing chart of a
+    /// run from its start, where the x axis lengthens instead of sliding.
+    /// Memory grows with the input; a long-running feed wants [`Ring::new`].
+    pub fn growing() -> Ring {
+        Ring {
+            inner: Arc::new(Mutex::new(VecDeque::new())),
+            capacity: None,
         }
     }
 
@@ -61,7 +72,7 @@ impl Ring {
     /// too — a missed sample stays a visible break.
     pub fn push(&self, value: f64) {
         let mut window = self.inner.lock().expect("ring lock");
-        if window.len() == self.capacity {
+        if self.capacity == Some(window.len()) {
             window.pop_front();
         }
         window.push_back(value);
