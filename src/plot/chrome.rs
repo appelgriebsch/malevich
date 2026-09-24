@@ -231,6 +231,8 @@ fn draw_colorbar(surface: &mut Surface, bar: &Colorbar, plot_top: usize, plot_ro
         } else {
             1.0
         };
+        // A stepped map draws its bands; the shade glyph follows the band too.
+        let position = bar.colormap.quantize(position, bar.low, bar.high);
         let glyph = RAMP[((position * 4.0) as usize).min(3)];
         surface.text(
             column,

@@ -255,6 +255,23 @@ impl Ticks {
         }
     }
 
+    /// Ticks at exactly `values`, labeled at one shared budget by the same
+    /// formatter every readout uses — a colorbar's band boundaries.
+    pub(crate) fn explicit(values: &[f64]) -> Ticks {
+        let format = format::NumberFormat::for_values(values);
+        Ticks {
+            ticks: values
+                .iter()
+                .map(|&value| Tick {
+                    value,
+                    label: format.format(value),
+                })
+                .collect(),
+            step: None,
+            context: None,
+        }
+    }
+
     /// Builds a set from precomputed ticks (time axes build these); no uniform step.
     pub(crate) fn from_time(ticks: Vec<Tick>) -> Ticks {
         Ticks {

@@ -268,6 +268,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                 "The MATLAB peaks function as iso-lines: marching squares, tick-chosen levels, a labeled legend.",
             ),
             (
+                "contourf",
+                "The peaks function filled: a heatmap under a colormap split at the \
+                 contour levels, one flat color per band, the colorbar labeling the \
+                 levels.",
+            ),
+            (
                 "quiver",
                 "A vector field: spiral flow into a sink, one arrow per grid point, drawn in data coordinates.",
             ),

@@ -1033,11 +1033,7 @@ fn draw_cells<C: Canvas>(
                             + v10 * tx * (1.0 - ty)
                             + v01 * (1.0 - tx) * ty
                             + v11 * tx * ty;
-                        let position = colormap.position_in(value, low, high);
-                        if position.is_finite() {
-                            return Some((position, colormap.color(position)));
-                        }
-                        return None;
+                        return colormap.sample(value, low, high);
                     }
                 }
                 let mut state = ReducerState::new(reduce);
@@ -1048,15 +1044,7 @@ fn draw_cells<C: Canvas>(
                         }
                     }
                 }
-                let value = state.finish();
-                if !value.is_finite() {
-                    return None;
-                }
-                let position = colormap.position_in(value, low, high);
-                if !position.is_finite() {
-                    return None;
-                }
-                Some((position, colormap.color(position)))
+                colormap.sample(state.finish(), low, high)
             })();
             surface.patch(unit_col, unit_row, rect, sample);
         }

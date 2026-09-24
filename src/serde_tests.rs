@@ -634,3 +634,33 @@ fn one_sided_domains_write_their_end_and_pairs_stay_pairs() {
     let error = serde_json::from_value::<Plot>(empty).expect_err("an empty domain object");
     assert!(error.to_string().contains("min"), "{error}");
 }
+
+#[test]
+fn colormap_options_stay_off_the_plain_wire_and_round_trip() {
+    use crate::scale::Colormap;
+
+    let plain = serde_json::to_value(Colormap::GREYS).unwrap();
+    assert_eq!(
+        plain,
+        serde_json::json!({"stops": [[64, 64, 64], [250, 250, 250]]})
+    );
+    let configured = Colormap::GREYS
+        .domain(0.0, 1.0)
+        .under(Color::Blue)
+        .over(Color::Red)
+        .steps(3);
+    let json = serde_json::to_value(&configured).unwrap();
+    assert_eq!(json["domain"], serde_json::json!([0.0, 1.0]));
+    assert_eq!(json["steps"], serde_json::json!(3));
+    let back: Colormap = serde_json::from_value(json).unwrap();
+    assert_eq!(back, configured);
+    let split = Colormap::GREYS.thresholds([1.0, 2.0]);
+    let json = serde_json::to_value(&split).unwrap();
+    assert_eq!(json["thresholds"], serde_json::json!([1.0, 2.0]));
+    assert_eq!(serde_json::from_value::<Colormap>(json).unwrap(), split);
+    // The wire may carry what the builders refuse; validation catches it.
+    let mut unsorted = serde_json::to_value(&split).unwrap();
+    unsorted["thresholds"] = serde_json::json!([2.0, 1.0]);
+    let unsorted: Colormap = serde_json::from_value(unsorted).unwrap();
+    assert!(unsorted.validate().is_err());
+}

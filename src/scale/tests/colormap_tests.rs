@@ -107,9 +107,8 @@ fn centering_on_a_non_finite_value_is_misuse() {
 fn a_deserialized_non_finite_midpoint_degrades_and_fails_validation() {
     // Unreachable through the constructors; only deserialization can build it.
     let map = Colormap {
-        stops: Colormap::RED_BLUE.stops().to_vec().into(),
-        midpoint: Some(super::Midpoint(f64::NAN)),
-        log: false,
+        midpoint: Some(super::Exact(f64::NAN)),
+        ..Colormap::RED_BLUE
     };
     assert!(map.validate().is_err());
     // Rendering paths degrade to the linear mapping instead of spreading NaN.
@@ -190,4 +189,49 @@ fn centered_and_log_together_fail_validation() {
         Err(crate::Error::InvalidParameter { .. })
     ));
     assert!(Colormap::MAGMA.log().validate().is_ok());
+}
+
+#[test]
+fn a_fixed_domain_replaces_the_observed_extent_and_discloses_the_outside() {
+    let map = Colormap::GREYS.domain(0.0, 10.0);
+    assert_eq!(map.fixed_domain(), Some((0.0, 10.0)));
+    assert_eq!(map.display_domain(0.0, 100.0), (0.0, 10.0));
+    assert_eq!(map.position_in(5.0, 0.0, 100.0), 0.5);
+    // Outside the range: clamped without caps, disclosed with them.
+    assert_eq!(map.sample(50.0, 0.0, 100.0), Some((1.0, map.color(1.0))));
+    let capped = map.clone().under(Color::Blue).over(Color::Red);
+    assert_eq!(capped.sample(-1.0, 0.0, 100.0), Some((0.0, Color::Blue)));
+    assert_eq!(capped.sample(50.0, 0.0, 100.0), Some((1.0, Color::Red)));
+    assert_eq!(capped.sample(5.0, 0.0, 100.0), Some((0.5, map.color(0.5))));
+    assert_eq!(capped.sample(f64::NAN, 0.0, 100.0), None);
+    // A log map needs a positive domain.
+    assert!(Colormap::GREYS.log().domain(0.0, 1.0).validate().is_err());
+    assert!(Colormap::GREYS.log().domain(1.0, 100.0).validate().is_ok());
+}
+
+#[test]
+fn stepped_and_thresholded_maps_color_by_band() {
+    let stepped = Colormap::GREYS.steps(4);
+    assert_eq!(stepped.bands(), Some(4));
+    // Every value in a band shares the band's center color.
+    assert_eq!(stepped.sample(0.1, 0.0, 1.0), stepped.sample(0.2, 0.0, 1.0));
+    assert_eq!(stepped.sample(0.1, 0.0, 1.0).unwrap().0, 0.125);
+    assert_eq!(stepped.sample(1.0, 0.0, 1.0).unwrap().0, 0.875);
+    assert_ne!(stepped.sample(0.2, 0.0, 1.0), stepped.sample(0.3, 0.0, 1.0));
+    assert_eq!(stepped.boundaries(0.0, 1.0), [0.0, 0.25, 0.5, 0.75, 1.0]);
+
+    let split = Colormap::GREYS.thresholds([3.0, 1.0, 1.0]);
+    assert_eq!(split.bands(), Some(3));
+    assert_eq!(split.boundaries(0.0, 4.0), [0.0, 1.0, 3.0, 4.0]);
+    assert_eq!(split.sample(0.5, 0.0, 4.0).unwrap().0, 0.5 / 3.0);
+    assert_eq!(split.sample(2.0, 0.0, 4.0).unwrap().0, 1.5 / 3.0);
+    assert_eq!(split.sample(3.5, 0.0, 4.0).unwrap().0, 2.5 / 3.0);
+    // Steps and thresholds replace each other; a continuous ramp is untouched.
+    assert_eq!(split.clone().steps(2).bands(), Some(2));
+    assert_eq!(Colormap::GREYS.bands(), None);
+    assert_eq!(Colormap::GREYS.boundaries(0.0, 1.0), Vec::<f64>::new());
+    assert_eq!(Colormap::GREYS.sample(0.3, 0.0, 1.0).unwrap().0, 0.3);
+    // A stepped log ramp divides by decade.
+    let decades = Colormap::GREYS.log().steps(2);
+    assert_eq!(decades.boundaries(1.0, 100.0), [1.0, 10.0, 100.0]);
 }

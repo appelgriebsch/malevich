@@ -5,6 +5,18 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Colormap::domain(lo, hi)` fixes the value range a colormap spans instead
+  of the data's extent — two heatmaps on one scale, a live grid whose
+  colors hold still — and the colorbar shows it. `under(color)` and
+  `over(color)` disclose values outside the range in their own colors
+  rather than clamping them into the ends. `steps(n)` quantizes the ramp
+  into equal bands and `thresholds(values)` splits it at given values; the
+  colorbar draws the bands and labels their boundaries. `Colormap::sample`
+  applies all of it at once. `contourf` and `contourf_with` are filled
+  contours as a composition: `contour`'s levels, `heatmap`'s drawing, a
+  colormap thresholded between them — the `contourf` gallery example fills
+  the peaks function. A plain colormap's wire form is unchanged.
+
 - Axes print what their tick labels leave out, once. A numeric axis whose
   values agree in four or more leading digits places its ticks on the
   residuals around a round base and prints the base above the y labels or

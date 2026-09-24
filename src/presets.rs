@@ -724,75 +724,13 @@ pub fn contour_with<'a>(
     values: impl IntoSeries<'a>,
     options: ContourOptions,
 ) -> crate::Result<Plot<'a>> {
-    use crate::scale::Ticks;
-
     let series = values.into_series();
-    if columns == 0 {
-        return Err(crate::Error::EmptyDimension {
-            what: "contour columns",
-        });
-    }
-    if !series.len().is_multiple_of(columns) {
-        return Err(crate::Error::NonRectangular {
-            mark: "contour",
-            shape: (series.len(), columns),
-        });
-    }
-    check_colormap(&options.colormap)?;
-    let level_selection = match options.levels {
-        ContourLevels::Automatic(target) => {
-            check_count(
-                target,
-                2,
-                "contour automatic level target",
-                "contour automatic target must be at least two",
-            )?;
-            check_contour_coordinates(series.len(), columns, target)?;
-            ContourLevels::Automatic(target)
-        }
-        ContourLevels::Explicit(mut levels) => {
-            check_count(
-                levels.len(),
-                1,
-                "contour explicit level count",
-                "contour explicit levels must not be empty",
-            )?;
-            check_contour_coordinates(series.len(), columns, levels.len())?;
-            if levels.iter().any(|level| !level.is_finite()) {
-                return Err(crate::Error::InvalidParameter {
-                    detail: "contour explicit levels must be finite",
-                });
-            }
-            levels.sort_by(f64::total_cmp);
-            levels.dedup();
-            ContourLevels::Explicit(levels)
-        }
-    };
-    let mut extent: Option<(f64, f64)> = None;
-    for &value in series.as_slice() {
-        if value.is_finite() {
-            let (low, high) = extent.get_or_insert((value, value));
-            *low = low.min(value);
-            *high = high.max(value);
-        }
-    }
-    let Some((min, max)) = extent.filter(|(low, high)| low < high) else {
+    let Some((levels, (min, max))) = contour_levels(series.as_slice(), columns, options.levels)?
+    else {
         return Ok(Plot::new());
     };
-    let levels: Vec<(f64, String)> = match level_selection {
-        ContourLevels::Automatic(target) => Ticks::linear(min, max, target)
-            .iter()
-            .filter(|tick| tick.value > min && tick.value < max)
-            .map(|tick| (tick.value, tick.label.clone()))
-            .collect(),
-        ContourLevels::Explicit(levels) => levels
-            .into_iter()
-            .filter(|level| *level > min && *level < max)
-            .map(|level| (level, level.to_string()))
-            .collect(),
-    };
+    check_colormap(&options.colormap)?;
     let values: Vec<f64> = levels.iter().map(|(level, _)| *level).collect();
-    check_contour_coordinates(series.len(), columns, values.len())?;
     let mut plot = Plot::new();
     for ((level, label), line) in
         levels
@@ -808,6 +746,125 @@ pub fn contour_with<'a>(
         );
     }
     Ok(plot)
+}
+
+/// Filled contours: the grid drawn as a [`heatmap`] under a colormap split at
+/// the [`contour`] levels, so every band between two iso-lines is one color
+/// and the colorbar labels the levels — matplotlib's `contourf`, as a
+/// composition: `contour`'s levels, `heatmap`'s drawing,
+/// [`Colormap::thresholds`](crate::scale::Colormap::thresholds) between them.
+///
+/// ```
+/// let z: Vec<f64> = (0..36).map(|i| ((i % 6) as f64 - 2.5).powi(2) + (i / 6) as f64).collect();
+/// println!("{}", malevich::contourf(6, &z[..]).render(&malevich::Frame::plain(40, 14)));
+/// ```
+///
+/// # Panics
+///
+/// Panics if `columns` is zero or does not divide the value count.
+pub fn contourf<'a>(columns: usize, values: impl IntoSeries<'a>) -> Plot<'a> {
+    contourf_with(columns, values, ContourOptions::default())
+        .expect("contourf requires a rectangular grid and valid default options")
+}
+
+/// Filled contours with explicit options: the same [`ContourOptions`] as
+/// [`contour_with`], its colormap split at the levels.
+///
+/// # Errors
+///
+/// Returns the errors [`contour_with`] would: an empty or non-rectangular
+/// grid, invalid levels, or an invalid colormap.
+pub fn contourf_with<'a>(
+    columns: usize,
+    values: impl IntoSeries<'a>,
+    options: ContourOptions,
+) -> crate::Result<Plot<'a>> {
+    let series = values.into_series();
+    let Some((levels, _)) = contour_levels(series.as_slice(), columns, options.levels)? else {
+        return Ok(Plot::new());
+    };
+    let colormap = options
+        .colormap
+        .thresholds(levels.into_iter().map(|(level, _)| level));
+    heatmap_with(columns, series, HeatmapOptions::new().colormap(colormap))
+}
+
+/// The contour levels inside the grid's finite extent, labeled, with that
+/// extent — `None` when the grid has no spread to trace. Validates the
+/// geometry and the level selection on the way.
+#[allow(clippy::type_complexity)]
+fn contour_levels(
+    values: &[f64],
+    columns: usize,
+    levels: ContourLevels,
+) -> crate::Result<Option<(Vec<(f64, String)>, (f64, f64))>> {
+    use crate::scale::Ticks;
+
+    if columns == 0 {
+        return Err(crate::Error::EmptyDimension {
+            what: "contour columns",
+        });
+    }
+    if !values.len().is_multiple_of(columns) {
+        return Err(crate::Error::NonRectangular {
+            mark: "contour",
+            shape: (values.len(), columns),
+        });
+    }
+    let level_selection = match levels {
+        ContourLevels::Automatic(target) => {
+            check_count(
+                target,
+                2,
+                "contour automatic level target",
+                "contour automatic target must be at least two",
+            )?;
+            check_contour_coordinates(values.len(), columns, target)?;
+            ContourLevels::Automatic(target)
+        }
+        ContourLevels::Explicit(mut levels) => {
+            check_count(
+                levels.len(),
+                1,
+                "contour explicit level count",
+                "contour explicit levels must not be empty",
+            )?;
+            check_contour_coordinates(values.len(), columns, levels.len())?;
+            if levels.iter().any(|level| !level.is_finite()) {
+                return Err(crate::Error::InvalidParameter {
+                    detail: "contour explicit levels must be finite",
+                });
+            }
+            levels.sort_by(f64::total_cmp);
+            levels.dedup();
+            ContourLevels::Explicit(levels)
+        }
+    };
+    let mut extent: Option<(f64, f64)> = None;
+    for &value in values {
+        if value.is_finite() {
+            let (low, high) = extent.get_or_insert((value, value));
+            *low = low.min(value);
+            *high = high.max(value);
+        }
+    }
+    let Some((min, max)) = extent.filter(|(low, high)| low < high) else {
+        return Ok(None);
+    };
+    let levels: Vec<(f64, String)> = match level_selection {
+        ContourLevels::Automatic(target) => Ticks::linear(min, max, target)
+            .iter()
+            .filter(|tick| tick.value > min && tick.value < max)
+            .map(|tick| (tick.value, tick.label.clone()))
+            .collect(),
+        ContourLevels::Explicit(levels) => levels
+            .into_iter()
+            .filter(|level| *level > min && *level < max)
+            .map(|level| (level, level.to_string()))
+            .collect(),
+    };
+    check_contour_coordinates(values.len(), columns, levels.len())?;
+    Ok(Some((levels, (min, max))))
 }
 
 /// A vector field: one arrow per point, from `(x[i], y[i])` along `(u[i], v[i])`.

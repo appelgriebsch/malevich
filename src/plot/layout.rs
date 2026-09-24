@@ -44,7 +44,21 @@ fn cells_colorbar(
     };
     let (low, high) = colormap.display_domain(low, high);
     let target = (plot_rows / 2).clamp(2, 5);
-    let ticks = if colormap.is_log() && low > 0.0 && high > 0.0 {
+    // A stepped map labels the boundaries where its bands meet — thinned
+    // to what the strip can hold, every k-th from the bottom — instead of
+    // round ticks; the ends are the range, as on a continuous strip.
+    let boundaries = colormap.boundaries(low, high);
+    let interior = boundaries.get(1..boundaries.len().saturating_sub(1));
+    let ticks = if let Some(interior) = interior.filter(|interior| !interior.is_empty()) {
+        let stride = interior.len().div_ceil(target.max(2));
+        Ticks::explicit(
+            &interior
+                .iter()
+                .copied()
+                .step_by(stride.max(1))
+                .collect::<Vec<f64>>(),
+        )
+    } else if colormap.is_log() && low > 0.0 && high > 0.0 {
         Ticks::log10(low, high, target)
     } else {
         Ticks::linear(low, high, target)

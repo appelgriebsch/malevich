@@ -157,7 +157,12 @@ whose top follows the traffic. Color scales:
 sequential and diverging ramps (curated named constants — `VIRIDIS`,
 `MAGMA`, `CIVIDIS`, `GREYS`, `RED_BLUE`, `PURPLE_ORANGE`; `centered_at(mid)`
 anchors a diverging map to a data value, `log()` makes a sequential map
-logarithmic with decade ticks); `scale::Palette` is the categorical scale
+logarithmic with decade ticks; `domain(lo, hi)` fixes the value range so
+two grids read on one scale, with `under`/`over` disclosing what falls
+outside instead of clamping it; `steps(n)` and `thresholds(values)`
+quantize the ramp into bands the colorbar draws and labels at their
+boundaries — `contourf` is `heatmap` under a map split at `contour`'s
+levels); `scale::Palette` is the categorical scale
 `color_by` draws from — Okabe–Ito (Wong 2011) by default.
 
 ## Ticks

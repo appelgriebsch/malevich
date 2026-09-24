@@ -666,8 +666,10 @@ pub(crate) fn resolve<'p>(
                         let colors = slice
                             .iter()
                             .map(|&value| {
-                                if value.is_finite() && low <= high {
-                                    colormap.color(colormap.position_in(value, low, high))
+                                if low <= high {
+                                    colormap
+                                        .sample(value, low, high)
+                                        .map_or(Color::Default, |(_, color)| color)
                                 } else {
                                     Color::Default
                                 }

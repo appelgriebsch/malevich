@@ -2419,3 +2419,51 @@ fn context_notes_print_what_the_labels_leave_out() {
         .render(&Frame::plain(50, 12));
     assert!(!cells.contains("+1.000G"), "{cells}");
 }
+
+#[test]
+fn contourf_is_a_heatmap_under_a_map_split_at_the_contour_levels() {
+    use crate::scale::{Colormap, Ticks};
+
+    let z: Vec<f64> = (0..36)
+        .map(|i| f64::from(i % 6) + f64::from(i / 6))
+        .collect();
+    let frame = Frame::plain(44, 14);
+    let filled = crate::contourf(6, &z[..]).render(&frame);
+    let levels: Vec<f64> = Ticks::linear(0.0, 10.0, 7)
+        .iter()
+        .map(|tick| tick.value)
+        .filter(|level| *level > 0.0 && *level < 10.0)
+        .collect();
+    let expected = crate::heatmap_with(
+        6,
+        &z[..],
+        crate::HeatmapOptions::new().colormap(Colormap::DEFAULT.thresholds(levels)),
+    )
+    .unwrap()
+    .render(&frame);
+    assert_eq!(filled, expected);
+}
+
+#[test]
+fn colorbars_show_fixed_domains_and_band_boundaries() {
+    use crate::mark::Cells;
+    use crate::scale::Colormap;
+
+    let cells = Cells::matrix(2, vec![1.0, 2.0, 3.0, 4.0]);
+    let fixed = Plot::new()
+        .layer(cells.clone().colormap(Colormap::GREYS.domain(0.0, 10.0)))
+        .colorbar()
+        .render(&Frame::plain(40, 12));
+    assert!(
+        fixed.contains("10"),
+        "the colorbar spans the fixed domain:\n{fixed}"
+    );
+    let stepped = Plot::new()
+        .layer(cells.colormap(Colormap::GREYS.steps(2)))
+        .colorbar()
+        .render(&Frame::plain(40, 12));
+    assert!(
+        stepped.contains("2.5"),
+        "the colorbar labels the band boundary:\n{stepped}"
+    );
+}
