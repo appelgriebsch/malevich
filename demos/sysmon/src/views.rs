@@ -4,6 +4,7 @@
 //! the sampler thread keeps pushing while these run, and the same functions power
 //! the TUI and the headless `--render` mode.
 
+use malevich::scale::Unit;
 use malevich::{Area, Color, Line, Plot, Viewport};
 
 use crate::data::History;
@@ -79,32 +80,40 @@ pub fn cpu_chart(cpu: &[f64], interval: f64) -> Plot<'static> {
         .x_label("seconds ago")
 }
 
-/// Memory in use as a filled area, in GiB, pinned to the machine's total.
+/// Memory in use as a filled area, in raw bytes, pinned to the machine's total.
+///
+/// malevich notes: the data stays in bytes and `.y_unit(Unit::Bytes)` makes
+/// the axis binary — ticks chosen nice in GiB, labels reading `4.0 GiB` —
+/// which no manual division could give (1024 is not a decimal step).
 pub fn mem_chart(mem_bytes: &[f64], total_bytes: f64, interval: f64) -> Plot<'static> {
     const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
-    let mem: Vec<f64> = mem_bytes.iter().map(|b| b / GIB).collect();
-    let x = seconds_ago(mem.len(), interval);
-    let latest = mem.last().copied().unwrap_or(0.0);
+    let x = seconds_ago(mem_bytes.len(), interval);
+    let latest = mem_bytes.last().copied().unwrap_or(0.0) / GIB;
     let total = total_bytes / GIB;
     Plot::new()
         .layer(
-            Area::xy(x.clone(), mem.clone())
+            Area::xy(x.clone(), mem_bytes.to_vec())
                 .color(Color::Green)
                 .opacity(0.4),
         )
-        .layer(Line::xy(x, mem).color(Color::BrightGreen).glow())
-        .y_domain(0.0, total)
+        .layer(
+            Line::xy(x, mem_bytes.to_vec())
+                .color(Color::BrightGreen)
+                .glow(),
+        )
+        .y_domain(0.0, total_bytes)
+        .y_unit(Unit::Bytes)
         .title(format!("memory  {latest:.1} / {total:.0} GiB"))
-        .y_label("GiB")
         .x_label("seconds ago")
 }
 
 /// Network receive and transmit rates as two labeled lines.
 ///
-/// malevich notes: the y axis carries raw bytes per second and the tick engine
-/// picks one SI prefix for the whole axis — labels come out as `2.5M`, `100k` —
-/// so the chart never needs manual unit switching as traffic scales. Labeling the
-/// layers is what makes the legend appear.
+/// malevich notes: the y axis carries raw bytes per second and
+/// `.y_unit(Unit::si("B/s"))` labels it with one SI prefix for the whole
+/// axis — `2.5 MB/s`, `100 kB/s` — so the chart never needs manual unit
+/// switching as traffic scales. Labeling the layers is what makes the legend
+/// appear.
 pub fn net_chart(rx: &[f64], tx: &[f64], interval: f64) -> Plot<'static> {
     let x = seconds_ago(rx.len(), interval);
     Plot::new()
@@ -115,7 +124,7 @@ pub fn net_chart(rx: &[f64], tx: &[f64], interval: f64) -> Plot<'static> {
         )
         .layer(Line::xy(x, tx.to_vec()).label("tx").color(Color::Magenta))
         .title("network")
-        .y_label("B/s")
+        .y_unit(Unit::si("B/s"))
         .x_label("seconds ago")
 }
 
@@ -208,8 +217,8 @@ mod tests {
         )
         .render(&malevich::Frame::plain(70, 14));
         assert!(
-            rendered.contains('M'),
-            "megabyte rates get an SI prefix:\n{rendered}"
+            rendered.contains(" MB/s"),
+            "megabyte rates get an SI prefix and the unit:\n{rendered}"
         );
     }
 
