@@ -322,6 +322,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                  README's SVG card by the same example.",
             ),
             (
+                "waffle",
+                "The pie's honest form: one hundred class cells on a ten-by-ten grid, \
+                 axes off, shares rounded to whole cells the eye can count \u{2014} \
+                 Cells::classes from the grammar, no preset.",
+            ),
+            (
                 "breakdown",
                 "Breakdown bars: every region's sources as a horizontal 100 % stack \
                  through stat::stack_with under StackOffset::Normalize — each row's \
@@ -363,7 +369,14 @@ const SPLICED: &[&str] = &[
 /// Files produced whole from an example's stdout: `(example, arguments, path)`.
 /// Checked for staleness like every spliced block, so a figure in the README is
 /// program output, regenerated and diffed.
-const FILES: &[(&str, &[&str], &str)] = &[("speedup", &["--svg"], "examples/speedup.svg")];
+const FILES: &[(&str, &[&str], &str)] = &[
+    ("speedup", &["--svg"], "examples/speedup.svg"),
+    (
+        "speedup",
+        &["--svg", "--light"],
+        "examples/speedup-light.svg",
+    ),
+];
 
 /// Examples that are deliberately not in the gallery: infrastructure, the colored
 /// tour (environment-dependent), interactive demos, README splice sources, the

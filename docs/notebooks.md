@@ -61,6 +61,30 @@ you can inspect in a browser, or `cargo run --example speedup -- --svg >
 plot.svg` for the SVG card — the one the README embeds as an image, because
 GitHub strips the HTML card's styles.
 
+## The terminal-card contract
+
+What a host may rely on, for the HTML card and the SVG card alike:
+
+- **The grid is the chart.** A card is the exact cell grid the terminal
+  renderer would print for the same plot and frame — one `<pre>` (HTML) or
+  one `<text>`-and-`<rect>` group (SVG), one cell per character, box-drawing
+  and block glyphs included. Byte-identical for equal inputs; a snapshot
+  test pins it.
+- **Nothing external.** No stylesheet, script, font file, or image reference
+  leaves the card: colors are inline on spans, the font is whatever
+  monospace the host has. A card renders the same in a static page, a
+  README, a notebook, or a mail client.
+- **Stripped styles still read.** Sanitizing hosts drop inline styles —
+  GitHub's markup, nbconvert with `sanitize_html`, nbviewer's bleach pass.
+  The HTML card then loses its colors and keeps every glyph in place, so the
+  chart survives as the plain text it also is. Where color must survive,
+  use the SVG card: hosts that strip styles keep images, and the README's
+  figures are SVG for exactly that reason.
+- **Plain text is agent-legible.** The same grid, colorless, is what
+  `Frame::plain` renders and what a language model or a log reader sees:
+  an axis with labels, marks in rows. No card carries information that the
+  plain grid lacks except color, and color never carries a value alone.
+
 ## The terminal REPL
 
 The same cell renders in the `evcxr` terminal REPL through a `text/plain`

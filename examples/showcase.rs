@@ -258,6 +258,44 @@ fn main() {
             .time_x()
             .show(&frame)
     );
+    // Events per calendar month: buckets of their true length, empties kept,
+    // each bar between its own edges.
+    let events: Vec<f64> = (0..500)
+        .map(|i| month_stamp(2025, 1) + ((i * 7919) % 400) as f64 * 86_400.0)
+        .filter(|t| !(*t >= month_stamp(2025, 8) && *t < month_stamp(2025, 9)))
+        .collect();
+    let bins = malevich::stat::calendar_bins(&events, malevich::stat::TimeUnit::Month)
+        .expect("finite timestamps");
+    let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(malevich::Bars::intervals(
+                bins.starts(),
+                bins.ends(),
+                counts
+            ))
+            .y_scale(malevich::Scale::Integer)
+            .time_x()
+            .title("events per calendar month (synthetic)")
+            .show(&frame)
+    );
+    // One session: hour labels, and the day they leave out printed once at
+    // the end of the axis-title row.
+    let open = month_stamp(2026, 8) + 2.0 * 86_400.0 + 9.5 * 3_600.0;
+    let minutes: Vec<f64> = (0..=390).map(|m| open + f64::from(m) * 60.0).collect();
+    let price: Vec<f64> = (0..=390)
+        .map(|m| 184.0 + (f64::from(m) * 0.031).sin() * 0.6 + f64::from(m % 17) * 0.02)
+        .collect();
+    println!(
+        "{}\n",
+        Plot::new()
+            .layer(Line::xy(&minutes[..], &price[..]))
+            .time_x()
+            .x_label("time (UTC)")
+            .title("one session, the day printed once (synthetic)")
+            .show(&frame)
+    );
 
     // A rolling mean over its noisy source.
     let raw: Vec<f64> = (0..120)
@@ -308,6 +346,18 @@ fn main() {
         "{}\n",
         malevich::hist(&samples[..])
             .title("histogram, automatic bins")
+            .show(&frame)
+    );
+    // The same sample accumulated in percent: the share below a value reads
+    // off the axis, and the last bar reaches 100 %.
+    let share = malevich::HistogramOptions::new(30)
+        .normalization(malevich::stat::Normalization::Percent)
+        .cumulative(true);
+    println!(
+        "{}\n",
+        malevich::hist_with(&samples[..], share)
+            .expect("valid options")
+            .title("cumulative histogram, percent")
             .show(&frame)
     );
 
@@ -420,6 +470,14 @@ fn main() {
         "{}\n",
         malevich::contour(columns, &z[..])
             .title("contour lines (synthetic)")
+            .show(&frame)
+    );
+    // Filled: the same levels split a colormap into bands, and the colorbar
+    // labels where the bands meet.
+    println!(
+        "{}\n",
+        malevich::contourf(columns, &z[..])
+            .title("filled contours, one color per band (synthetic)")
             .show(&frame)
     );
 

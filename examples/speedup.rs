@@ -38,9 +38,17 @@ fn main() {
         .layer(Rule::v(1.0).label("baseline"))
         .title("speedup over Range<usize> (synthetic)")
         .x_label("×");
-    if std::env::args().any(|argument| argument == "--svg") {
+    let arguments: Vec<String> = std::env::args().collect();
+    if arguments.iter().any(|argument| argument == "--svg") {
+        // `--light` draws the light card: the README pairs both in a
+        // `<picture>` so the figure follows the reader's color scheme.
+        let theme = if arguments.iter().any(|argument| argument == "--light") {
+            Theme::LIGHT
+        } else {
+            Theme::DARK
+        };
         let frame = Frame {
-            theme: Theme::DARK,
+            theme,
             ..Frame::portable(72, 22)
         };
         print!("{}", chart.to_svg(&frame));

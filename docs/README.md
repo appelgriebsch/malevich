@@ -20,6 +20,8 @@ What to read when.
   - plot in a Jupyter notebook — [notebooks.md](notebooks.md)
   - understand the speed story — [performance.md](performance.md)
   - persist and interchange specs — [serde.md](serde.md)
+  - answer the usual requests with what exists (benchmarks through `jq`, the
+    pie, twin axes, out-of-range rules) — [recipes.md](recipes.md)
   - use it from JavaScript — [../js/README.md](../js/README.md)
     (`npx malevich`, shared goldens via `js_goldens`)
 - **What does it look like?**
