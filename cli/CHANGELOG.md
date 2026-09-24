@@ -15,6 +15,9 @@ malevich API.
   the last bar carries the total — through the same `Bins::heights` the
   library's `hist` preset uses, so the two cannot disagree. `--emit-code`
   writes the matching axis.
+- Detection reads `FORCE_COLOR`, `TERM=*-direct`, `TERM=unknown`, `COLUMNS`
+  and `LINES` for a piped render, and `MALEVICH_GRAPHICS` for the pixel
+  protocol, as the library does.
 
 ## 0.3.0 — 2026-08-26
 

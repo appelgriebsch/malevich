@@ -142,7 +142,8 @@ Color auto-detects from the destination stream. The glyph tier defaults to
 quadrants in UTF-8 (ASCII for a non-UTF-8 locale); use `--charset` or
 `MALEVICH_CHARSET` to opt into a denser tier your font supports. Where the terminal
 speaks a pixel protocol the plot panel upgrades to a real image — even
-mid-pipeline. `-h` is height; help is `--help` only.
+mid-pipeline; `MALEVICH_GRAPHICS=kitty|sixel|iterm2|none` names the protocol
+when the sniff cannot. `-h` is height; help is `--help` only.
 
 `--emit-code` is the bridge out of the shell: once the piped chart looks right,
 it prints the equivalent malevich Rust program — same calls, your parsed data

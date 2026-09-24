@@ -97,7 +97,9 @@ Options:
 
 Note: -h is height, not help. Help is --help only.
 Auto charset uses quadrants in UTF-8 and ASCII otherwise; set MALEVICH_CHARSET
-or --charset to opt into a dense tier supported by your font.
+or --charset to opt into a dense tier supported by your font. Auto pixels
+follow the terminal; set MALEVICH_GRAPHICS to kitty, sixel, iterm2, or none
+when the sniff cannot tell.
 
 Live mode (line only):
   --live reads stdin forever, one value per line, and repaints a sliding window

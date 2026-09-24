@@ -205,6 +205,18 @@ Overrides automatic glyph selection. Accepts \fBascii\fR, \fBhalf\fR, \fBquad\fR
 \fBsextant\fR, \fBoctant\fR, or \fBbraille\fR. Use a dense tier only when the
 configured font supports it.
 .TP
+.B MALEVICH_GRAPHICS
+Overrides pixel protocol detection: \fBkitty\fR, \fBsixel\fR, \fBiterm2\fR, or
+\fBnone\fR for cells. Outranks the environment sniff and skips the terminal
+probe.
+.TP
+.B FORCE_COLOR
+Keeps color on a piped destination, like \fBCLICOLOR_FORCE\fR; \fBNO_COLOR\fR
+still wins.
+.TP
+.B COLUMNS\fR, \fBLINES
+Size the plot when no terminal can be measured.
+.TP
 .B NO_COLOR
 A non\-empty value disables color.
 .TP
