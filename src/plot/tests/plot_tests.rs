@@ -2467,3 +2467,45 @@ fn colorbars_show_fixed_domains_and_band_boundaries() {
         "the colorbar labels the band boundary:\n{stepped}"
     );
 }
+
+#[test]
+fn interval_bars_take_their_own_edges() {
+    use crate::mark::Bars;
+
+    let frame = Frame::plain(40, 10);
+    // Uniform intervals are spans, byte for byte.
+    let values = [2.0, 5.0, 3.0];
+    let uniform = Plot::new()
+        .layer(Bars::intervals(
+            &[0.0, 1.0, 2.0][..],
+            &[1.0, 2.0, 3.0][..],
+            &values[..],
+        ))
+        .render(&frame);
+    assert_eq!(
+        uniform,
+        Plot::new()
+            .layer(Bars::spans(0.0, 1.0, &values[..]))
+            .render(&frame)
+    );
+    // Irregular ones span what they say, and the axis covers them all.
+    let irregular = Plot::new().layer(Bars::intervals(
+        &[0.0, 1.0][..],
+        &[1.0, 4.0][..],
+        &[3.0, 1.0][..],
+    ));
+    assert_eq!(irregular.mapping(&frame).x_domain(), (0.0, 4.0));
+    let rendered = irregular.render(&frame);
+    // The wide bar (1..4) fills three times the columns of the narrow one.
+    let bar_rows: Vec<&str> = rendered.lines().filter(|line| line.contains('█')).collect();
+    let bottom = bar_rows.last().expect("bars have a bottom row");
+    let wide = bottom.matches('█').count();
+    let top = bar_rows.first().unwrap();
+    let narrow = top.matches('█').count();
+    assert!(wide > 2 * narrow, "{rendered}");
+    // Sideways intervals run down the y axis.
+    let sideways = Plot::new()
+        .layer(Bars::intervals(&[0.0, 1.0][..], &[1.0, 4.0][..], &[3.0, 1.0][..]).horizontal())
+        .mapping(&frame);
+    assert_eq!(sideways.y_domain(), (0.0, 4.0));
+}

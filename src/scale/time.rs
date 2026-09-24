@@ -10,8 +10,8 @@
 use super::ticks::{Tick, Ticks};
 
 const MINUTE: i64 = 60;
-const HOUR: i64 = 3_600;
-const DAY: i64 = 86_400;
+pub(crate) const HOUR: i64 = 3_600;
+pub(crate) const DAY: i64 = 86_400;
 const MIN_CALENDAR_YEAR: i32 = -999_999;
 const MAX_CALENDAR_YEAR: i32 = 999_999;
 const MAX_TIME_TARGET: usize = 200;
@@ -147,7 +147,7 @@ fn context(first: i64, interval: Interval) -> Option<String> {
     }
 }
 
-fn supported_seconds() -> (i64, i64) {
+pub(crate) fn supported_seconds() -> (i64, i64) {
     let first = days_from_civil(MIN_CALENDAR_YEAR, 1, 1) * DAY;
     let last = days_from_civil(MAX_CALENDAR_YEAR, 12, 31) * DAY + DAY - 1;
     (first, last)
@@ -361,7 +361,7 @@ pub(crate) fn readout(value: f64, resolution: f64) -> String {
 }
 
 /// Hinnant's `civil_from_days`: days since 1970-01-01 to `(year, month, day)`.
-fn civil_from_days(days: i64) -> (i32, u32, u32) {
+pub(crate) fn civil_from_days(days: i64) -> (i32, u32, u32) {
     let z = days + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
     let day_of_era = (z - era * 146_097) as u64;
@@ -376,7 +376,7 @@ fn civil_from_days(days: i64) -> (i32, u32, u32) {
 }
 
 /// Hinnant's `days_from_civil`: `(year, month, day)` to days since 1970-01-01.
-fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
+pub(crate) fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
     let year = i64::from(year) - i64::from(month <= 2);
     let era = if year >= 0 { year } else { year - 399 } / 400;
     let year_of_era = (year - era * 400) as u64;

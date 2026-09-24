@@ -29,7 +29,9 @@ A family of geometric primitives that draw data. The word follows Observable
 Plot and Vega-Lite ("mark"), chosen over matplotlib's "artist" (too broad)
 and "geom" (ggplot jargon). Eight marks, joined under the closed `mark::Mark`
 enum: `Line` (points, paired series, or a sampled function), `Points`,
-`Bars` (bands, contiguous numeric spans, or free positions; rising from the
+`Bars` (bands, contiguous numeric spans, free positions, or explicit
+intervals — `Bars::intervals(starts, ends, values)`, the histogram with
+irregular bins; rising from the
 zero baseline, or from a per-bar `base` — the y2-style channel that makes
 stacked bars, grouped bars, and waterfalls plain compositions; `horizontal`
 turns any placement sideways, the bands down the y axis in reading order and
@@ -78,7 +80,10 @@ umbrella, not one execution algebra: a stat may be an online accumulator, a
 reducer, keyed orchestration, or a batch transform. Maps to the `stat`
 module — `M4`, `Bins`/`bins2` (`Bins::heights` rescales the counts under a
 `Normalization` — count, probability, percent, density per unit of x — and
-accumulates them; `hist` and `kaz hist` share it), `Agg`, `BoxStats` (type-7 quartiles; the
+accumulates them; `hist` and `kaz hist` share it), `calendar_bins` (counts
+per hour, day, ISO week, month, or year — a `TimeUnit` — over unix
+timestamps, buckets of their true length with empties kept, feeding
+`Bars::intervals`), `Agg`, `BoxStats` (type-7 quartiles; the
 whiskers by `Whiskers::Tukey(k)`, `Percentiles(lo, hi)`, or `MinMax`), `kde`/`kde_with`
 (Silverman's bandwidth by default, scaled or fixed via `Bandwidth`; bounds
 that reflect the kernels so a latency density stays above zero; the

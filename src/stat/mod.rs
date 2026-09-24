@@ -11,6 +11,7 @@
 mod agg;
 mod bin;
 mod box_stats;
+mod calendar;
 mod contour;
 mod dodge;
 mod ecdf;
@@ -35,6 +36,7 @@ pub(crate) const MAX_STAT_ELEMENTS: usize = 1_000_000;
 pub use agg::Agg;
 pub use bin::{Bins, Histogram2d, Normalization, binned, bins2, try_bins2};
 pub use box_stats::{BoxStats, Whiskers};
+pub use calendar::{CalendarBins, TimeUnit, calendar_bins};
 pub use contour::{Contour, contours};
 pub use dodge::dodge;
 pub use ecdf::ecdf;

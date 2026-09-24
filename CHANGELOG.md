@@ -5,6 +5,16 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `Bars::intervals(starts, ends, values)` is the fourth placement: every bar
+  between its own two edges on a continuous axis — the histogram with
+  irregular bins, sideways a Gantt-style row. A gap in either edge skips the
+  bar; intervals draw whole, exempt from the per-column thinning dense
+  uniform bars get. `stat::calendar_bins(values, TimeUnit)` counts unix
+  timestamps per hour, day, ISO week, month, or year over their extent,
+  empty buckets kept, months of their true length; `CalendarBins::heights`
+  normalizes like `Bins::heights`, a density by each bucket's own length.
+  The `calendar` gallery example draws commits per month.
+
 - Color math runs in OKLab: colormap stops interpolate perceptually, so the
   halfway color between two stops looks halfway and a ramp between two
   saturated stops no longer dips through grey; the 16-color tier picks by

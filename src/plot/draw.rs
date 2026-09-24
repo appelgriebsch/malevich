@@ -315,6 +315,24 @@ pub(crate) fn layers<C: Canvas>(
                         rect,
                     );
                 }
+                Placement::Intervals { starts, ends } => {
+                    let (starts, ends) = (starts.as_slice(), ends.as_slice());
+                    draw_bars_horizontal(
+                        surface,
+                        &|index| {
+                            let start = starts.get(index).copied().unwrap_or(f64::NAN);
+                            let end = ends.get(index).copied().unwrap_or(f64::NAN);
+                            let a = y_scale.map(start);
+                            let b = y_scale.map(end);
+                            (a.min(b), a.max(b))
+                        },
+                        x_scale,
+                        values,
+                        *base,
+                        color,
+                        rect,
+                    );
+                }
             },
             ResolvedLayer::Bars {
                 placement,
@@ -364,6 +382,22 @@ pub(crate) fn layers<C: Canvas>(
                         &|index| {
                             let center = positions.get(index).copied().unwrap_or(f64::NAN);
                             (x_scale.map(center - half), x_scale.map(center + half))
+                        },
+                        y_scale,
+                        values,
+                        *base,
+                        color,
+                        rect,
+                    );
+                }
+                Placement::Intervals { starts, ends } => {
+                    let (starts, ends) = (starts.as_slice(), ends.as_slice());
+                    draw_bars(
+                        surface,
+                        &|index| {
+                            let start = starts.get(index).copied().unwrap_or(f64::NAN);
+                            let end = ends.get(index).copied().unwrap_or(f64::NAN);
+                            (x_scale.map(start), x_scale.map(end))
                         },
                         y_scale,
                         values,

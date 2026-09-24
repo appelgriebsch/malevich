@@ -932,6 +932,18 @@ fn bars_placement_extent(placement: &Placement<'_>, count: usize) -> Option<(f64
         Placement::At { x, width } => {
             extent(x.as_slice()).map(|(lo, hi)| (lo - width / 2.0, hi + width / 2.0))
         }
+        Placement::Intervals { starts, ends } => {
+            // Only complete intervals count: a gap in either edge skips the bar.
+            let mut extent: Option<(f64, f64)> = None;
+            for (&start, &end) in starts.as_slice().iter().zip(ends.as_slice()) {
+                if start.is_finite() && end.is_finite() {
+                    let (lo, hi) = extent.get_or_insert((start, end));
+                    *lo = lo.min(start);
+                    *hi = hi.max(end);
+                }
+            }
+            extent
+        }
     }
 }
 
@@ -974,12 +986,17 @@ fn thinned_bars<'p>(bars: &'p crate::mark::Bars<'_>, reduce: Reduce) -> Cow<'p, 
     }
     let center = |index: usize| -> f64 {
         match &bars.placement {
-            Placement::Bands(_) => f64::NAN,
+            Placement::Bands(_) | Placement::Intervals { .. } => f64::NAN,
             Placement::Spans { start, width } => width.mul_add(index as f64 + 0.5, *start),
             Placement::At { x, .. } => x.as_slice().get(index).copied().unwrap_or(f64::NAN),
         }
     };
-    if matches!(bars.placement, Placement::Bands(_)) {
+    // Bands and explicit intervals draw whole: a wide interval must not
+    // vanish because a narrow taller one shares its center column.
+    if matches!(
+        bars.placement,
+        Placement::Bands(_) | Placement::Intervals { .. }
+    ) {
         return Cow::Borrowed(values);
     }
     // Per cell column, the index of the bar farthest from zero.

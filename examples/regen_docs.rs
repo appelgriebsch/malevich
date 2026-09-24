@@ -154,6 +154,12 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                 "The Keeling curve: monthly CO2 at Mauna Loa since 1958 (NOAA), on a calendar axis.",
             ),
             (
+                "calendar",
+                "Events per calendar month: stat::calendar_bins counts per bucket of \
+                 its true length, empties kept, and Bars::intervals draws each between \
+                 its own edges on the time axis.",
+            ),
+            (
                 "intraday",
                 "One session on a calendar axis: hour labels, and the day they leave \
                  out printed once at the end of the axis-title row \u{2014} the context \

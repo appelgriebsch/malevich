@@ -10,14 +10,16 @@ use crate::render::Color;
 /// `base[i] .. base[i] + value[i]`, the shape of stacked bars and waterfalls,
 /// where the value still encodes the segment's length.
 ///
-/// Bars sit on the x axis three ways. [`Bars::new`] places one per named band
+/// Bars sit on the x axis four ways. [`Bars::new`] places one per named band
 /// and puts a band scale on the x axis; other layers in the same plot then
 /// position their x values against category indices: `0.0` is the center of the
 /// first band, `1.0` the second, and so on. [`Bars::spans`] covers contiguous
 /// numeric spans (the histogram shape). [`Bars::at`] centers each bar at a free
 /// numeric position — side-by-side grouped bars within bands (positions from
-/// [`dodge`](crate::stat::dodge)), bars over a time axis. [`Bars::horizontal`]
-/// turns any of the three sideways: the placement runs down the y axis and the
+/// [`dodge`](crate::stat::dodge)), bars over a time axis. [`Bars::intervals`]
+/// gives every bar its own start and end — the histogram with irregular bins,
+/// calendar months of their true length. [`Bars::horizontal`]
+/// turns any of the four sideways: the placement runs down the y axis and the
 /// values extend along x.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -47,13 +49,24 @@ pub struct Bars<'a> {
 }
 
 /// Where bars sit on the placement axis — x, or y for horizontal bars: named
-/// bands, contiguous numeric spans, or free numeric centers.
+/// bands, contiguous numeric spans, free numeric centers, or explicit
+/// intervals.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum Placement<'a> {
     Bands(Vec<String>),
-    Spans { start: f64, width: f64 },
-    At { x: Series<'a>, width: f64 },
+    Spans {
+        start: f64,
+        width: f64,
+    },
+    At {
+        x: Series<'a>,
+        width: f64,
+    },
+    Intervals {
+        starts: Series<'a>,
+        ends: Series<'a>,
+    },
 }
 
 impl<'a> Bars<'a> {
@@ -130,6 +143,41 @@ impl<'a> Bars<'a> {
         };
         bars.validate()
             .expect("Bars::at requires one position per value and a finite positive width");
+        bars
+    }
+
+    /// Bars over explicit intervals: bar `i` covers `[starts[i], ends[i]]` on
+    /// a continuous x axis, each its own width — the histogram with irregular
+    /// bins, the calendar bins of [`calendar_bins`](crate::stat::calendar_bins)
+    /// with months of their true length, a Gantt-style row when turned
+    /// [`horizontal`](Bars::horizontal). A gap (`NaN`) in either edge skips
+    /// that bar. Intervals draw whole: the per-column thinning dense uniform
+    /// bars get does not apply.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the three series differ in length, or a finite interval's
+    /// start is not below its end.
+    pub fn intervals(
+        starts: impl IntoSeries<'a>,
+        ends: impl IntoSeries<'a>,
+        values: impl IntoSeries<'a>,
+    ) -> Bars<'a> {
+        let bars = Bars {
+            placement: Placement::Intervals {
+                starts: starts.into_series(),
+                ends: ends.into_series(),
+            },
+            values: values.into_series(),
+            base: None,
+            color: None,
+            label: None,
+            color_by: None,
+            horizontal: false,
+        };
+        bars.validate().expect(
+            "Bars::intervals requires one start and one end per value, each start below its end",
+        );
         bars
     }
 
@@ -225,6 +273,20 @@ impl<'a> Bars<'a> {
                     });
                 }
             }
+            Placement::Intervals { starts, ends } => {
+                super::pair("Bars: starts and values", starts.len(), self.values.len())?;
+                super::pair("Bars: ends and values", ends.len(), self.values.len())?;
+                let reversed = starts
+                    .as_slice()
+                    .iter()
+                    .zip(ends.as_slice())
+                    .any(|(start, end)| start.is_finite() && end.is_finite() && start >= end);
+                if reversed {
+                    return Err(crate::Error::InvalidParameter {
+                        detail: "Bars intervals need each start below its end",
+                    });
+                }
+            }
         }
         if let Some(base) = &self.base {
             super::pair("Bars: base and values", base.len(), self.values.len())?;
@@ -244,6 +306,10 @@ impl<'a> Bars<'a> {
                 Placement::At { x, width } => Placement::At {
                     x: x.into_owned(),
                     width,
+                },
+                Placement::Intervals { starts, ends } => Placement::Intervals {
+                    starts: starts.into_owned(),
+                    ends: ends.into_owned(),
                 },
             },
             values: self.values.into_owned(),

@@ -664,3 +664,25 @@ fn colormap_options_stay_off_the_plain_wire_and_round_trip() {
     let unsorted: Colormap = serde_json::from_value(unsorted).unwrap();
     assert!(unsorted.validate().is_err());
 }
+
+#[test]
+fn interval_bars_round_trip() {
+    let plot = Plot::new().layer(Bars::intervals(
+        vec![0.0, 1.0],
+        vec![1.0, 3.5],
+        vec![2.0, 1.0],
+    ));
+    let json = serde_json::to_value(&plot).unwrap();
+    assert_eq!(
+        json["layers"][0]["Bars"]["placement"]["Intervals"]["ends"],
+        serde_json::json!([1.0, 3.5])
+    );
+    let back: Plot = serde_json::from_value(json).unwrap();
+    let frame = Frame::plain(40, 10);
+    assert_eq!(back.render(&frame), plot.render(&frame));
+    // A reversed interval on the wire fails validation.
+    let mut reversed = serde_json::to_value(&plot).unwrap();
+    reversed["layers"][0]["Bars"]["placement"]["Intervals"]["ends"] = serde_json::json!([1.0, 0.5]);
+    let reversed: Plot = serde_json::from_value(reversed).unwrap();
+    assert!(reversed.validate().is_err());
+}

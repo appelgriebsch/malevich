@@ -72,3 +72,21 @@ fn horizontal_is_a_channel_on_every_placement() {
     }
     assert!(!Bars::new(["a"], &[1.0][..]).horizontal);
 }
+
+#[test]
+#[should_panic(expected = "start below its end")]
+fn reversed_intervals_panic() {
+    Bars::intervals(&[1.0][..], &[0.0][..], &[1.0][..]);
+}
+
+#[test]
+#[should_panic(expected = "one start and one end per value")]
+fn mismatched_intervals_and_values_panic() {
+    Bars::intervals(&[0.0, 1.0][..], &[1.0, 2.0][..], &[1.0][..]);
+}
+
+#[test]
+fn intervals_may_carry_gaps() {
+    let bars = Bars::intervals(&[0.0, f64::NAN][..], &[1.0, 3.0][..], &[1.0, 2.0][..]);
+    assert!(bars.validate().is_ok());
+}
