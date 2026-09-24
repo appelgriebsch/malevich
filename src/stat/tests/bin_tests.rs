@@ -1,4 +1,4 @@
-use super::{Bins, binned};
+use super::{Bins, Normalization, binned};
 use crate::stat::Reducer;
 
 #[test]
@@ -255,4 +255,70 @@ fn freedman_diaconis_uses_type_7_quartiles() {
     // the span, not one.
     let bins = Bins::auto(&[1.1, 2.1, 3.1, 10.1], 60).unwrap();
     assert!(bins.counts().len() >= 3, "{:?}", bins.counts());
+}
+
+#[test]
+fn heights_rescale_the_same_counts() {
+    let mut bins = Bins::new(0.0, 0.5, 4);
+    for value in [0.1, 0.2, 0.6, 0.7, 0.8, 1.2, 1.9, 1.95] {
+        bins.add(value);
+    }
+    assert_eq!(bins.counts(), [2, 3, 1, 2]);
+    assert_eq!(
+        bins.heights(Normalization::Count, false),
+        [2.0, 3.0, 1.0, 2.0]
+    );
+    assert_eq!(
+        bins.heights(Normalization::Probability, false),
+        [0.25, 0.375, 0.125, 0.25]
+    );
+    assert_eq!(
+        bins.heights(Normalization::Percent, false),
+        [25.0, 37.5, 12.5, 25.0]
+    );
+    // Density integrates to one: heights times the bin width sum to one.
+    let density = bins.heights(Normalization::Density, false);
+    assert_eq!(density, [0.5, 0.75, 0.25, 0.5]);
+    assert_eq!(density.iter().map(|h| h * bins.width()).sum::<f64>(), 1.0);
+}
+
+#[test]
+fn cumulative_heights_end_at_the_total_one_or_one_hundred() {
+    let mut bins = Bins::new(0.0, 0.5, 4);
+    for value in [0.1, 0.2, 0.6, 0.7, 0.8, 1.2, 1.9, 1.95] {
+        bins.add(value);
+    }
+    assert_eq!(
+        bins.heights(Normalization::Count, true),
+        [2.0, 5.0, 6.0, 8.0]
+    );
+    assert_eq!(
+        bins.heights(Normalization::Probability, true),
+        [0.25, 0.625, 0.75, 1.0]
+    );
+    assert_eq!(
+        bins.heights(Normalization::Percent, true),
+        [25.0, 62.5, 75.0, 100.0]
+    );
+    // A cumulative density is the distribution function, not a running
+    // sum of densities: it ends at one whatever the bin width.
+    assert_eq!(
+        bins.heights(Normalization::Density, true),
+        [0.25, 0.625, 0.75, 1.0]
+    );
+}
+
+#[test]
+fn an_empty_histogram_normalizes_to_zeros() {
+    let bins = Bins::new(0.0, 1.0, 3);
+    for normalization in [
+        Normalization::Count,
+        Normalization::Probability,
+        Normalization::Percent,
+        Normalization::Density,
+    ] {
+        for cumulative in [false, true] {
+            assert_eq!(bins.heights(normalization, cumulative), [0.0, 0.0, 0.0]);
+        }
+    }
 }

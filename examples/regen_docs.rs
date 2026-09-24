@@ -79,6 +79,13 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
                  estimate that leaks below it.",
             ),
             (
+                "cumulative",
+                "The same latencies as a cumulative histogram in percent: \
+                 HistogramOptions rescales the bins and accumulates them, so the \
+                 share served within a latency reads off the axis and the last \
+                 bar reaches 100 %.",
+            ),
+            (
                 "ridgeline",
                 "A ridgeline of gradient distributions over training - rows rendered \
                  back to front at fixed elevation, each a lifted KDE in the corners \

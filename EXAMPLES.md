@@ -226,6 +226,28 @@ Source: [examples/latency.rs](examples/latency.rs)
                                    ms
 ```
 
+### cumulative
+
+The same latencies as a cumulative histogram in percent: HistogramOptions rescales the bins and accumulates them, so the share served within a latency reads off the axis and the last bar reaches 100 %.
+Source: [examples/cumulative.rs](examples/cumulative.rs)
+
+```text
+           requests served within a latency (synthetic)
+                              ── p95
+100% ┤⠄⠠ ⠄⠠ ⠄⠠ ⠄⠠ ⠄⠠ ⠄▁▁▁▃▃▃▄▄▅▅▅▆▆▆▇▇▇▇▇▇▇▇██████████████████████
+     │           ▂▂▂▆▆████████████████████████████████████████████
+     │        ▅▅▅█████████████████████████████████████████████████
+     │     ▅▅▅████████████████████████████████████████████████████
+ 50% ┤   ▃▃███████████████████████████████████████████████████████
+     │   █████████████████████████████████████████████████████████
+     │▄▄▄█████████████████████████████████████████████████████████
+     │████████████████████████████████████████████████████████████
+  0% ┤████████████████████████████████████████████████████████████
+     └┬────────────┬─────────────┬────────────┬─────────────┬─────
+      0           10            20           30            40
+                                   ms
+```
+
 ### ridgeline
 
 A ridgeline of gradient distributions over training - rows rendered back to front at fixed elevation, each a lifted KDE in the corners style so nearer rows overwrite what they cross: the TensorBoard histogram view, and the terminal's honest 3D surface.

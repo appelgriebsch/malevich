@@ -2,6 +2,25 @@
 
 use crate::scale::Ticks;
 
+/// How a histogram scales its bar heights from its counts — the stat
+/// parameter behind [`HistogramOptions`](crate::HistogramOptions), applied by
+/// [`Bins::heights`] so a preset and a CLI cannot disagree about it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
+pub enum Normalization {
+    /// Raw counts.
+    #[default]
+    Count,
+    /// Each count over the total: the heights sum to one.
+    Probability,
+    /// Probability in percent: the heights sum to one hundred.
+    Percent,
+    /// Probability per unit of x: the bars integrate to one, the scale a
+    /// kernel density estimate shares, so a `kde` line overlays a histogram.
+    Density,
+}
+
 /// A uniform histogram: `bins` counting buckets of `width`, starting at `start`.
 ///
 /// A mergeable monoid: partial histograms over chunks combine with [`Bins::merge`].
@@ -309,6 +328,33 @@ impl Bins {
     /// The per-bin counts, in order.
     pub fn counts(&self) -> &[u64] {
         &self.counts
+    }
+
+    /// The bar heights under `normalization`, accumulated left to right when
+    /// `cumulative`. A cumulative count, probability, or percent reaches the
+    /// total, one, or one hundred at the last bin. A cumulative density is
+    /// the cumulative probability — the distribution function, ending at
+    /// one, as matplotlib defines it — so a density and its accumulation
+    /// share an axis with [`ecdf`](super::ecdf). Every normalization of an
+    /// empty histogram is all zeros, never a gap.
+    pub fn heights(&self, normalization: Normalization, cumulative: bool) -> Vec<f64> {
+        let total = self.counts.iter().sum::<u64>() as f64;
+        let mut running = 0u64;
+        self.counts
+            .iter()
+            .map(|&count| {
+                running += count;
+                let count = if cumulative { running } else { count } as f64;
+                match normalization {
+                    Normalization::Count => count,
+                    _ if total == 0.0 => 0.0,
+                    Normalization::Probability => count / total,
+                    Normalization::Percent => 100.0 * count / total,
+                    Normalization::Density if cumulative => count / total,
+                    Normalization::Density => count / (total * self.width),
+                }
+            })
+            .collect()
     }
 }
 

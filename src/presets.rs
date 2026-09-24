@@ -14,18 +14,46 @@ use crate::scale::{Colormap, NumberFormat};
 pub struct HistogramOptions {
     /// Maximum number of automatically selected bins.
     pub max_bins: usize,
+    /// How bar heights come from the bin counts; raw counts by default.
+    pub normalization: crate::stat::Normalization,
+    /// Accumulate the bins left to right, so the last bar carries the total.
+    pub cumulative: bool,
 }
 
 impl HistogramOptions {
-    /// Uses at most `max_bins` automatically selected bins.
+    /// Uses at most `max_bins` automatically selected bins, as raw counts.
     pub const fn new(max_bins: usize) -> HistogramOptions {
-        HistogramOptions { max_bins }
+        HistogramOptions {
+            max_bins,
+            normalization: crate::stat::Normalization::Count,
+            cumulative: false,
+        }
+    }
+
+    /// Sets how the bar heights come from the counts: counts, probability,
+    /// percent, or density per unit of x — [`Bins::heights`](crate::stat::Bins::heights)
+    /// does the scaling. Counts draw on an [`Integer`](crate::Scale::Integer)
+    /// axis; percent labels its axis `%`.
+    pub const fn normalization(
+        mut self,
+        normalization: crate::stat::Normalization,
+    ) -> HistogramOptions {
+        self.normalization = normalization;
+        self
+    }
+
+    /// Accumulates the bins left to right: a cumulative count reaches the
+    /// total, a cumulative probability or density one, a cumulative percent
+    /// one hundred.
+    pub const fn cumulative(mut self, cumulative: bool) -> HistogramOptions {
+        self.cumulative = cumulative;
+        self
     }
 }
 
 impl Default for HistogramOptions {
     fn default() -> HistogramOptions {
-        HistogramOptions { max_bins: 60 }
+        HistogramOptions::new(60)
     }
 }
 
@@ -408,7 +436,20 @@ pub fn hist<'a>(values: impl IntoSeries<'a>) -> Plot<'a> {
     hist_with(values, HistogramOptions::default()).expect("default histogram options are valid")
 }
 
-/// A histogram with a caller-selected automatic bin cap.
+/// A histogram with a caller-selected automatic bin cap, normalization, and
+/// accumulation.
+///
+/// ```
+/// use malevich::stat::Normalization;
+/// use malevich::{Frame, HistogramOptions, hist_with};
+///
+/// let samples = [1.0, 2.0, 2.5, 2.7, 3.0, 3.1, 3.2, 4.0, 5.5];
+/// let share = HistogramOptions::new(10)
+///     .normalization(Normalization::Percent)
+///     .cumulative(true);
+/// let plot = hist_with(&samples[..], share).expect("valid options");
+/// println!("{}", plot.render(&Frame::plain(40, 10)));
+/// ```
 ///
 /// # Errors
 ///
@@ -428,14 +469,24 @@ pub fn hist_with<'a>(
     Ok(
         match crate::stat::Bins::try_auto(series.as_slice(), options.max_bins)? {
             Some(bins) => {
-                let counts: Vec<f64> = bins.counts().iter().map(|&count| count as f64).collect();
-                Plot::new()
-                    .layer(Bars::spans(bins.start(), bins.width(), counts))
-                    .y_scale(crate::scale::Scale::Integer)
+                let heights = bins.heights(options.normalization, options.cumulative);
+                let plot = Plot::new().layer(Bars::spans(bins.start(), bins.width(), heights));
+                histogram_axis(plot, options.normalization)
             }
             None => Plot::new(),
         },
     )
+}
+
+/// The count axis a histogram's normalization asks for: whole numbers for
+/// counts, a percent sign for percent, plain otherwise.
+fn histogram_axis(plot: Plot<'_>, normalization: crate::stat::Normalization) -> Plot<'_> {
+    use crate::stat::Normalization;
+    match normalization {
+        Normalization::Count => plot.y_scale(crate::scale::Scale::Integer),
+        Normalization::Percent => plot.y_unit(crate::scale::Unit::suffix("%")),
+        Normalization::Probability | Normalization::Density => plot,
+    }
 }
 
 /// Configuration for [`stairs_with`].
@@ -1572,6 +1623,34 @@ mod tests {
         let expected = Plot::new()
             .layer(Bars::spans(bins.start(), bins.width(), counts))
             .y_scale(crate::scale::Scale::Integer)
+            .render(&frame);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn normalized_histograms_match_the_grammar() {
+        use crate::stat::Normalization;
+        let values: Vec<f64> = (0..200).map(|index| (index % 37) as f64).collect();
+        let frame = Frame::plain(44, 10);
+        let bins = crate::stat::Bins::auto(&values, 6).unwrap();
+
+        let share = HistogramOptions::new(6)
+            .normalization(Normalization::Percent)
+            .cumulative(true);
+        let actual = hist_with(&values[..], share).unwrap().render(&frame);
+        let heights = bins.heights(Normalization::Percent, true);
+        let expected = Plot::new()
+            .layer(Bars::spans(bins.start(), bins.width(), heights))
+            .y_unit(crate::scale::Unit::suffix("%"))
+            .render(&frame);
+        assert_eq!(actual, expected);
+        assert!(actual.contains("100%"), "{actual}");
+
+        let density = HistogramOptions::new(6).normalization(Normalization::Density);
+        let actual = hist_with(&values[..], density).unwrap().render(&frame);
+        let heights = bins.heights(Normalization::Density, false);
+        let expected = Plot::new()
+            .layer(Bars::spans(bins.start(), bins.width(), heights))
             .render(&frame);
         assert_eq!(actual, expected);
     }

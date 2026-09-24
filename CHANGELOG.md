@@ -5,6 +5,16 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+- `HistogramOptions::normalization(Normalization)` and `.cumulative(bool)`
+  rescale a histogram's bars: counts (the default, on the `Integer` axis),
+  probability, percent (the axis reads `%`), or density per unit of x, the
+  scale a `kde` line shares; `cumulative` accumulates the bins so the last
+  bar carries the total. `stat::Bins::heights(normalization, cumulative)` is
+  the one function behind it, so `kaz hist --normalize percent --cumulative`
+  and the preset cannot disagree — a cumulative density is the distribution
+  function ending at one, as matplotlib defines it. The `cumulative` gallery
+  example reads the share of requests served within a latency off the axis.
+
 - `Scale::Integer` is a linear axis whose tick step never drops below one:
   counts, ranks, sizes. A tall frame over `0..3` labels `0, 1, 2, 3`, never
   `0.5`. `hist`, `kaz hist`, and `kaz count` count on it; the packaging

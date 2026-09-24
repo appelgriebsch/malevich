@@ -33,7 +33,7 @@ mod window;
 pub(crate) const MAX_STAT_ELEMENTS: usize = 1_000_000;
 
 pub use agg::Agg;
-pub use bin::{Bins, Histogram2d, binned, bins2, try_bins2};
+pub use bin::{Bins, Histogram2d, Normalization, binned, bins2, try_bins2};
 pub use box_stats::{BoxStats, Whiskers};
 pub use contour::{Contour, contours};
 pub use dodge::dodge;
