@@ -5,6 +5,47 @@ speed promise. Wall-clock results vary with hardware, compiler, power state, and
 background load. This file is the authoritative dated record behind the README's
 “tens of milliseconds” claim.
 
+## 2026-09-24 addition (released in 1.23.0)
+
+- Revision: `af024e1` (the borrowing series, closed by the commit that
+  converts colormap stops to OKLab once per raster)
+- Machine, OS, profile: as in the 2026-08-07 baseline below
+- Compiler: `rustc 1.100.0-nightly (787af2b8c 2026-08-25)`, as in the
+  2026-08-28 additions
+
+| Measurement | Estimate | 95% interval |
+| --- | ---: | ---: |
+| `render/line_10k_80x20` | 69.323 µs | 69.226–69.430 µs |
+| `render/line_10m_80x20` | 30.714 ms | 30.685–30.742 ms |
+| `stat/fit_1m` | 5.1339 ms | 5.1273–5.1409 ms |
+| `render/color_by_100k/5_categories` | 2.0211 ms | 2.0176–2.0248 ms |
+| `render/color_by_100k/100000_categories` | 5.3475 ms | 5.3369–5.3587 ms |
+| `render/cells_2048x2048_80x24` | 40.555 ms | 40.500–40.610 ms |
+| `plot/mapping_10m_80x20` | 2.0800 ms | 2.0681–2.1015 ms |
+| `widget/dashboard_200x50` | 1.7717 ms | 1.7692–1.7742 ms |
+| `widget/zoom_10m_200x50` | 18.366 ms | 18.350–18.383 ms |
+| `widget/hover_snap_10m_200x50` | 25.368 ms | 25.138–25.789 ms |
+
+```sh
+cargo bench --bench render -- 'render/line_10k_80x20|render/line_10m_80x20|stat/fit_1m|render/color_by_100k|render/cells_2048x2048_80x24|plot/mapping_10m_80x20'
+cargo bench --bench widget --features ratatui
+```
+
+The release changed the render path in several places — bar ends map to
+subpixel edges, colormaps sample through one `Colormap::sample`, colors mix
+in OKLab, axes search for context notes — so every prior row was
+re-measured. The line, fit, category, mapping, zoom, and hover rows sit
+within noise of their 2026-08-28 values. Two rows moved. The cells row is
+8% lower than its 2026-08-25 value: the sampling closure no longer converts
+a colormap's stops for every patch. The dashboard row is 32% higher than
+its 2026-08-28 value, and that is the disclosed cost of perceptual color:
+every sampled heatmap cell now encodes its OKLab mix back to sRGB (three
+gamma encodes per sample), where the RGB lerp was three integer
+multiplies. An intermediate tree that also converted both neighboring stops
+per sample measured 2.68 ms; converting them once per raster is what the
+closing commit does. The rows that do not touch a colormap were measured
+one commit earlier, on a tree identical along their paths.
+
 ## 2026-08-28 addition — the mapping pass (released in 1.20.0)
 
 - Revision: `3e2f63a` (the commit introducing `Plot::mapping`'s layout-only

@@ -5,6 +5,12 @@ The renderer underneath is whatever `engineVersion` reports.
 
 ## Unreleased
 
+## 0.4.0 — 2026-09-24
+
+The rim follows the crate's 1.23 grammar: integer axes, one-sided domains,
+histogram normalization, interval bars, Tol's palettes, and the colormap
+options, all on the same wire the crate reads.
+
 - `xScale` / `yScale` accept `"Integer"`, the crate's whole-number linear
   axis; `hist` counts on it.
 - `histWith` takes `normalization` (`"Count" | "Probability" | "Percent" |

@@ -5,6 +5,17 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
 
 ## Unreleased
 
+## 1.23.0 (Taking in the Rye) — 2026-09-24
+
+Nothing the field ships needed a ninth mark or a fifth scale. This release
+harvests what a survey of a hundred-odd terminal plotters, chart widgets, and
+grammars agreed on, as options inside the closed grammar: normalized and
+cumulative histograms, one-sided domains, units and whole-number axes, the
+note an axis prints for what its labels leave out, colormap domains and
+bands, color math in OKLab, interval bars and calendar bins, tick fallbacks
+that stay exact, and a CLI that catches up. Every preset still equals its
+expansion byte for byte.
+
 - The ASCII tier is ASCII everywhere. Heatmap cells, class regions, the
   colorbar strip, and the class legend swatches drew the Block Elements
   shades (`░▒▓█`) on `Charset::Ascii`; they now draw the tier's own density
@@ -80,9 +91,11 @@ release; the pre-1.0 entries below recorded breakage freely, without apology.
   saturated stops no longer dips through grey; the 16-color tier picks by
   OKLab lightness and hue — the two things sixteen colors can carry — so a
   teal drops to green, never to the grey that is nearer in RGB. The
-  named maps' stops are unchanged, so their ends render as before. Paul
-  Tol's `Palette::BRIGHT` (seven colors) and `Palette::MUTED` (nine) join
-  Okabe–Ito.
+  named maps' stops are unchanged, so their ends render as before. The
+  perceptual mix costs a gamma encode per sampled heatmap cell: the
+  `widget/dashboard_200x50` benchmark row is a third higher, recorded in
+  `BENCHMARKS.md`. Paul Tol's `Palette::BRIGHT` (seven colors) and
+  `Palette::MUTED` (nine) join Okabe–Ito.
 
 - `Colormap::domain(lo, hi)` fixes the value range a colormap spans instead
   of the data's extent — two heatmaps on one scale, a live grid whose

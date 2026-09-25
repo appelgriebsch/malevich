@@ -5,6 +5,8 @@ malevich API.
 
 ## Unreleased
 
+## 0.4.0 — 2026-09-24
+
 - `kaz spark` renders a sparkline one row tall from any column of numbers:
   bars from zero, no axes, gaps blank. `--live` on a piped destination writes
   plain frames, one per line, with no cursor or synchronized-output escapes.
