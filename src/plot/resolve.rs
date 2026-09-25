@@ -675,12 +675,13 @@ pub(crate) fn resolve<'p>(
                                 high = high.max(value);
                             }
                         }
+                        let lab = colormap.lab_stops();
                         let colors = slice
                             .iter()
                             .map(|&value| {
                                 if low <= high {
                                     colormap
-                                        .sample(value, low, high)
+                                        .sample_with(&lab, value, low, high)
                                         .map_or(Color::Default, |(_, color)| color)
                                 } else {
                                     Color::Default

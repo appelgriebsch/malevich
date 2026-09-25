@@ -237,6 +237,7 @@ fn draw_colorbar(
 ) {
     let mut buffer = [0u8; 4];
     let column = bar.column as i64;
+    let lab = bar.colormap.lab_stops();
     for offset in 0..plot_rows {
         let position = if plot_rows > 1 {
             1.0 - offset as f64 / (plot_rows - 1) as f64
@@ -250,7 +251,7 @@ fn draw_colorbar(
             column,
             (plot_top + offset) as i64,
             glyph.encode_utf8(&mut buffer),
-            bar.colormap.color(position),
+            bar.colormap.color_with(&lab, position),
         );
     }
     // A log ramp spaces its decade ticks logarithmically down the strip.

@@ -497,6 +497,29 @@ impl Colormap {
     /// values outside the range (at position 0 or 1). `None` is a gap: a
     /// non-finite value, or one a log ramp cannot place.
     pub fn sample(&self, value: f64, low: f64, high: f64) -> Option<(f64, Color)> {
+        self.sample_by(value, low, high, |position| self.color(position))
+    }
+
+    /// [`sample`](Colormap::sample) over stops converted by
+    /// [`lab_stops`](Colormap::lab_stops) once: what a raster's thousands
+    /// of samples call, so the stops are not converted for every one.
+    pub(crate) fn sample_with(
+        &self,
+        lab: &[(f64, f64, f64)],
+        value: f64,
+        low: f64,
+        high: f64,
+    ) -> Option<(f64, Color)> {
+        self.sample_by(value, low, high, |position| self.color_with(lab, position))
+    }
+
+    fn sample_by(
+        &self,
+        value: f64,
+        low: f64,
+        high: f64,
+        color: impl Fn(f64) -> Color,
+    ) -> Option<(f64, Color)> {
         if !value.is_finite() {
             return None;
         }
@@ -516,7 +539,25 @@ impl Colormap {
             return None;
         }
         let position = self.quantize(position, low, high);
-        Some((position, self.color(position)))
+        Some((position, color(position)))
+    }
+
+    /// The stops in OKLab, converted once for a whole raster: pass the table
+    /// to [`color_with`](Colormap::color_with) and
+    /// [`sample_with`](Colormap::sample_with), which mix exactly as
+    /// [`color`](Colormap::color) does without redoing the conversion per
+    /// sample.
+    pub(crate) fn lab_stops(&self) -> Vec<(f64, f64, f64)> {
+        self.stops
+            .iter()
+            .map(|&stop| crate::render::color::oklab(stop))
+            .collect()
+    }
+
+    /// [`color`](Colormap::color) over a precomputed [`lab_stops`](Colormap::lab_stops)
+    /// table.
+    pub(crate) fn color_with(&self, lab: &[(f64, f64, f64)], position: f64) -> Color {
+        self.mix(position, |index| lab[index])
     }
 
     /// The centered midpoint when it is usable; a non-finite one (possible only
@@ -584,6 +625,15 @@ impl Colormap {
     /// A colormap built through [`Colormap::new`] always has at least two stops;
     /// one deserialized with too few degrades gracefully rather than panicking.
     pub fn color(&self, position: f64) -> Color {
+        self.mix(position, |index| {
+            crate::render::color::oklab(self.stops[index])
+        })
+    }
+
+    /// The interpolation behind [`color`](Colormap::color), over whichever
+    /// source of OKLab stops the caller has: converted on the spot, or a
+    /// table converted once for a raster.
+    fn mix(&self, position: f64, lab_at: impl Fn(usize) -> (f64, f64, f64)) -> Color {
         match self.stops.len() {
             0 => return Color::Default,
             1 => {
@@ -611,8 +661,8 @@ impl Colormap {
             let (r, g, b) = self.stops[index + 1];
             return Color::Rgb(r, g, b);
         }
-        let from = crate::render::color::oklab(self.stops[index]);
-        let to = crate::render::color::oklab(self.stops[index + 1]);
+        let from = lab_at(index);
+        let to = lab_at(index + 1);
         let (r, g, b) = crate::render::color::from_oklab((
             crate::numeric::lerp(from.0, to.0, t),
             crate::numeric::lerp(from.1, to.1, t),

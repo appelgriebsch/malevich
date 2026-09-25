@@ -960,6 +960,8 @@ fn draw_cells<C: Canvas>(
     let mut votes = vec![0u32; class_count];
     let mut touched: Vec<usize> = Vec::new();
 
+    // The stops in OKLab once, not once per sample.
+    let lab = colormap.lab_stops();
     for unit_row in 0..units_y {
         for unit_col in 0..units_x {
             // The data position at this patch's center, via the shared scales'
@@ -1101,7 +1103,7 @@ fn draw_cells<C: Canvas>(
                             + v10 * tx * (1.0 - ty)
                             + v01 * (1.0 - tx) * ty
                             + v11 * tx * ty;
-                        return colormap.sample(value, low, high);
+                        return colormap.sample_with(&lab, value, low, high);
                     }
                 }
                 let mut state = ReducerState::new(reduce);
@@ -1112,7 +1114,7 @@ fn draw_cells<C: Canvas>(
                         }
                     }
                 }
-                colormap.sample(state.finish(), low, high)
+                colormap.sample_with(&lab, state.finish(), low, high)
             })();
             surface.patch(unit_col, unit_row, rect, sample);
         }
