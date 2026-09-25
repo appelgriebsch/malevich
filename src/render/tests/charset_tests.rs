@@ -54,6 +54,26 @@ fn braille_glyphs_offset_into_the_braille_block() {
 }
 
 #[test]
+fn every_tier_owns_a_shade_ramp_its_glyphs_can_show() {
+    let ascii = Charset::Ascii.shade_ramp();
+    assert!(ascii.iter().all(char::is_ascii), "{ascii:?}");
+    assert_eq!(ascii, ['.', ':', '#', '@']);
+    for charset in [
+        Charset::HalfBlocks,
+        Charset::Quadrants,
+        Charset::Sextants,
+        Charset::Octants,
+        Charset::Braille,
+    ] {
+        assert_eq!(
+            charset.shade_ramp(),
+            ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'],
+            "{charset:?}"
+        );
+    }
+}
+
+#[test]
 fn ascii_draws_any_lit_pattern_as_a_star() {
     assert_eq!(Charset::Ascii.bit(0, 0), 1);
     assert_eq!(Charset::Ascii.glyph(1), '*');

@@ -12,7 +12,8 @@ use crate::stat::Reducer;
 ///
 /// Values normalize to the grid's own finite extent. Colored cell output packs two
 /// vertical samples into an upper half block's foreground and background; plain
-/// output substitutes an averaged shade-ramp glyph (`░▒▓█`). The value is therefore
+/// output substitutes an averaged shade-ramp glyph (`░▒▓█`, or `.:#@` on the
+/// ASCII tier). The value is therefore
 /// readable with or without color. Gaps (`NaN`) render as blanks. Row 0 is the
 /// bottom row — matrix y grows upward like any other y axis — unless the y axis
 /// is [`Bands`](crate::Scale::Bands), which reads top-down in matrix order.
@@ -224,9 +225,15 @@ impl<'a> Cells<'a> {
     /// that can leave it ([`Reducer::Sum`], [`Reducer::Count`]) clamp at the
     /// ramp's ends. Rgb grids always reduce by per-channel mean and class
     /// grids by modal class, regardless of this setting.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a [`Reducer::Percentile`] position is outside `[0, 1]`.
     #[must_use]
     pub fn reduce(mut self, reducer: Reducer) -> Cells<'a> {
         self.reduce = reducer;
+        self.validate()
+            .expect("Cells::reduce requires a percentile position in [0, 1]");
         self
     }
 

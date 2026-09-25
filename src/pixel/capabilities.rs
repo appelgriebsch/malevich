@@ -36,9 +36,38 @@ pub enum Source {
     /// Environment variables only — right on known terminals, silent on
     /// unknown ones (probing was unavailable, unsafe, or unanswered).
     Sniffed,
+    /// The host stated it through [`Capabilities::new`]: nothing was read
+    /// and no terminal was asked.
+    Declared,
 }
 
 impl Capabilities {
+    /// A stated answer, for a host that already knows the terminal it draws
+    /// on — a remote session's, a second window's — and skips detection: the
+    /// protocols it accepts, best first, in the order given, and its cell
+    /// size in device pixels when known. The source is
+    /// [`Source::Declared`]; an empty `protocols` means cells are the
+    /// ceiling, exactly as a detected answer would.
+    ///
+    /// ```
+    /// use malevich::pixel::{Capabilities, Protocol};
+    ///
+    /// let capabilities = Capabilities::new([Protocol::Kitty], Some((10, 20)));
+    /// let graphics = capabilities.best().expect("kitty was declared");
+    /// assert_eq!(graphics.protocol, Protocol::Kitty);
+    /// assert_eq!(graphics.cell_size, (10, 20));
+    /// ```
+    pub fn new(
+        protocols: impl IntoIterator<Item = Protocol>,
+        cell_size: Option<(u16, u16)>,
+    ) -> Capabilities {
+        Capabilities {
+            protocols: protocols.into_iter().collect(),
+            cell_size,
+            source: Source::Declared,
+        }
+    }
+
     /// Detects stdout's terminal capabilities.
     ///
     /// This is the stdout-oriented convenience form of
@@ -57,8 +86,9 @@ impl Capabilities {
     ///
     /// Use this instead of [`Capabilities::detect`] when rendering somewhere
     /// other than stdout, such as a CLI whose plot goes to stderr. Applications
-    /// that already know a remote or secondary terminal's capabilities can build
-    /// this plain value directly and skip ambient detection entirely.
+    /// that already know a remote or secondary terminal's capabilities build
+    /// the value with [`Capabilities::new`] and skip ambient detection
+    /// entirely.
     pub fn detect_for(destination: &impl IsTerminal) -> Capabilities {
         let variable = |name: &str| std::env::var(name).ok().filter(|value| !value.is_empty());
         let sniffed = detect::sniff(&variable);

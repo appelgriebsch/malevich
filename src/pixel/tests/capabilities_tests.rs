@@ -95,6 +95,23 @@ fn best_is_none_when_cells_are_the_ceiling() {
 }
 
 #[test]
+fn a_declared_answer_is_the_plain_value_a_host_states() {
+    // The struct is non-exhaustive, so a host builds it through `new`: the
+    // protocols keep the host's order, the source says nothing was read.
+    let declared = Capabilities::new([Protocol::Sixel, Protocol::Kitty], Some((10, 20)));
+    assert_eq!(declared.protocols, [Protocol::Sixel, Protocol::Kitty]);
+    assert_eq!(declared.cell_size, Some((10, 20)));
+    assert_eq!(declared.source, Source::Declared);
+    let graphics = declared.best().expect("sixel was declared first");
+    assert_eq!(graphics.protocol, Protocol::Sixel);
+    assert_eq!(graphics.cell_size, (10, 20));
+    // Declaring nothing is the cells ceiling, like detecting nothing.
+    let cells = Capabilities::new([], None);
+    assert!(cells.protocols.is_empty());
+    assert_eq!(cells.best(), None);
+}
+
+#[test]
 fn capabilities_without_a_cell_size_keep_the_default_in_best() {
     let capabilities = Capabilities {
         protocols: vec![Protocol::Sixel],

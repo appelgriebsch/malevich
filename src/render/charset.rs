@@ -108,6 +108,18 @@ impl Charset {
         }
     }
 
+    /// The four-level shade ramp, light to dark, that colorless patch output
+    /// draws with: a heatmap cell's averaged intensity, a class region's
+    /// stable shade, the colorbar strip, and their legend swatches. ASCII
+    /// gets a density ramp of its own glyphs; everything richer gets the
+    /// Block Elements shades.
+    pub(crate) const fn shade_ramp(self) -> [char; 4] {
+        match self {
+            Charset::Ascii => ['.', ':', '#', '@'],
+            _ => ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'],
+        }
+    }
+
     /// The furniture glyphs for this tier: axis lines, ticks, corner, range marker,
     /// and the truncation ellipsis. ASCII gets ASCII; everything richer gets box
     /// drawing.

@@ -462,7 +462,7 @@ impl ResolvedLayer<'_> {
             ResolvedLayer::Rule {
                 orientation: Orientation::VerticalSpan(..),
                 ..
-            } => self.x_extent().filter(|(lo, _)| *lo > 0.0),
+            } => self.x_extent().and_then(positive_part),
             ResolvedLayer::Text { x, .. } if *x > 0.0 => Some((*x, *x)),
             ResolvedLayer::Cells { .. } => self.x_extent().filter(|(lo, _)| *lo > 0.0),
             ResolvedLayer::Range { x, bands: None, .. } => x.extent_positive(),
@@ -500,7 +500,7 @@ impl ResolvedLayer<'_> {
             ResolvedLayer::Rule {
                 orientation: Orientation::HorizontalSpan(..),
                 ..
-            } => self.y_extent().filter(|(lo, _)| *lo > 0.0),
+            } => self.y_extent().and_then(positive_part),
             ResolvedLayer::Text { y, .. } if *y > 0.0 => Some((*y, *y)),
             ResolvedLayer::Cells { .. } => self.y_extent().filter(|(lo, _)| *lo > 0.0),
             ResolvedLayer::Range { low, high, .. } => {
@@ -577,7 +577,9 @@ impl ResolvedLayer<'_> {
             ResolvedLayer::Cells {
                 classes: Some(channel),
                 ..
-            } => channel.for_each_legend_entry(class_swatch, &mut visit),
+            } => {
+                channel.for_each_legend_entry(|category| class_swatch(category, ascii), &mut visit)
+            }
             ResolvedLayer::Area { label: None, .. }
             | ResolvedLayer::Rule { label: None, .. }
             | ResolvedLayer::Text { .. }
@@ -587,7 +589,8 @@ impl ResolvedLayer<'_> {
 }
 
 /// Legend swatches for class cells mirror the shade each class paints in the
-/// grid, so plain output can match regions to names without color.
+/// grid — the charset's shade ramp, doubled — so plain output can match
+/// regions to names without color.
 pub(crate) const CLASS_SWATCHES: [&str; 4] = [
     "\u{2591}\u{2591}",
     "\u{2592}\u{2592}",
@@ -595,8 +598,17 @@ pub(crate) const CLASS_SWATCHES: [&str; 4] = [
     "\u{2588}\u{2588}",
 ];
 
-fn class_swatch(category: Option<usize>) -> &'static str {
-    CLASS_SWATCHES[category.unwrap_or(0) % CLASS_SWATCHES.len()]
+/// The ASCII tier's swatches: [`Charset::shade_ramp`](crate::render::Charset::shade_ramp)
+/// for ASCII, doubled.
+const CLASS_SWATCHES_ASCII: [&str; 4] = ["..", "::", "##", "@@"];
+
+fn class_swatch(category: Option<usize>, ascii: bool) -> &'static str {
+    let swatches = if ascii {
+        &CLASS_SWATCHES_ASCII
+    } else {
+        &CLASS_SWATCHES
+    };
+    swatches[category.unwrap_or(0) % swatches.len()]
 }
 
 fn series_swatch(
@@ -1169,6 +1181,20 @@ fn shifted_extent(base: &[f64], values: &[f64], positive: bool) -> Option<(f64, 
         };
     }
     extent
+}
+
+/// The part of an interval a log axis can place: the interval itself when
+/// it is positive, its top alone when it starts at or below zero (a span from
+/// zero reaches down past the axis floor, and the axis need only reach its
+/// top), nothing when it lies wholly at or below zero.
+fn positive_part((low, high): (f64, f64)) -> Option<(f64, f64)> {
+    if high <= 0.0 {
+        None
+    } else if low > 0.0 {
+        Some((low, high))
+    } else {
+        Some((high, high))
+    }
 }
 
 /// The finite `(min, max)` over strictly positive values, or `None` without any.

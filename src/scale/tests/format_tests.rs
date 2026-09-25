@@ -84,9 +84,38 @@ fn gaps_and_negatives_keep_their_conventions() {
 fn empty_and_zero_sets_format_whole_numbers() {
     let empty = NumberFormat::for_values(&[]);
     assert_eq!(empty.format(0.0), "0");
-    assert_eq!(empty.format(3.7), "4");
+    assert_eq!(empty.format(37.0), "37");
+    // A whole-number resolution would round 3.7 to a single inexact digit;
+    // the value keeps its own budget instead of reading as `4`.
+    assert_eq!(empty.format(3.7), "3.700");
     let zeros = NumberFormat::for_values(&[0.0, f64::NAN]);
     assert_eq!(zeros.format(0.0), "0");
+}
+
+#[test]
+fn values_the_set_would_misstate_keep_their_own_resolution() {
+    // The describe case: a loss near one and a byte count near a billion in
+    // one column. The gigabyte resolution rounds the small values to zero;
+    // they are written at their own instead, never as a bare `0`.
+    let means = NumberFormat::for_values(&[1000.0, 0.35, 1.199e9]);
+    assert_eq!(means.format(1.199e9), "1.199G");
+    assert_eq!(means.format(1000.0), "1000");
+    assert_eq!(means.format(0.35), "0.3500");
+    assert_eq!(means.format(-1000.0), "-1000");
+    // One inexact digit is a misstatement too: 1.4M at gigabyte resolution
+    // would read `0.001G`, off by nearly a third.
+    assert_eq!(means.format(1.4e6), "1.400M");
+    // One exact digit is not: 5M is exactly 0.005G, and stays aligned.
+    assert_eq!(means.format(5e6), "0.005G");
+    // Two digits are enough to keep the column's resolution.
+    assert_eq!(means.format(1.4e7), "0.014G");
+    // Zero itself is still the bare zero.
+    assert_eq!(means.format(0.0), "0");
+    // An unprefixed set behaves the same way at its fraction digits.
+    let losses = NumberFormat::for_values(&[0.4821, 1.104]);
+    assert_eq!(losses.format(0.000_123_4), "123.4\u{00B5}");
+    assert_eq!(losses.format(0.004), "0.004");
+    assert_eq!(losses.format(0.0043), "0.004300");
 }
 
 #[test]

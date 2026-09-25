@@ -198,7 +198,10 @@ tick search through `Ticks::linear_with`. `scale::NumberFormat` makes the same l
 once for an arbitrary set of related values — one fraction width, one SI
 prefix or power of ten, whole labels for whole-number sets, gaps as `—` —
 the per-column formatter behind `table`, usable for any readout; there is no
-second, cheaper formatter anywhere. See
+second, cheaper formatter anywhere. The one value written outside the set's
+resolution is the one that resolution would misstate — rounded to zero, or
+to a single inexact digit — which keeps its own, so a column of gigabytes
+never reads a mean of a thousand as `0`. See
 [The axes are the product](principles/axes-are-the-product.md).
 
 ## Frame
@@ -323,7 +326,10 @@ is a different product.
 
 A glyph tier used to encode the surface; glyph tables are data, not code.
 Maps to `render::Charset`: `Ascii`, `HalfBlocks`, `Quadrants`, `Sextants`
-(Unicode 13), `Octants` (Unicode 16), and `Braille`. `Frame::detect` sniffs
+(Unicode 13), `Octants` (Unicode 16), and `Braille`. Each tier also owns
+the shade ramp colorless patch output draws with — `░▒▓█`, or `.:#@` on
+`Ascii` — so a heatmap, a class region, a colorbar, and their legend
+swatches never carry a glyph the tier cannot show. `Frame::detect` sniffs
 the environment, never probes; dense tiers are explicit because a terminal
 name cannot establish the configured font's coverage. See
 [Degradation is the contract](principles/degradation-is-the-contract.md).
@@ -349,11 +355,13 @@ native. Maps to `pixel::Graphics`. See [the pixels guide](pixels.md).
 
 What the terminal can do, as a plain queryable value: the protocols it
 accepts, its cell size in device pixels, and how the answer was obtained
-(`Source::Probed` or `Source::Sniffed`). Sniffing reads environment
-variables — free, wrong only by omission. Probing asks the terminal itself
-over one raw-mode round trip — ground truth, and only where writing escapes
-is safe. An unanswered probe is not evidence; it degrades to the sniff
-answer. Maps to `pixel::Capabilities` and `pixel::Source`.
+(`Source::Probed`, `Source::Sniffed`, or `Source::Declared`). Sniffing reads
+environment variables — free, wrong only by omission. Probing asks the
+terminal itself over one raw-mode round trip — ground truth, and only where
+writing escapes is safe. An unanswered probe is not evidence; it degrades to
+the sniff answer. A host that already knows its terminal declares the value
+through `Capabilities::new` and skips detection. Maps to
+`pixel::Capabilities` and `pixel::Source`.
 
 ## Protocol
 

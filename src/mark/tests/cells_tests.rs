@@ -134,9 +134,29 @@ fn percentile_reducers_validate_their_position() {
 
     let valid = Cells::matrix(2, &[1.0, 2.0][..]).reduce(Reducer::Percentile(0.95));
     assert!(valid.validate().is_ok());
-    let invalid = Cells::matrix(2, &[1.0, 2.0][..]).reduce(Reducer::Percentile(1.5));
+    // Only deserialization can retain a positionless percentile; the strict
+    // path reports it and the infallible path sheds the layer.
+    let mut invalid = Cells::matrix(2, &[1.0, 2.0][..]);
+    invalid.reduce = Reducer::Percentile(1.5);
     assert!(matches!(
         invalid.validate(),
         Err(crate::Error::InvalidParameter { .. })
     ));
+    let plot = crate::Plot::new().layer(invalid);
+    let frame = crate::Frame::plain(12, 6);
+    let rendered = plot.render(&frame);
+    assert!(!rendered.is_empty(), "the chrome still renders");
+    assert_eq!(
+        rendered,
+        crate::Plot::new()
+            .layer(Cells::matrix(2, &[f64::NAN, f64::NAN][..]))
+            .render(&frame),
+        "the layer sheds to a blank grid"
+    );
+}
+
+#[test]
+#[should_panic(expected = "Cells::reduce requires a percentile position in [0, 1]")]
+fn a_positionless_percentile_panics_at_construction() {
+    let _ = Cells::matrix(2, &[1.0, 2.0][..]).reduce(crate::stat::Reducer::Percentile(1.5));
 }

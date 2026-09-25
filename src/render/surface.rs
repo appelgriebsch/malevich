@@ -38,7 +38,9 @@ const EMPTY: Cell = Cell {
     plain_shade: u8::MAX,
 };
 
-const SHADE_RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
+/// The shade ramp two-sample cells fall back to in plain output; only the
+/// block-glyph charsets pack two samples, so this is their ramp.
+const SHADE_RAMP: [char; 4] = Charset::Quadrants.shade_ramp();
 const PENDING_TOP: u8 = 0x80;
 
 /// A grid of character cells addressed in subpixel coordinates.
@@ -269,12 +271,15 @@ impl Surface {
             return Color::Default;
         };
         let cell = self.cells[index];
-        let filled = matches!(
-            cell.text,
-            Text::Glyph(
-                '\u{2588}' | '\u{2580}' | '\u{2584}' | '\u{2591}' | '\u{2592}' | '\u{2593}'
-            )
-        );
+        let filled = match cell.text {
+            Text::Glyph(glyph @ ('\u{2588}' | '\u{2580}' | '\u{2584}')) => {
+                // Half blocks are the two-sample cell on the block charsets;
+                // ASCII never draws them, so on ASCII they are text.
+                glyph == '\u{2588}' || self.charset != Charset::Ascii
+            }
+            Text::Glyph(glyph) => self.charset.shade_ramp().contains(&glyph),
+            Text::None | Text::Continuation => false,
+        };
         if !filled {
             return Color::Default;
         }
@@ -282,13 +287,16 @@ impl Surface {
             (Color::Default, background) => background,
             (foreground, Color::Default) => foreground,
             (foreground, background) => {
-                let (fr, fg, fb) = foreground.to_rgb();
-                let (br, bg, bb) = background.to_rgb();
-                Color::Rgb(
-                    ((u16::from(fr) + u16::from(br)) / 2) as u8,
-                    ((u16::from(fg) + u16::from(bg)) / 2) as u8,
-                    ((u16::from(fb) + u16::from(bb)) / 2) as u8,
-                )
+                // The two halves mixed where the eye mixes them, like every
+                // other blend in the crate.
+                let top = super::color::oklab(foreground.to_rgb());
+                let bottom = super::color::oklab(background.to_rgb());
+                let (r, g, b) = super::color::from_oklab((
+                    crate::numeric::midpoint(top.0, bottom.0),
+                    crate::numeric::midpoint(top.1, bottom.1),
+                    crate::numeric::midpoint(top.2, bottom.2),
+                ));
+                Color::Rgb(r, g, b)
             }
         }
     }
@@ -848,7 +856,7 @@ impl Canvas for Surface {
 
         if self.charset == Charset::Ascii {
             if let Some((shade, color)) = sample {
-                let glyph = SHADE_RAMP[shade as usize];
+                let glyph = self.charset.shade_ramp()[shade as usize];
                 self.place(rect.top + row, cell_column, Text::Glyph(glyph), color);
             }
             return;

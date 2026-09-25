@@ -34,6 +34,7 @@ impl HistogramOptions {
     /// percent, or density per unit of x — [`Bins::heights`](crate::stat::Bins::heights)
     /// does the scaling. Counts draw on an [`Integer`](crate::Scale::Integer)
     /// axis; percent labels its axis `%`.
+    #[must_use]
     pub const fn normalization(
         mut self,
         normalization: crate::stat::Normalization,
@@ -45,6 +46,7 @@ impl HistogramOptions {
     /// Accumulates the bins left to right: a cumulative count reaches the
     /// total, a cumulative probability or density one, a cumulative percent
     /// one hundred.
+    #[must_use]
     pub const fn cumulative(mut self, cumulative: bool) -> HistogramOptions {
         self.cumulative = cumulative;
         self

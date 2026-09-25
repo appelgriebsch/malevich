@@ -70,6 +70,11 @@ impl Window {
     /// Applies any named [`Reducer`](super::Reducer) over each window —
     /// rolling medians, percentiles, and deviations included:
     /// `window.reduce(&latencies, Reducer::Percentile(0.95))`.
+    ///
+    /// # Panics
+    ///
+    /// Panics when a [`Percentile`](super::Reducer::Percentile) position is
+    /// not in `[0, 1]`, as [`Reducer::reduce`](super::Reducer::reduce) does.
     pub fn reduce(&self, values: &[f64], reducer: super::Reducer) -> Vec<f64> {
         let n = values.len();
         let trailing = self.trailing(values, reducer);

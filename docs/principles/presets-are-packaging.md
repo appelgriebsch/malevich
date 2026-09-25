@@ -88,9 +88,10 @@ hist(&samples) == Bins::auto + Bars::spans + Scale::Integer, byte for byte:
 ## Spelled today
 
 The presets are re-exported at the crate root: `line`, `scatter`, `bar`,
-`hist`, `stairs`, `ecdf`, `heatmap`, `hist2d`, `density`, `box_plot`,
-`violin`, `error_bars`, `trend`, `contour`, `quiver`, and their `_with`
-twins. The equality tests are the
+`sparkline`, `hist`, `stairs`, `ecdf`, `heatmap`, `hist2d`, `density`,
+`box_plot`, `violin`, `error_bars`, `error_bars_asymmetric`, `trend`,
+`contour`, `contourf`, `quiver`, `table`, `describe`, their `_with` twins,
+and the checked `try_table`. The equality tests are the
 `the_*_preset_equals_its_grammar_expansion` family in
 `src/plot/tests/plot_tests.rs`. `witness_packaging` is the spliced example
 above. This section may rot; the rest must not.

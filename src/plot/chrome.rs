@@ -214,15 +214,27 @@ pub(crate) fn draw(
 
     // The colorbar: a colormap gradient down the right edge, with value labels.
     if let Some(bar) = &layout.colorbar {
-        draw_colorbar(surface, bar, plot_top, plot_rows);
+        draw_colorbar(
+            surface,
+            bar,
+            layout.charset.shade_ramp(),
+            plot_top,
+            plot_rows,
+        );
     }
 }
 
-/// Draws the colorbar: a one-column colormap gradient (shade ramp plus color, like a
-/// Cells layer, so it reads in plain text too) spanning the plot rows, top = high,
-/// with the value labels beside it at their fractional heights.
-fn draw_colorbar(surface: &mut Surface, bar: &Colorbar, plot_top: usize, plot_rows: usize) {
-    const RAMP: [char; 4] = ['\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'];
+/// Draws the colorbar: a one-column colormap gradient (the charset's shade
+/// ramp plus color, like a Cells layer, so it reads in plain text too)
+/// spanning the plot rows, top = high, with the value labels beside it at
+/// their fractional heights.
+fn draw_colorbar(
+    surface: &mut Surface,
+    bar: &Colorbar,
+    ramp: [char; 4],
+    plot_top: usize,
+    plot_rows: usize,
+) {
     let mut buffer = [0u8; 4];
     let column = bar.column as i64;
     for offset in 0..plot_rows {
@@ -233,7 +245,7 @@ fn draw_colorbar(surface: &mut Surface, bar: &Colorbar, plot_top: usize, plot_ro
         };
         // A stepped map draws its bands; the shade glyph follows the band too.
         let position = bar.colormap.quantize(position, bar.low, bar.high);
-        let glyph = RAMP[((position * 4.0) as usize).min(3)];
+        let glyph = ramp[((position * 4.0) as usize).min(3)];
         surface.text(
             column,
             (plot_top + offset) as i64,

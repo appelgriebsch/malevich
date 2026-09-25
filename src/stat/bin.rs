@@ -501,7 +501,8 @@ pub fn try_bins2(
 ///
 /// # Panics
 ///
-/// Panics if the two slices have different lengths.
+/// Panics if the two slices have different lengths, or a
+/// [`Percentile`](super::Reducer::Percentile) position is not in `[0, 1]`.
 pub fn binned(x: &[f64], y: &[f64], bins: &Bins, reducer: super::Reducer) -> Vec<f64> {
     assert_eq!(x.len(), y.len(), "binned requires slices of equal length");
     let mut buckets = vec![super::reducer::ReducerState::new(reducer); bins.counts().len()];

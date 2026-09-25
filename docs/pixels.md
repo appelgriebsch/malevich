@@ -70,6 +70,9 @@ Two tiers with different licenses:
 stream that will receive the plot; `detect()` is the stdout convenience.
 An unanswered probe is not evidence — it degrades to the sniff answer. The
 value records which tier answered (`Source::Probed` or `Source::Sniffed`).
+A host that already knows its terminal — a remote session's, a second
+window's — states the answer with `Capabilities::new(protocols, cell_size)`
+(`Source::Declared`) and skips detection.
 
 ## Inside a ratatui app
 

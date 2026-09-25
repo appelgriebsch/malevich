@@ -17,6 +17,35 @@ fn grays_use_the_gray_ramp() {
 }
 
 #[test]
+fn every_grey_level_quantizes_to_its_nearest_palette_grey() {
+    // The 24 ramp greys plus the cube's black and white: no level between
+    // them is unreachable, and none underflows the ramp (4..=7 once did).
+    for level in 0..=255u8 {
+        let index = rgb_to_256(level, level, level);
+        let (r, g, b) = ansi256_to_rgb(index);
+        assert!(r == g && g == b, "{level} -> {index} is not a grey");
+        let nearest = (0..=255u8)
+            .filter(|&candidate| {
+                let (cr, cg, cb) = ansi256_to_rgb(rgb_to_256(candidate, candidate, candidate));
+                cr == cg && cg == cb
+            })
+            .map(|candidate| {
+                let (value, _, _) = ansi256_to_rgb(rgb_to_256(candidate, candidate, candidate));
+                (i32::from(value) - i32::from(level)).abs()
+            })
+            .min()
+            .expect("a grey exists");
+        assert_eq!(
+            (i32::from(r) - i32::from(level)).abs(),
+            nearest,
+            "{level} -> index {index} (grey {r}) is not the nearest"
+        );
+    }
+    assert_eq!(rgb_to_256(5, 5, 5), 232);
+    assert_eq!(rgb_to_256(4, 4, 4), 232);
+}
+
+#[test]
 fn cube_and_ramp_entries_roundtrip_through_their_rgb() {
     for index in [16u8, 67, 123, 196, 231, 232, 244, 255] {
         let (r, g, b) = ansi256_to_rgb(index);

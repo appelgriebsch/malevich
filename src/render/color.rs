@@ -201,11 +201,18 @@ const CUBE: [u8; 6] = [0, 95, 135, 175, 215, 255];
 /// Quantizes RGB onto the xterm 256-color palette (color cube or gray ramp).
 pub(crate) fn rgb_to_256(r: u8, g: u8, b: u8) -> u8 {
     if r == g && g == b {
-        return match r {
-            0..=3 => 16,
-            248..=255 => 231,
-            v => 232 + (v - 8) / 10,
-        };
+        // The nearest of the 24 ramp greys (8, 18, …, 238) and the cube's two
+        // ends (0 and 255): every level from 0 to 255 has one, so a near-black
+        // grey lands on the darkest ramp entry instead of underflowing past it.
+        let level = i32::from(r);
+        let step = ((level - 8 + 5).div_euclid(10)).clamp(0, 23);
+        let ramp = (232 + step) as u8;
+        let ramp_level = 8 + 10 * step;
+        let candidates = [(16u8, 0), (231, 255), (ramp, ramp_level)];
+        return candidates
+            .into_iter()
+            .min_by_key(|&(_, value)| ((value - level).abs(), value != ramp_level))
+            .map_or(ramp, |(index, _)| index);
     }
     let axis = |c: u8| match c {
         0..=47 => 0u8,

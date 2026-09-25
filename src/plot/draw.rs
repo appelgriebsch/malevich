@@ -186,21 +186,35 @@ pub(crate) fn layers<C: Canvas>(
                         &mut 0.0,
                     );
                 }
+                // A span bound a log axis cannot place — at or below zero —
+                // maps to nothing finite, and means "past the axis floor":
+                // the wash runs to the plot's edge there, so the visible part
+                // of a span from zero is washed rather than the whole span
+                // vanishing; a span with no placeable bound at all has no
+                // visible part. Finite bounds always map finite on every
+                // other axis; the fallback exists only for that floor.
                 Orientation::HorizontalSpan(a, b) => {
-                    let (sa, sb) = (y_offset + y_scale.map(*a), y_offset + y_scale.map(*b));
-                    surface.wash(
-                        (x_offset, sa.min(sb)),
-                        (x_offset + (plot_sub_w - 1) as f64, sa.max(sb)),
-                        *color,
-                    );
+                    let floor = y_offset + (plot_sub_h - 1) as f64;
+                    if let Some((sa, sb)) =
+                        span_ends(y_scale.map(*a), y_scale.map(*b), y_offset, floor)
+                    {
+                        surface.wash(
+                            (x_offset, sa.min(sb)),
+                            (x_offset + (plot_sub_w - 1) as f64, sa.max(sb)),
+                            *color,
+                        );
+                    }
                 }
                 Orientation::VerticalSpan(a, b) => {
-                    let (sa, sb) = (x_offset + x_scale.map(*a), x_offset + x_scale.map(*b));
-                    surface.wash(
-                        (sa.min(sb), y_offset),
-                        (sa.max(sb), y_offset + (plot_sub_h - 1) as f64),
-                        *color,
-                    );
+                    if let Some((sa, sb)) =
+                        span_ends(x_scale.map(*a), x_scale.map(*b), x_offset, x_offset)
+                    {
+                        surface.wash(
+                            (sa.min(sb), y_offset),
+                            (sa.max(sb), y_offset + (plot_sub_h - 1) as f64),
+                            *color,
+                        );
+                    }
                 }
             },
             ResolvedLayer::Text {
@@ -410,6 +424,18 @@ pub(crate) fn layers<C: Canvas>(
         }
     }
     surface.clear_clip();
+}
+
+/// The frame-absolute ends of a span whose bounds mapped to `a` and `b`:
+/// `offset` plus each finite position, the axis `floor` for a bound the scale
+/// could not place (zero on a log axis), and `None` when neither bound has a
+/// position — nothing of the span is on the axis.
+fn span_ends(a: f64, b: f64, offset: f64, floor: f64) -> Option<(f64, f64)> {
+    if !(a.is_finite() || b.is_finite()) {
+        return None;
+    }
+    let place = |sub: f64| if sub.is_finite() { offset + sub } else { floor };
+    Some((place(a), place(b)))
 }
 
 /// Draws one segment in the layer's stroke pattern, advancing `phase` by
@@ -864,6 +890,14 @@ fn draw_cells<C: Canvas>(
     let (px, py) = density;
     let (values, rgb, classes) = channels;
     let (x_band, y_band) = bands;
+    // A percentile with no position — only deserialization can retain one,
+    // and validation reports it — has no reduction to draw: the layer sheds,
+    // as infallible rendering promises, instead of asserting mid-draw.
+    if let Reducer::Percentile(position) = reduce
+        && !(0.0..=1.0).contains(&position)
+    {
+        return;
+    }
     let count = match (classes, rgb) {
         (Some(ColorChannel::Categories { ids, .. }), _) => ids.len(),
         (_, Some(pixels)) => pixels.len(),

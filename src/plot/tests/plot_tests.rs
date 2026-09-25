@@ -371,6 +371,104 @@ fn every_charset_renders_with_its_own_glyphs() {
 }
 
 #[test]
+fn the_ascii_tier_draws_every_patch_and_swatch_in_ascii() {
+    use crate::mark::{Cells, Rule};
+    use crate::scale::Colormap;
+
+    // Patch output — heatmap cells, class regions, the colorbar strip — and
+    // the legend swatches that mirror them once drew the Block Elements
+    // shades on every tier. The ASCII tier owns a density ramp instead, so a
+    // chart on `TERM=dumb` never carries a byte its terminal cannot show.
+    let grid: Vec<f64> = (0..24).map(f64::from).collect();
+    let ascii = Frame {
+        charset: Charset::Ascii,
+        ..Frame::plain(48, 12)
+    };
+    let heatmap = crate::heatmap(6, &grid[..]).render(&ascii);
+    assert!(heatmap.is_ascii(), "{heatmap}");
+    for glyph in ['.', ':', '#', '@'] {
+        assert!(
+            heatmap.contains(glyph),
+            "the ramp reaches {glyph:?}:\n{heatmap}"
+        );
+    }
+    let classes = Plot::new()
+        .layer(Cells::classes(3, ["a", "b", "c", "a", "b", "c"]))
+        .render(&ascii);
+    assert!(classes.is_ascii(), "{classes}");
+    assert!(classes.contains(".. a  :: b  ## c"), "{classes}");
+    let stepped = crate::heatmap_with(
+        6,
+        &grid[..],
+        crate::HeatmapOptions::new().colormap(Colormap::VIRIDIS.steps(4)),
+    )
+    .expect("valid options")
+    .render(&ascii);
+    assert!(stepped.is_ascii(), "{stepped}");
+    let spanned = Plot::new()
+        .layer(Rule::v_span(2.0, 5.0).label("warm"))
+        .layer(Line::y(&grid[..]))
+        .render(&ascii);
+    assert!(spanned.is_ascii(), "{spanned}");
+    assert!(spanned.contains(":: warm"), "{spanned}");
+    // Every other tier keeps the shades it always drew.
+    let quadrants = crate::heatmap(6, &grid[..]).render(&Frame::portable(48, 12));
+    assert!(quadrants.contains('\u{2593}'), "{quadrants}");
+}
+
+#[test]
+fn a_span_from_zero_on_a_log_axis_washes_its_visible_part() {
+    use crate::mark::Rule;
+
+    // Zero has no logarithmic position, so a span from zero used to vanish
+    // whole. Its top is placeable: the wash runs from the axis floor to it,
+    // and the axis grows to include it.
+    let values = [1.0, 10.0, 100.0, 1000.0];
+    let frame = Frame::plain(40, 12);
+    let bare = Plot::new().layer(Line::y(&values[..])).log_y();
+    let washed = Plot::new()
+        .layer(Rule::h_span(0.0, 5000.0))
+        .layer(Line::y(&values[..]))
+        .log_y();
+    assert_ne!(bare.render(&frame), washed.render(&frame), "the span draws");
+    assert!(washed.mapping(&frame).y_domain().1 >= 5000.0);
+    // A span wholly at or below zero still has nothing to show on a log axis.
+    let below = Plot::new()
+        .layer(Rule::h_span(-5.0, 0.0))
+        .layer(Line::y(&values[..]))
+        .log_y();
+    assert_eq!(bare.render(&frame), below.render(&frame));
+}
+
+#[test]
+fn describe_never_reads_a_small_statistic_as_zero() {
+    // Groups of different magnitude share a column: the gigabyte column's
+    // resolution would round the loss's statistics to zero. They keep their
+    // own resolution instead; the large values keep the column's.
+    let loss = [0.9, 0.7, 0.55, 0.48, 0.41];
+    let bytes = [1.0e9, 1.1e9, 1.2e9, 1.3e9, 1.4e9];
+    let rendered =
+        crate::describe(["loss", "bytes"], [&loss[..], &bytes[..]]).render(&Frame::plain(84, 5));
+    let loss_row = rendered
+        .lines()
+        .find(|line| line.contains("loss"))
+        .expect("the loss row renders");
+    assert!(
+        !loss_row.split_whitespace().any(|cell| cell == "0"),
+        "a nonzero statistic reads as zero:\n{rendered}"
+    );
+    assert!(
+        loss_row.contains("0.6080"),
+        "the mean keeps its digits:\n{rendered}"
+    );
+    let bytes_row = rendered
+        .lines()
+        .find(|line| line.contains("bytes"))
+        .expect("the bytes row renders");
+    assert!(bytes_row.contains("1.200G"), "{rendered}");
+}
+
+#[test]
 fn axis_titles_render_on_both_axes() {
     let plot = Plot::new()
         .layer(Line::y(&[1.0, 2.0][..]))

@@ -81,6 +81,18 @@ fn shortest_digits(value: f64) -> (i128, i32) {
     (digits, exponent - fraction_digits)
 }
 
+/// Whether `digits × 10^power` is a whole number — whether scaling to that
+/// power loses nothing.
+fn scales_exactly(digits: i128, power: i32) -> bool {
+    if power >= 0 {
+        return true;
+    }
+    if power < -38 {
+        return digits == 0;
+    }
+    digits % 10i128.pow(power.unsigned_abs()) == 0
+}
+
 /// `digits × 10^power`, rounded half away from zero to an integer, or `None`
 /// when the product needs more than an `i128` holds.
 fn scale_digits(digits: i128, power: i32) -> Option<i128> {
@@ -118,6 +130,13 @@ fn scale_digits(digits: i128, power: i32) -> Option<i128> {
 /// set of whole numbers keeps whole labels (a count column never reads
 /// `7.000`).
 ///
+/// The one value that leaves the column's resolution is the one it would
+/// misstate: a finite value the set's resolution rounds to zero, or to a
+/// single significant digit that is not exact, is written at its own
+/// resolution instead — a mean of `1000` in a column of gigabytes reads
+/// `1000`, never a bare `0` that claims exactly nothing or a `0.001G` that is
+/// off by half. Alignment yields to honesty for that value alone.
+///
 /// ```
 /// use malevich::scale::NumberFormat;
 ///
@@ -128,6 +147,10 @@ fn scale_digits(digits: i128, power: i32) -> Option<i128> {
 ///
 /// let counts = NumberFormat::for_values(&[125_000.0, 98_500.0]);
 /// assert_eq!(counts.format(125_000.0), "125.0k");
+///
+/// let means = NumberFormat::for_values(&[1000.0, 1.199e9]);
+/// assert_eq!(means.format(1.199e9), "1.199G");
+/// assert_eq!(means.format(1000.0), "1000");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NumberFormat {
@@ -200,7 +223,9 @@ impl NumberFormat {
     /// Non-finite values are `—`. A set beyond the SI table writes every
     /// value against its power of ten (`1.798e308`, `2.500e-20`), still at the
     /// shared budget; a mantissa no integer can hold (only a widened fallback
-    /// could ask) collapses to the exponent form at that budget.
+    /// could ask) collapses to the exponent form at that budget. A finite
+    /// value the resolution would misstate — rounded to zero, or to one
+    /// inexact significant digit — is written at its own resolution instead.
     pub fn format(&self, value: f64) -> String {
         if !value.is_finite() {
             return "\u{2014}".to_string();
@@ -210,7 +235,8 @@ impl NumberFormat {
             .unwrap_or_else(|| self.prefix.map_or(0, |(shift, _)| shift));
         let (digits, exp10) = shortest_digits(value);
         let sign = if value.is_sign_negative() { -1 } else { 1 };
-        let Some(mantissa) = scale_digits(digits, exp10 + self.fraction - shift) else {
+        let power = exp10 + self.fraction - shift;
+        let Some(mantissa) = scale_digits(digits, power) else {
             // More integer digits than a mantissa can hold (only a widened
             // fallback far from its set can ask): the value at the budget,
             // against its own power of ten.
@@ -219,6 +245,12 @@ impl NumberFormat {
                 scale_digits(digits, exp10 + SIGNIFICANT_DIGITS - 1 - magnitude).unwrap_or(0);
             return exponent_label(sign * mantissa, 1 - SIGNIFICANT_DIGITS, magnitude);
         };
+        // The set's resolution would misstate this value: nothing left of it,
+        // or one digit that rounding already moved. Its own resolution keeps
+        // the budget, so a small statistic never reads as exactly zero.
+        if value != 0.0 && (mantissa == 0 || (mantissa < 10 && !scales_exactly(digits, power))) {
+            return NumberFormat::for_values(&[value]).format(value);
+        }
         let mantissa = sign * mantissa;
         if mantissa == 0 {
             // A prefixed or exponent zero is deliberately bare, like a tick's.

@@ -32,10 +32,11 @@ The gallery's `charsets` example renders one curve at every rung:
 Four tiers, quantized honestly downhill: `TrueColor`, `Ansi256`, `Ansi16`,
 `Plain`. The sixteen-color pick is made in OKLab by lightness and hue — the
 two things sixteen colors can carry — so a teal drops to green, never to
-the grey that is nearer in RGB. Heatmap half-blocks carry independent upper and lower colors; plain
-output retains an averaged shade. In colorless output, `color_by` categories
-cycle portable marker shapes (`•`, `+`, `x`, `*`, `o`) so groups never
-vanish in a pipe.
+the grey that is nearer in RGB. Heatmap half-blocks carry independent upper
+and lower colors; plain output retains an averaged shade on the charset's
+own ramp (`░▒▓█`, or `.:#@` in ASCII). In colorless output, `color_by`
+categories cycle portable marker shapes (`•`, `+`, `x`, `*`, `o`) so groups
+never vanish in a pipe.
 
 ## What detection reads
 
