@@ -3,6 +3,13 @@
 **Terminal plotting for Rust: a small grammar of marks, honest axes, millions of
 points.**
 
+**Documentation: [shergin.github.io/malevich](https://shergin.github.io/malevich/)** —
+the [guide](https://shergin.github.io/malevich/guide/start/), the
+[gallery](https://shergin.github.io/malevich/gallery/), the
+[playground](https://shergin.github.io/malevich/playground/), and the
+[API reference](https://docs.rs/malevich). Every figure there is drawn by the
+library.
+
 ![Malevich terminal rendering with cell glyphs and real pixels](examples/suprematist-composition.png)
 
 Eight marks. A real statistics layer. Ten million points in tens of milliseconds on

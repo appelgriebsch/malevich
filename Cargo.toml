@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.88"
 description = "Terminal plotting: a small grammar of marks, honest axes, millions of points"
 repository = "https://github.com/shergin/malevich"
+homepage = "https://shergin.github.io/malevich/"
 license = "MIT OR Apache-2.0"
 keywords = ["plot", "chart", "terminal", "ascii", "visualization"]
 categories = ["visualization", "command-line-interface"]

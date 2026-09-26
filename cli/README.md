@@ -2,7 +2,9 @@
 
 **Pipe data to an honest terminal plot.** A stdin-first CLI over
 [malevich](https://crates.io/crates/malevich): the first look at any data,
-straight from the shell.
+straight from the shell. The library's documentation, with every chart
+explained and illustrated, is at
+[shergin.github.io/malevich](https://shergin.github.io/malevich/).
 
 ```sh
 cat loss.tsv | kaz line -t training

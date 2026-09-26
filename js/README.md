@@ -7,6 +7,10 @@ The engine is the [Rust crate](https://crates.io/crates/malevich) 1.x, compiled
 to WASM. A plot is a value. Rendering is a pure function of that value and a
 frame. The library never owns the terminal. Zero native dependencies.
 
+Documentation, with a plate for every mark, stat, and scale, and a playground
+that runs this engine in the browser:
+[shergin.github.io/malevich](https://shergin.github.io/malevich/).
+
 ![Loss curves, a calendar time axis, and smoothing](https://raw.githubusercontent.com/shergin/malevich/main/examples/showcase-lines.png)
 
 ```sh

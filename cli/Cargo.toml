@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.88"
 description = "kaz: pipe data to an honest terminal plot — a stdin-first CLI over malevich"
 repository = "https://github.com/shergin/malevich"
+homepage = "https://shergin.github.io/malevich/cli/"
 license = "MIT OR Apache-2.0"
 keywords = ["plot", "chart", "terminal", "cli", "visualization"]
 categories = ["command-line-utilities", "visualization"]
