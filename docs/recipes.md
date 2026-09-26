@@ -1,13 +1,13 @@
 # Recipes
 
-Answers to the requests the field files most, each with what already exists.
-Every chart type below is a composition of the grammar; none needed a new
+These answer the requests that show up most, each with what already exists.
+Every chart type below is a composition of the grammar. None needed a new
 concept ([what earns one](principles/what-earns-a-concept.md)).
 
 ## Benchmarks through `jq`
 
 [hyperfine](https://github.com/sharkdp/hyperfine) exports one JSON file per
-run; its `results` carry a mean and every timing. Means as sideways bars in
+run. Its `results` carry a mean and every timing. Means as sideways bars in
 seconds, then one command's distribution:
 
 ```sh
@@ -27,7 +27,7 @@ done | kaz bar --horizontal --unit ns
 jq -r '.times[]' target/criterion/parse/new/sample.json | kaz density --unit ns
 ```
 
-`kaz describe` prints the same numbers as a table; `--emit-code` on any of
+`kaz describe` prints the same numbers as a table. `--emit-code` on any of
 them writes the Rust program.
 
 ## The pie: a waffle or a breakdown
@@ -93,8 +93,8 @@ Two out-of-range rules, deliberately different:
   color. `under` and `over` disclose the squish with colors of their own,
   and the colorbar shows the fixed range.
 
-Gaps follow the first rule everywhere: `NaN` is a break, never
-interpolated; a non-positive value on a log axis is a gap.
+Gaps follow the first rule everywhere. `NaN` is a break, never interpolated.
+A non-positive value on a log axis is a gap.
 
 ## Plain text is agent-legible
 

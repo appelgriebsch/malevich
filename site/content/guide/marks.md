@@ -1,16 +1,16 @@
 # The eight marks
 
-A mark is a family of geometric primitives that draw data. There are eight, joined under the closed `Mark` enum, and the family is declared complete: a chart type is a composition of marks, never a peer of them. Each mark has position channels (its constructor arguments) and constant channels (builder methods). This page shows every one with a plate.
+A mark is a family of geometric primitives that draw data. There are eight, joined under the closed `Mark` enum. The family is declared complete. A chart type is a composition of marks. It is not a peer of them. Each mark has position channels (its constructor arguments) and constant channels (builder methods). This page shows every one with a plate.
 
-Marks draw onto a subpixel surface — 2×4 dots per cell in braille, 2×4 blocks in octants, 2×2 in quadrants, 1×1 in ASCII — and a charset codec turns each cell into a glyph. Text shares the grid and wins over pixels. Drawing is infallible: out-of-surface clips, non-finite coordinates draw nothing.
+Marks draw onto a subpixel surface — 2×4 dots per cell in braille, 2×4 blocks in octants, 2×2 in quadrants, 1×1 in ASCII — and a charset codec turns each cell into a glyph. Text shares the grid and wins over pixels. Drawing does not fail. Off the surface, it clips. A non-finite coordinate draws nothing.
 
 ## Line
 
-Points in order, paired series, or a sampled function. `Line::y(values)` plots against the index; `Line::xy(x, y)` pairs two series; `Line::function(domain, f)` samples a closure once per subpixel column, so there is no resolution to choose.
+Points in order, paired series, or a sampled function. `Line::y(values)` plots against the index. `Line::xy(x, y)` pairs two series. `Line::function(domain, f)` samples a closure once per subpixel column, so there is no resolution to choose.
 
 {{figure mark_line_styles}}
 
-`LineStyle::Pixels` is the subpixel default. `LineStyle::Corners` is the asciichart look — box-drawing corners, one glyph per column — with real axes underneath, which the original never had. `dash` takes `Dashed` or `Dotted`; `glow` thickens a line; `color` sets a constant color and `label` puts the layer in the legend.
+`LineStyle::Pixels` is the subpixel default. `LineStyle::Corners` is the asciichart look — box-drawing corners, one glyph per column — with real axes underneath, which the original never had. `dash` takes `Dashed` or `Dotted`. `glow` thickens a line. `color` sets a constant color, and `label` puts the layer in the legend.
 
 {{figure mark_line_function}}
 
@@ -18,11 +18,11 @@ Points in order, paired series, or a sampled function. `Line::y(values)` plots a
 
 {{figure mark_line_grade}}
 
-Large lines reduce automatically. Past four points per rendered column, the plot inserts M4 — first, last, minimum, and maximum per column — which is pixel-identical to drawing every point ([the full draw is the oracle](../../principles/full-draw-oracle/)). Gaps are path topology: a `NaN` breaks the line, at every reduction level.
+Large lines reduce automatically. Past four points per rendered column, the plot inserts M4 — first, last, minimum, and maximum per column — which is pixel-identical to drawing every point ([the full draw is the oracle](../../principles/full-draw-oracle/)). A `NaN` breaks the line, at every reduction level. That break is path topology.
 
 ## Points
 
-A scatter. `Points::y` and `Points::xy` mirror `Line`; `style` picks a marker; `opacity` fades dense clouds; `density` (on the pixel canvas) shades by count.
+A scatter. `Points::y` and `Points::xy` mirror `Line`. `style` picks a marker. `opacity` fades dense clouds. `density`, on the pixel canvas, shades by count.
 
 {{figure mark_points_styles}}
 
@@ -42,11 +42,11 @@ Bars rise from the zero baseline, or from a per-bar `base`. Four placements: ban
 
 {{figure mark_bars_intervals}}
 
-`base` is the y2-style channel that makes stacked bars, grouped bars, and waterfalls plain compositions rather than modes. Stack by giving the second layer the first layer's values as its base; group by placing layers side by side with `Bars::at` at positions `stat::dodge` computes ([the statistics layer](../stats/#stack-and-dodge)).
+`base` is the y2-style channel. With it, stacked bars, grouped bars, and waterfalls are plain compositions. They are not modes. Stack by giving the second layer the first layer's values as its base. Group by placing layers side by side with `Bars::at`, at positions `stat::dodge` computes ([the statistics layer](../stats/#stack-and-dodge)).
 
 {{figure mark_bars_base}}
 
-`horizontal` turns any placement sideways — the bands run down the y axis in reading order and the values along x, the `barh` of the catalog. Long category names then take the measured label gutter instead of a band's width.
+`horizontal` turns any placement sideways — the bands run down the y axis in reading order and the values along x, the `barh` of the catalog. Long category names then take the measured label gutter. A band's width does not hold them.
 
 {{figure mark_bars_horizontal}}
 
@@ -54,21 +54,21 @@ Bars rise from the zero baseline, or from a per-bar `base`. Four placements: ban
 
 ## Area
 
-A fill. `Area::y` and `Area::xy` fill from the baseline; `Area::between(x, low, high)` fills a band between two series — a confidence band, a p10–p90 envelope, one layer of a stacked area. `opacity` is a pixel-target channel: on a sixel, kitty, or iTerm2 panel it scales the fill's coverage so the background and the layers beneath read through; on cells the fill stays solid, so a wash under a line is a dark explicit color there.
+A fill. `Area::y` and `Area::xy` fill from the baseline. `Area::between(x, low, high)` fills a band between two series — a confidence band, a p10–p90 envelope, one layer of a stacked area. `opacity` is a pixel-target channel. On a sixel, kitty, or iTerm2 panel it scales the fill's coverage, so the background and the layers beneath read through. On cells the fill stays solid, so a wash under a line is a dark explicit color there.
 
 {{figure mark_area}}
 
-`Area::horizontal(y, x_low, x_high)` fills along y instead. A violin is two of these — a density and its mirror — which is exactly how the `violin` preset is expanded.
+`Area::horizontal(y, x_low, x_high)` fills along y. A violin is two of these — a density and its mirror — which is exactly how the `violin` preset is expanded.
 
 {{figure mark_area_horizontal}}
 
 ## Cells
 
-One geometry, three color readings: a value grid under a colormap, an RGB image, or categorical class regions. A heatmap is not a mark; it is `Cells` under a colormap, and the `heatmap` preset says so.
+One geometry, three color readings: a value grid under a colormap, an RGB image, or categorical class regions. A heatmap is not a mark. It is `Cells` under a colormap, and the `heatmap` preset says so.
 
 {{figure mark_cells_matrix}}
 
-`Cells::matrix(columns, values)` takes a row-major grid. Put `Scale::bands` on both axes and the rows are labeled in matrix order — row 0 at the top — which is what a confusion matrix or an attention map needs. `colormap` chooses the ramp; `Plot::colorbar` draws its legend.
+`Cells::matrix(columns, values)` takes a row-major grid. Put `Scale::bands` on both axes and the rows are labeled in matrix order — row 0 at the top — which is what a confusion matrix or an attention map needs. `colormap` chooses the ramp. `Plot::colorbar` draws its legend.
 
 {{figure mark_cells_rgb}}
 
@@ -80,11 +80,11 @@ One geometry, three color readings: a value grid under a colormap, an RGB image,
 
 {{figure mark_cells_extents}}
 
-`extents` places the grid in data coordinates so it can share axes with points and lines. A grid denser than the raster reduces bucket-exactly: every screen bucket owns the cells whose centers fall inside it and shows a declared reduction over all of them — the mean box filter by default, `reduce(Reducer::Max)` when the sparse spikes are the point. Nothing is dropped because a sampler stepped over it. `smooth` interpolates on the pixel canvas.
+`extents` places the grid in data coordinates so it can share axes with points and lines. A grid denser than the raster reduces bucket-exactly. Every screen bucket owns the cells whose centers fall inside it and shows a declared reduction over all of them — the mean box filter by default, `reduce(Reducer::Max)` when the sparse spikes are the point. Nothing is dropped because a sampler stepped over it. `smooth` interpolates on the pixel canvas.
 
 ## Range
 
-An interval per position, with two optional channels inside it: a thick `body` sub-interval and a `marker` crossbar. `Range::xy(x, low, high)` is an error bar at each x; `Range::y(low, high)` uses the index; `Range::over(categories, low, high)` puts one interval per band.
+An interval per position, with two optional channels inside it: a thick `body` sub-interval and a `marker` crossbar. `Range::xy(x, low, high)` is an error bar at each x. `Range::y(low, high)` uses the index. `Range::over(categories, low, high)` puts one interval per band.
 
 {{figure mark_range_xy}}
 
@@ -102,14 +102,14 @@ Rules take part in the domain: a target at 0.5 is on the axis even when no data 
 
 ## Text
 
-A string at data coordinates. `Text::at(x, y, text)` starts at the anchor and extends right; `align(Align::Center)` and `Align::Right` set it on the anchor or end at it. On a `Bands` x axis, the band nearest the anchor becomes the text's box, with exactly the geometry the band's own header label uses — its rounded center, its step-wide budget — so aligned text and band labels land in lockstep. Text wider than its box clips to it with a truncation `.`; digits from a neighboring column are never mixed into a number.
+A string at data coordinates. `Text::at(x, y, text)` starts at the anchor and extends right. `align(Align::Center)` sets it on the anchor. `Align::Right` ends it there. On a `Bands` x axis, the band nearest the anchor becomes the text's box, with exactly the geometry the band's own header label uses — its rounded center, its step-wide budget — so aligned text and band labels land in lockstep. Text wider than its box clips to it with a truncation `.`. Digits from a neighboring column are never mixed into a number.
 
 {{figure mark_text}}
 
-Text is how a stat table is drawn: `describe` and `table` are `Text` marks on two band axes, each column formatted by its own `NumberFormat`. And it is how a heatmap is annotated: a `Text` over a `Cells` keeps the cell's color as its background instead of punching a hole in the field, and picks dark or light ink from the luminance underneath.
+Text is how a stat table is drawn. `describe` and `table` are `Text` marks on two band axes, each column formatted by its own `NumberFormat`. Text is also how a heatmap is annotated. A `Text` over a `Cells` keeps the cell's color as its background. It does not punch a hole in the field. It picks dark or light ink from the luminance underneath.
 
 {{example correlation}}
 
 ## What a mark is not
 
-There is no `Heatmap` mark beside `Cells`, no `barh` beside `Bars`, no `Errorbar` beside `Range`, no `Annotation` beside `Text`. Each of those would be a second name for one geometry with a different reading, and a vocabulary that large cannot be learned, only searched. The membership test is two clauses, both required: real charts demand it, and no composition of the rest reproduces its output ([what earns a concept](../../principles/what-earns-a-concept/)).
+There is no `Heatmap` mark beside `Cells`, no `barh` beside `Bars`, no `Errorbar` beside `Range`, no `Annotation` beside `Text`. Each of those would be a second name for one geometry with a different reading, and a vocabulary that large cannot be learned, only searched. The membership test is two clauses, both required. Real charts demand it. No composition of the rest reproduces its output ([what earns a concept](../../principles/what-earns-a-concept/)).

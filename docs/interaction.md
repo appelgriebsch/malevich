@@ -1,10 +1,9 @@
 # Interaction
 
-How a chart becomes interactive: the physics the core exposes, the
-controller the ratatui widget runs on top of it, and the patterns that need
-no library support at all. The boundary is strict — malevich never reads
-input, never owns an event loop — and everything here is what that boundary
-*enables*.
+How a chart becomes interactive. The core exposes the physics. The ratatui
+widget runs a controller on top of it. Some patterns need no library support
+at all. The boundary is strict: malevich never reads input, and never owns
+an event loop. Everything here is what that boundary *enables*.
 
 ## The three layers
 
@@ -19,18 +18,18 @@ composition of the public physics. Different policy wanted? Skip `on_mouse`
 and drive `Viewport` and `Mapping` yourself — the same escape hatch.
 
 The Ink adapter (`malevich/ink` on npm) is the same split under a different
-host. `PlotWidget` paints a `Raster` as Ink `Text` cells; `PlotState` is the
-same controller, speaking the same `Mouse` vocabulary, drawing the same
-overlays into the raster. The widget never reads stdin. `usePlotInteraction`
-is an optional composition that enables DECSET mouse tracking on Ink's
-stdout and parses SGR — skip it and feed `onMouse` yourself, exactly as a
-ratatui host maps crossterm events. Linked panes are `linkX(active, passive)`:
-share the x window by assignment, mirror the cursor as a data x. Live tours
-in the repo: `cd js && npm run example:zoom` and `npm run example:linked`.
+host. `PlotWidget` paints a `Raster` as Ink `Text` cells. `PlotState` is the
+same controller: same `Mouse` vocabulary, same overlays into the raster.
+The widget never reads stdin. `usePlotInteraction` is an optional
+composition. It enables DECSET mouse tracking on Ink's stdout and parses
+SGR. Skip it and feed `onMouse` yourself, the way a ratatui host maps
+crossterm events. Linked panes are `linkX(active, passive)`: share the x
+window by assignment, mirror the cursor as a data x. Live tours in the repo:
+`cd js && npm run example:zoom` and `npm run example:linked`.
 
 ## The physics
 
-`Plot::mapping(&frame)` runs the same resolve → layout pass rendering runs
+`Plot::mapping(&frame)` runs the same resolve → layout pass a render runs,
 and returns where everything landed, as a plain value:
 
 - `data_at(column, row)` / `cell_at(x, y)` — the scale contract's `invert`,
@@ -42,16 +41,16 @@ and returns where everything landed, as a plain value:
 - `format_x` / `format_y` — a value written the way the axis writes its own
   labels: exact decimals at cell resolution, calendar instants, category
   names. Never `0.30000000000000004`, never more precision than a cell has.
-- `x_domain` / `y_domain` — the resolved windows, and `viewport()` — those
+- `x_domain` / `y_domain` — the resolved windows. `viewport()` returns those
   windows as a `Viewport`, the seed for zoom and pan.
 
 `Viewport` is the view as a value: `zoom_x(factor, anchor)` (decade space on
 log axes, so equal gestures cover equal factors), `pan_x(fraction)`,
-`clamp_x(extent)`, `tail(latest, width)`, `reset()`. Applied with
-`Plot::viewport(view)` — pure sugar over `x_domain`/`y_domain`, which is
-the load-bearing trick: **a zoom is a scale option, not a render mode**, so
-M4 re-aggregates to the visible window on the next render and drilling into
-ten million points is just rendering (`cargo run --release --example zoom
+`clamp_x(extent)`, `tail(latest, width)`, `reset()`. Apply it with
+`Plot::viewport(view)` — pure sugar over `x_domain`/`y_domain`. That is the
+load-bearing trick: **a zoom is a scale option, not a render mode**, so M4
+re-aggregates to the visible window on the next render. Drilling into ten
+million points is rendering (`cargo run --release --example zoom
 --features ratatui`).
 
 ## The controller
@@ -65,11 +64,11 @@ if let Event::Mouse(raw) = event && let Some(input) = mouse(raw) {
 }
 ```
 
-The stateful render caches the frame's `Mapping` (hit-testing answers
-against exactly what is on screen), applies the state's `Viewport`, and
+The stateful render caches the frame's `Mapping`, so hit-testing answers
+against exactly what is on screen. It applies the state's `Viewport` and
 draws the interaction chrome. `mouse` is a six-line match from your
-backend's event type to the neutral `Mouse` vocabulary — printed in full in
-the `Mouse` rustdoc; mouse *capture* is yours to enable
+backend's event type to the neutral `Mouse` vocabulary, printed in full in
+the `Mouse` rustdoc. Mouse *capture* is yours to turn on
 (`EnableMouseCapture` in crossterm).
 
 The gesture grammar, fixed on purpose:
@@ -82,7 +81,7 @@ The gesture grammar, fixed on purpose:
 | right drag | rubber-band selection; zooms to it on release |
 | `reset_view()` / `zoom_in()` / `zoom_out()` / `pan_left()` / `pan_right()` | for the host's key bindings |
 
-Coordinates outside the plot rectangle are ignored; bands axes have no
+Coordinates outside the plot rectangle are ignored. Band axes have no
 continuous window and stay untouched.
 
 **Snapping.** For every point-backed `Line` and `Points` layer, the readout
@@ -146,13 +145,13 @@ if let Some((lo, hi)) = chart.viewport().x() {
 fred's footer shows this: zoom into any span and the stats line describes
 what is on screen, dated by `format_x`.
 
-**Modifier gestures.** The default grammar is modifier-free on purpose — the
+**Modifier gestures.** The default grammar is modifier-free on purpose. The
 `Mouse` vocabulary carries no modifier keys, because terminals report them
-unevenly (xterm reserves shift for selection; not every backend forwards
-alt) and a fixed grammar must not half-work per terminal. A host that wants
-shift-wheel to zoom y — or any modifier binding — reads the modifier from
-its own backend event (it had the raw event in hand to build the `Mouse`
-value at all) and drives the physics directly:
+unevenly: xterm reserves shift for selection, and not every backend forwards
+alt. A fixed grammar must not half-work per terminal. A host that wants
+shift-wheel to zoom y, or any modifier binding, reads the modifier from its
+own backend event — it had the raw event in hand to build the `Mouse` value
+at all — and drives the physics directly:
 
 ```rust
 if shift_held && let Some((_, anchor_y)) = chart.data_at(column, row) {
@@ -163,10 +162,10 @@ if shift_held && let Some((_, anchor_y)) = chart.data_at(column, row) {
 }
 ```
 
-The seeding rule — the mapping's rendered windows, overlaid with any window
-the view has already fixed — is the same one the built-in gestures use, so
-modifier gestures compound correctly with wheel zooms and drags between
-renders.
+The seeding rule is the one the built-in gestures use: the mapping's
+rendered windows, overlaid with any window the view has already fixed.
+Modifier gestures then compound correctly with wheel zooms and drags
+between renders.
 
 **Follow the stream.** A live chart tails its ring buffer in one line —
 `view.tail(latest_x, width)` — and a user's zoom naturally suspends the
@@ -188,46 +187,46 @@ frame.render_stateful_widget(plot.widget().graphics(g), area, &mut chart);
 g.present(&mut std::io::stdout(), &mut [&mut chart])?;
 ```
 
-The widget reserves its rectangle in the buffer — spaces, skip-marked so
-ratatui's diff never writes under the image, with one fresh-ground frame
-whenever the rectangle changes — and stores the encoded block in the
-`PlotState`. Repaints never flicker: image data travels transmit-only
-under a stable per-panel id, and the presenter creates a fresh placement
-under an alternating placement id *before* retiring the one on screen —
-there is no deleted-but-not-yet-drawn gap for the eye to catch, and no
-reliance on any terminal's replacement semantics. A panel whose content
-already matches the screen is not transmitted at all. `Graphics::present` writes exactly what it is told to
-the handle it is given (the `stream::Live` precedent): emit on state
-changes, not on a timer, and the previous transmission stays on screen
-through quiet frames. `Graphics::retire` deletes the panels' own images —
-by id, never touching other applications' — when a view switch leaves
-the charts, and resets their states so the return paints fresh ground.
+The widget reserves its rectangle in the buffer: spaces, skip-marked, so
+ratatui's diff never writes under the image. Whenever the rectangle
+changes, there is one fresh-ground frame. The encoded block is stored in
+the `PlotState`. Repaints never flicker. Image data travels transmit-only under
+a stable per-panel id. The presenter creates a fresh placement under an
+alternating placement id *before* retiring the one on screen. There is no
+deleted-but-not-yet-drawn gap for the eye to catch, and no reliance on any
+terminal's replacement semantics. A panel whose content already matches the
+screen is not transmitted. `Graphics::present` writes exactly what it is
+told to the handle it is given (the `stream::Live` precedent). Emit on
+state changes, not on a timer, and the previous transmission stays on
+screen through quiet frames. `Graphics::retire` deletes the panels' own
+images — by id, never touching other applications' — when a view switch
+leaves the charts, and resets their states so the return paints fresh
+ground.
 
-Hit-testing, zoom, pan, and snapping are unchanged — the mapping answers
-in cells regardless of what fills them. The interaction chrome upgrades:
-crosshair rules, snap markers, and the readout render *into the image* as
-annotation marks — anti-aliased, never palette-consuming — with
-automatic axes pinned to the last frame so hovering cannot jitter them
-(a viewport-fixed axis is never pinned: the window a gesture just set
-always renders). fred does all of this when its terminal speaks a protocol
-(`--cells` opts out).
+Hit-testing, zoom, pan, and snapping are unchanged. The mapping answers in
+cells, whatever fills them. The interaction chrome upgrades: crosshair
+rules, snap markers, and the readout render *into the image* as annotation
+marks — anti-aliased, never palette-consuming. Automatic axes stay pinned
+to the last frame, so hovering cannot jitter them. A viewport-fixed axis is
+never pinned: the window a gesture set always renders. fred does all of
+this when its terminal speaks a protocol (`--cells` opts out).
 
 Two rates keep it smooth. **The widget paces itself**: encoding and
 transmitting a panel costs milliseconds, and hover motion asks for it
-hundreds of times a second — so within a ~33 ms window, an
-unchanged-view render reuses the image already on screen (at most one
-window of crosshair staleness; a changed viewport or rectangle always
-renders). Even a loop that redraws per event stays responsive, because
-the redundant frames cost nearly nothing. **The host should still drain
-its event queue before redrawing** — read until `poll(ZERO)` is empty,
-then draw once — so a burst of input collapses into one repaint of the
-final state instead of queueing behind full frames; fred and the zoom
-example both do. And build with `--release` when pixels are on: a debug
-frame renders an order of magnitude slower.
+hundreds of times a second. Within a ~33 ms window, an unchanged-view
+render reuses the image already on screen — at most one window of
+crosshair staleness. A changed viewport or rectangle always renders. A
+loop that redraws per event stays responsive, because the redundant frames
+cost nearly nothing. **The host should still drain its event queue before
+redrawing**: read until `poll(ZERO)` is empty, then draw once. A burst of
+input collapses into one repaint of the final state, instead of queueing
+behind full frames. fred and the zoom example both do. Build with
+`--release` when pixels are on. A debug frame renders an order of magnitude
+slower.
 
 ## What stays out
 
-The widget never reads the terminal; the core never sees input; there is no
-gesture configuration surface (different policy = drive the physics
-directly); no animation — time belongs to the host's loop. These are the
-boundaries that keep a plot a value.
+The widget never reads the terminal. The core never sees input. There is no
+gesture configuration surface: a different policy means driving the physics
+directly. No animation. Time belongs to the host's loop. These boundaries
+keep a plot a value.

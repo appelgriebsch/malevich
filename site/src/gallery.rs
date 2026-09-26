@@ -127,8 +127,8 @@ pub fn render(context: &Context) -> Body {
     let mut html = String::new();
     let mut headings = Vec::new();
     let mut text = String::new();
-    html.push_str("<p>The showcase and the system test in one artifact, read as a ladder from the first plot to composition and style. Every plate below is the exact text <code>cargo run --example NAME</code> prints into a pipe: a deterministic frame, no color, so what you see is what a log file, a diff, or a language model would see. The doc generator regenerates each one and CI fails when any is stale.</p>\n");
-    html.push_str("<p>Colored, sized to your terminal, and with real pixels where it speaks them: <code>cargo run --example showcase --features pixel</code>. The same figures drawn by the wasm build, cells beside pixels, are <a href=\"live/\">in the browser</a>.</p>\n");
+    html.push_str("<p>The showcase and the system test, one artifact, read as a ladder from the first plot to composition and style. Every plate below is the exact text <code>cargo run --example NAME</code> prints into a pipe. The frame is deterministic, and there is no color, so a log file, a diff, or a language model sees what you see. The doc generator writes each plate again, and CI fails when any is stale.</p>\n");
+    html.push_str("<p>Colored, sized to your terminal, and with real pixels where the terminal speaks them: <code>cargo run --example showcase --features pixel</code>. The wasm build draws the same figures, cells beside pixels, <a href=\"live/\">in the browser</a>.</p>\n");
     html.push_str("<nav class=\"gallery-index\" aria-label=\"Sections\"><ol>\n");
     for section in &sections {
         let id = section_id(&section.title);
@@ -195,11 +195,11 @@ fn section_id(title: &str) -> String {
 /// The in-browser plates: the wasm build draws them after the page loads.
 pub fn live(context: &Context) -> Body {
     let html = format!(
-        "<p>The same plots, drawn twice by the engine compiled to WebAssembly: a cell grid in the ASCII charset on the left — the bottom rung of the ladder, at truecolor — and on the right the device-pixel panel a capable terminal would place, decoded from the iTerm2 protocol bytes the pixel path emits. Below each plate, the Rust and the TypeScript that build it.</p>\n\
-         <p>The last plate is live: a long line through M4. Wheel to zoom, drag to pan, and watch the clock — a zoom is a domain window, so the reduction re-aggregates to the visible columns on every frame.</p>\n\
+        "<p>The same plots, drawn twice by the engine compiled to WebAssembly. On the left, a cell grid in the ASCII charset, the bottom rung of the ladder, at truecolor. On the right, the device-pixel panel a capable terminal would place, decoded from the iTerm2 protocol bytes the pixel path emits. Below each plate, the Rust and the TypeScript that build it.</p>\n\
+         <p>The last plate is live: a long line through M4. Wheel to zoom, drag to pan, and watch the clock. A zoom is a domain window, so the reduction re-aggregates to the visible columns on every frame.</p>\n\
          <div id=\"figures\" class=\"figures\"><p class=\"status\" id=\"status\">Composing figures…</p></div>\n\
-         <p class=\"engine-note\">Drawn in the browser by engine <span id=\"engine\">{version}</span>. The pixel plate is a PNG from the iTerm2 path; the cell plate is the <code>Ascii</code> charset at truecolor.</p>\n",
+         <p class=\"engine-note\">Drawn in the browser by engine <span id=\"engine\">{version}</span>. The pixel plate is a PNG from the iTerm2 path. The cell plate is the <code>Ascii</code> charset at truecolor.</p>\n",
         version = escape(&context.site.version)
     );
-    Body { html, headings: Vec::new(), summary: "The gallery figures drawn in the browser by the wasm build, cells beside pixels, and a live ten-million-point line through M4.".to_string(), scripts: vec!["plates.js".to_string()] }
+    Body { html, headings: Vec::new(), summary: "Gallery figures drawn in the browser by the wasm build: cells beside pixels, and a live ten-million-point line through M4.".to_string(), scripts: vec!["plates.js".to_string()] }
 }

@@ -1,7 +1,8 @@
 # Changelog
 
-Notable changes, written for humans. Since 1.0, breaking changes mean a major
-release; the pre-1.0 entries below recorded breakage freely, without apology.
+Notable changes, written so a person can read them. Since 1.0, a breaking
+change means a major release. The pre-1.0 entries below recorded breakage
+freely, without apology.
 
 ## Unreleased
 

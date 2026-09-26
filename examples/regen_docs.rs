@@ -24,7 +24,7 @@ type Entry = (&'static str, &'static str);
 const GALLERY: &[(&str, &str, &[Entry])] = &[
     (
         "First look",
-        "One call, a real chart: the shapes a first plot takes.",
+        "One call, and there's a chart. These are the shapes a first plot takes.",
         &[
             (
                 "sine",
@@ -54,7 +54,7 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
     ),
     (
         "Distributions",
-        "Where the statistics layer earns its keep: real estimators, honest shapes.",
+        "Where the statistics layer earns its keep: real estimators, lumps and all.",
         &[
             (
                 "boxes",
@@ -111,7 +111,7 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
     ),
     (
         "Relationships",
-        "Scatters, fits, and the labeled compositions science actually draws.",
+        "Scatters, fits, and the labeled charts a paper actually draws.",
         &[
             (
                 "clusters",
@@ -147,7 +147,7 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
     ),
     (
         "Time",
-        "Calendar axes, training logs, and series that arrive in order.",
+        "Calendar axes, training logs, and series that show up in order.",
         &[
             (
                 "timeseries",
@@ -190,7 +190,7 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
     ),
     (
         "The ML set",
-        "The charts a training loop needs, every one a grammar composition.",
+        "The charts a training loop needs. Each one is a few marks put together.",
         &[
             (
                 "roc",
@@ -287,7 +287,7 @@ const GALLERY: &[(&str, &str, &[Entry])] = &[
     ),
     (
         "Scale",
-        "Millions of points, reduced pixel-exactly to the raster.",
+        "Millions of points, reduced to the screen, and the pixels still match.",
         &[
             (
                 "waveform",

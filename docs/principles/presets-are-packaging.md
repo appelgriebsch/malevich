@@ -5,69 +5,68 @@ front door and the grammar are the same library.
 
 ## Why
 
-A chart library that ships `hist()` as its own code path forks the grammar.
-The preset accumulates private options, the expansion drifts from the name,
-and soon there are two ways to draw a histogram that disagree in the corners —
-one for beginners, one for people who read the source. The catalog then grows
-by accretion: every requested chart becomes a new function with its own
-defaults, and the library's real vocabulary stops being learnable, because
-knowing the grammar no longer predicts what the presets do.
+Ship `hist()` as its own code path and the grammar has forked. The preset
+picks up private options. The expansion drifts from the name. Soon there are
+two ways to draw a histogram, and they disagree in the corners. One is for
+beginners. One is for people who read the source. The catalog then grows by
+accretion. Every chart someone asks for becomes a new function, with its own
+defaults. The vocabulary stops being learnable, because knowing the grammar
+no longer tells you what the presets will do.
 
-The other failure is the opposite: no front door at all. A grammar-only
+The other failure runs the other way. No front door at all. A grammar-only
 library makes the first plot a lesson, and the first look at data should not
 require one.
 
 ## The idea
 
-Every preset is a plain function that composes public grammar — marks, stats,
-scales — into a named chart type, and a test asserts its rendered output is
-byte-identical to the explicit composition. The preset can therefore never do
-anything the grammar cannot; it is packaging, not different math.
+Every preset is a plain function. It composes public grammar — marks, stats,
+scales — into a named chart, and a test asserts that the rendered output is
+byte-identical to the explicit composition. The preset can never
+do anything the grammar cannot. It is packaging, not a second code path, and
+not different math.
 
-Presets are the front door; the grammar is discovered, not required. `line()`
-is the first call; `Plot::new().layer(Line::y(...))` is the same call with
-the lid off, and graduating from one to the other changes nothing about the
+Presets are the front door. The grammar is discovered, not required. `line()`
+is the first call. `Plot::new().layer(Line::y(...))` is the same call with
+the lid off. Graduating from one to the other changes nothing about the
 output. Grouped scatters, volcano plots, Manhattan plots, and candlesticks
-never become presets — they are a few grammar lines each, and the gallery
-shows the lines.
+never become presets. Each is a few lines of grammar, and the gallery shows
+the lines.
 
-Configuration follows the same discipline. A `_with` variant takes an options
-value and returns a typed error for invalid data or options; its default
+Configuration follows the same rule. A `_with` variant takes an options value
+and returns a typed error for invalid data or invalid options. Its default
 options must reproduce the plain preset exactly. No option exists that only a
 preset can reach.
 
 ## Consequences
 
-- Adding a preset costs one function and one equality test, never a render
+- A preset costs one function and one equality test. It never costs a render
   path.
-- A preset's behavior is documented by its expansion; the test keeps the
-  documentation true.
-- Users graduate continuously: preset, preset plus builder calls, full
-  grammar — with no cliff, because there is nothing behind the preset to
-  learn.
-- A requested chart type that the grammar cannot spell is a grammar
-  question, not a preset request. See
-  [What earns a concept](what-earns-a-concept.md).
-- The gallery can honestly label charts "from the grammar, no preset" — the
-  strongest evidence the vocabulary suffices.
+- The expansion is the documentation. The test keeps that documentation true.
+- You graduate in steps: the preset, the preset plus builder calls, then the
+  full grammar. There is no cliff, because there is nothing behind the preset
+  to learn.
+- A chart the grammar cannot spell is a grammar question, not a request for a
+  preset. See [What earns a concept](what-earns-a-concept.md).
+- The gallery can label a chart "from the grammar, no preset" and mean it.
+  That is the strongest evidence the vocabulary suffices.
 
 ## Not this
 
-- A preset with a private mark, a private stat, or a hidden default the
-  grammar cannot express.
-- Options objects that grow per chart type into a config kitchen sink.
-- A chart-type zoo: one exported function per paper figure.
-- "Close enough" equality. The test is byte equality of rendered output, not
-  visual similarity.
+- A preset does not get a private mark, a private stat, or a hidden default
+  the grammar cannot express.
+- Options objects do not grow, per chart type, into a config kitchen sink.
+- No chart-type zoo: one exported function per paper figure.
+- "Close enough" is not equality. The test is byte equality of rendered
+  output, not visual similarity.
 
 See [What earns a concept](what-earns-a-concept.md) for what may grow the
 grammar instead, and [Vision](../vision.md) rule 2.
 
 ## Witness
 
-The `hist` preset and its expansion, rendered by the same program that
-splices this file; the example asserts the two strings are equal before
-printing one of them:
+The `hist` preset and its expansion, rendered by the same program that splices
+this file. The example asserts the two strings are equal, then prints one of
+them:
 
 <!-- generated:witness_packaging -->
 ```text

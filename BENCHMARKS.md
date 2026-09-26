@@ -1,9 +1,9 @@
 # Benchmark baselines
 
-Malevich treats performance as a measured engineering constraint, not a portable
-speed promise. Wall-clock results vary with hardware, compiler, power state, and
-background load. This file is the authoritative dated record behind the README's
-“tens of milliseconds” claim.
+Performance here is a measurement, not a speed you can promise on another
+machine. Wall-clock time moves with the hardware, the compiler, the power
+state, and whatever else is running. This file is the dated record behind
+the README's “tens of milliseconds” claim.
 
 ## 2026-09-24 addition (released in 1.23.0)
 
@@ -31,18 +31,18 @@ cargo bench --bench render -- 'render/line_10k_80x20|render/line_10m_80x20|stat/
 cargo bench --bench widget --features ratatui
 ```
 
-The release changed the render path in several places — bar ends map to
+The release changed the render path in several places. Bar ends map to
 subpixel edges, colormaps sample through one `Colormap::sample`, colors mix
-in OKLab, axes search for context notes — so every prior row was
-re-measured. The line, fit, category, mapping, zoom, and hover rows sit
+in OKLab, and axes search for context notes, so every prior row was
+measured again. The line, fit, category, mapping, zoom, and hover rows sit
 within noise of their 2026-08-28 values. Two rows moved. The cells row is
-8% lower than its 2026-08-25 value: the sampling closure no longer converts
-a colormap's stops for every patch. The dashboard row is 32% higher than
-its 2026-08-28 value, and that is the disclosed cost of perceptual color:
-every sampled heatmap cell now encodes its OKLab mix back to sRGB (three
-gamma encodes per sample), where the RGB lerp was three integer
+8% lower than its 2026-08-25 value, because the sampling closure no longer
+converts a colormap's stops for every patch. The dashboard row is 32% higher
+than its 2026-08-28 value, and that is the disclosed cost of perceptual
+color. Every sampled heatmap cell now encodes its OKLab mix back to sRGB
+(three gamma encodes per sample), where the RGB lerp was three integer
 multiplies. An intermediate tree that also converted both neighboring stops
-per sample measured 2.68 ms; converting them once per raster is what the
+per sample measured 2.68 ms. Converting them once per raster is what the
 closing commit does. The rows that do not touch a colormap were measured
 one commit earlier, on a tree identical along their paths.
 
@@ -63,21 +63,21 @@ one commit earlier, on a tree identical along their paths.
 cargo bench --bench render -- plot/mapping_10m_80x20
 ```
 
-`Plot::mapping` is the physics primitive interactive hosts call between
-renders. It now runs only the extent-probe resolve and the layout pass; the
-mapped M4 aggregation it previously ran was computed for a raster nobody
-drew. The before row was measured on the same tree with `mapping`
-temporarily routed back through the full render preparation — it matches the
-full-view render anchor below within noise, confirming the discarded work
-was the aggregation itself.
+`Plot::mapping` is what an interactive host calls between renders. It now
+runs only the extent-probe resolve and the layout pass. The mapped M4
+aggregation it used to run was work for a raster nobody drew. The before
+row was measured on the same tree, with `mapping` temporarily routed back
+through the full render preparation. It matches the full-view render anchor
+below within noise, which confirms the discarded work was the aggregation
+itself.
 
 ## 2026-08-28 addition (released in 1.20.0)
 
 - Revision: `a6f03ec` (the interactive-widget series)
 - Machine, OS, profile: as in the 2026-08-07 baseline below
-- Compiler: `rustc 1.100.0-nightly (787af2b8c 2026-08-25)` — newer than the
-  baseline's stable; the anchor row was re-measured on this compiler so the
-  new rows compare in place
+- Compiler: `rustc 1.100.0-nightly (787af2b8c 2026-08-25)`, newer than the
+  baseline's stable. The anchor row was measured again on this compiler, so
+  the new rows compare in place
 
 | Measurement | Estimate | 95% interval |
 | --- | ---: | ---: |
@@ -90,19 +90,19 @@ was the aggregation itself.
 cargo bench --bench widget --features ratatui
 ```
 
-What one interactive frame costs, rasterize + buffer blit, no string
-encoding. The dashboard row is a two-pane 200×50 frame — a legended
-two-series 100k-point line chart beside a colorbarred 256×128 heatmap —
-through the stateless widget. The zoom row is the interactive headline: a
-ten-million-point line rendered stateful at a fixed 1% window, the cost of
-every frame while a user pans or zooms — M4 walks the full series and
-re-aggregates into the window each time (out-of-window points fail the
-column test early, which is why the zoomed frame undercuts the full-view
-anchor). The hover row adds a cursor to the same state: the snap readout's
-nearest scan over ten million explicit x values plus the overlays price at
-about 6.4 ms — roughly 0.6 ns per point, a memory-bandwidth linear scan —
-keeping the hovered frame at 40 fps. Index-positioned lines (`Line::y`)
-snap in constant time and skip that cost entirely.
+What one interactive frame costs: rasterize, blit the buffer, and do not
+encode a string. The dashboard row is a two-pane 200×50 frame through the
+stateless widget, a legended two-series 100k-point line chart beside a
+colorbarred 256×128 heatmap. The zoom row is the interactive one. A
+ten-million-point line, rendered with state, at a fixed 1% window: that is
+the cost of every frame while someone pans or zooms. M4 walks the full
+series and re-aggregates into the window each time. Points outside the
+window fail the column test early, which is why the zoomed frame undercuts
+the full-view anchor. The hover row adds a cursor to that same state. The
+snap readout's nearest scan over ten million explicit x values, plus the
+overlays, comes to about 6.4 ms, roughly 0.6 ns per point, a linear scan at
+memory bandwidth. The hovered frame stays at 40 fps. A line positioned by
+index (`Line::y`) snaps in constant time and skips that cost entirely.
 
 ## 2026-08-25 addition (released in 1.18.0)
 
@@ -117,10 +117,10 @@ snap in constant time and skip that cost entirely.
 cargo bench --bench render -- render/cells_2048x2048_80x24
 ```
 
-The matrix analog of the ten-million-point line: 4.19 million cells max-reduce
-onto ~4k screen buckets in tens of milliseconds, about 10 ns per cell. The
-bucket-exact reduction walks every covered cell once, so the cost is linear in
-the grid, not in the raster.
+This is the matrix version of the ten-million-point line. 4.19 million cells
+max-reduce onto ~4k screen buckets, in tens of milliseconds, about 10 ns per
+cell. The bucket-exact reduction walks every covered cell once, so the cost
+is linear in the grid, not in the raster.
 
 ## 2026-08-24 baseline (1.17.0)
 
@@ -143,15 +143,16 @@ cargo bench --bench render -- render/color_by_100k/5_categories
 cargo bench --bench render -- render/color_by_100k/100000_categories
 ```
 
-Against 1.16.0 on the same machine, the 10k render is 4.1% higher after making
-gaps explicit path topology; the ten-million-point render is 5.9% lower after
-selecting the ordinary affine map once and keeping each M4 bucket's current run
-directly addressable. The fit result is within 0.6% of its prior estimate.
+Against 1.16.0 on the same machine, the 10k render is 4.1% higher, after
+making gaps explicit path topology. The ten-million-point render is 5.9%
+lower, after selecting the ordinary affine map once and keeping each M4
+bucket's current run directly addressable. The fit result is within 0.6% of
+its prior estimate.
 
-The categorical rows are the new structural fence. Both render the same 100,000
-points; the second also carries 100,000 distinct labels and identities. Runtime
-therefore grows with input plus legend size, not with input × category count as the
-old masked-layer expansion did.
+The categorical rows are the new fence. Both render the same 100,000 points.
+The second also carries 100,000 distinct labels and identities. Runtime grows
+with the input plus the legend, not with input × category count, which is
+what the old masked-layer expansion did.
 
 ## 2026-08-15 baseline (1.16.0)
 
@@ -170,15 +171,15 @@ cargo bench --bench render -- render/line_10m_80x20
 cargo bench --bench render -- stat/fit_1m
 ```
 
-Rerun for 1.16.0 because resolution changed (the `color_by` layer expansion
-and the shared line-reduction helper): the render rows came out 2.2% and 6.5%
-lower than the 2026-08-07 baseline on the same machine — the categorical
+Rerun for 1.16.0 because resolution changed: the `color_by` layer expansion
+and the shared line-reduction helper. The render rows came out 2.2% and 6.5%
+lower than the 2026-08-07 baseline on the same machine. The categorical
 channel costs the headline path nothing measurable.
 
 `stat/fit_1m` is one million `(x, y)` pairs through the streaming
-least-squares accumulator (`stat::Fit`): bivariate Welford, single-threaded,
-no allocation in the loop. The accumulator merges associatively, so hosts can
-split this scan across chunks and combine.
+least-squares accumulator (`stat::Fit`). Bivariate Welford, one thread, and
+no allocation in the loop. The accumulator merges associatively, so a host
+can split this scan across chunks and combine them.
 
 ## 2026-08-07 baseline
 
@@ -200,58 +201,61 @@ cargo bench --bench render -- render/line_10k_80x20
 cargo bench --bench render -- render/line_10m_80x20
 ```
 
-The benchmark is end to end: construct the preset, resolve domains and layout,
-perform M4 reduction, rasterize an 80×20 braille frame, and encode the final string.
-It is single-threaded. The ten-million-point input vectors are prepared outside the
-timed iteration.
+The benchmark is the whole path. Build the preset, resolve domains and
+layout, run M4, rasterize an 80×20 braille frame, and encode the final
+string. One thread. The ten-million-point input vectors are built before the
+timer starts.
 
 The earlier `0f3ad5a` record on this machine was 81.818 µs and 42.260 ms,
-respectively. The current measurements are 17.0% and 14.3% lower. These are
-same-machine historical comparisons, not portable performance promises.
+respectively. The current measurements are 17.0% and 14.3% lower. Same
+machine, looking back. Not a promise about any other machine.
 
 ### Profiling decision
 
-A five-second Instruments Time Profiler capture of the 10k case attributed 2,670
-of 5,108 leaf samples (about 52%) to resolution. A measured A/B implementation
-kept the compact resolved-layer probe rather than duplicating every mark's domain
-rules in a parallel metadata type: the smaller design was faster and retains one
-source of truth. The accepted change instead:
+A five-second Instruments Time Profiler capture of the 10k case put 2,670
+of 5,108 leaf samples (about 52%) on resolution. A measured A/B kept the
+compact resolved-layer probe instead of copying every mark's domain rules
+into a parallel metadata type. The smaller design was faster, and it keeps
+one source of truth. The accepted change, instead:
 
 - keeps implicit coordinates symbolic;
-- summarizes a line into only the two endpoints needed by its linear or log axis;
-- retains the probed layout for drawing, avoiding a second round of tick formatting,
-  gutter measurement, and colorbar work.
+- summarizes a line into only the two endpoints its linear or log axis needs;
+- keeps the probed layout for drawing, so tick formatting, gutter
+  measurement, and colorbar work do not run a second time.
 
-Cell and hybrid device-pixel rasterizers both use that same prepared-render phase.
-Their target policy contains only sampling density, marker cycling, downsampling,
-and the pixel fallback for cell-only corner glyphs; no parallel mark metadata exists.
+Cell rasterizers and hybrid device-pixel rasterizers both use that same
+prepared-render phase. The target policy holds only sampling density, marker
+cycling, downsampling, and the pixel fallback for corner glyphs that exist
+only as cells. There is no parallel mark metadata.
 
-The pixel-exact raw-versus-M4 oracle and all rendering snapshots remained identical.
+The pixel-exact raw-versus-M4 oracle, and every rendering snapshot, stayed
+identical.
 
 ## Allocation contract
 
 At revision `7bbc202`, optimized on the machine above, the 10k render measured **183
-allocations and 58,388 allocated bytes**, producing 2,966 output bytes. A 100k-point
+allocations and 58,388 allocated bytes**, and wrote 2,966 output bytes. A 100k-point
 plot with one unique category per point measured **67 allocations and 34,141 bytes**,
-producing 1,791 output bytes. Rust 1.88 is the CI authority for the ceilings:
+and wrote 1,791 output bytes. Rust 1.88 is what CI trusts for the ceilings:
 
 ```sh
 cargo bench --bench alloc
 ```
 
-CI runs that harness on Ubuntu 24.04 with Rust 1.88 and `--check`. It permits at most
-275 allocations and 64 KiB of heap traffic. Those ceilings intentionally leave
-headroom for compiler and allocator details while catching structural regressions
-such as an allocation per input point or a new large intermediate buffer. CI does not
-gate wall-clock time on shared runners.
+CI runs that harness on Ubuntu 24.04 with Rust 1.88 and `--check`. It permits
+at most 275 allocations and 64 KiB of heap traffic. The ceilings leave room
+for compiler and allocator details, and they still catch a structural
+regression: an allocation per input point, or a new large intermediate
+buffer. CI does not gate wall-clock time on shared runners.
 
-The line measurement includes gap-aware M4 state and the two-color cell surface. The
-categorical measurement proves that rendering does not allocate per point or per
-category: labels and identities are retained when the mark is built, while render
-preparation borrows them. The unchanged 64 KiB ceiling still catches a larger
-per-cell representation or a manufactured intermediate.
+The line measurement includes gap-aware M4 state and the two-color cell
+surface. The categorical measurement shows that rendering does not allocate
+per point or per category. Labels and identities are kept when the mark is
+built, and render preparation borrows them. The 64 KiB ceiling is unchanged,
+and it still catches a larger per-cell representation or a manufactured
+intermediate.
 
-To update this record, benchmark an otherwise idle machine, record the revision,
-hardware, OS, compiler, commands, point estimates, and confidence intervals, then
-change the allocation ceilings only when a reviewed design change explains the new
-traffic.
+To update this record, benchmark a machine that is otherwise idle. Record the
+revision, the hardware, the OS, the compiler, the commands, the point
+estimates, and the confidence intervals. Change the allocation ceilings only
+when a reviewed design change explains the new traffic.

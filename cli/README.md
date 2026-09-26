@@ -1,9 +1,8 @@
 # kaz
 
 **Pipe data to an honest terminal plot.** A stdin-first CLI over
-[malevich](https://crates.io/crates/malevich): the first look at any data,
-straight from the shell. The library's documentation, with every chart
-explained and illustrated, is at
+[malevich](https://crates.io/crates/malevich). The first look at any data,
+drawn in the shell. Every chart, explained and illustrated, is at
 [shergin.github.io/malevich](https://shergin.github.io/malevich/).
 
 ```sh
@@ -12,9 +11,9 @@ awk '{print $5}' access.log | kaz hist
 cut -f2 species.tsv | kaz count
 ```
 
-The plot goes to **stderr** by default, so stdout stays the data channel — and
-`-O` echoes the input through, so the plot can sit in the *middle* of a pipeline
-without breaking it:
+The plot goes to **stderr** by default, so stdout stays the data. `-O` echoes
+the input through, so the plot can sit in the *middle* of a pipeline without
+breaking it:
 
 ```sh
 cat data.tsv | kaz line -O | next-tool     # plot on stderr, data flows on
@@ -33,7 +32,7 @@ cat data.tsv | kaz line -O | next-tool     # plot on stderr, data flows on
     0          10          20         30          40
 ```
 
-`count` tallies bare labels — the log-wrangler's friend, no `sort | uniq -c`:
+`count` tallies bare labels, so `sort | uniq -c` is unnecessary:
 
 ```sh
 awk '{print $9}' access.log | kaz count -t 'status codes'
@@ -58,9 +57,9 @@ cargo install malevich-cli       # or via cargo
 ```
 
 The Homebrew formula ([`homebrew/kaz.rb`](homebrew/kaz.rb)) also installs the
-completions and man page. Shell completions (bash, zsh, fish) live in
-[`completions/`](completions/) and a man page in [`man/kaz.1`](man/kaz.1) — to
-wire them up by hand:
+completions and the man page. Shell completions (bash, zsh, fish) live in
+[`completions/`](completions/), and the man page is [`man/kaz.1`](man/kaz.1).
+To wire them up by hand:
 
 ```sh
 cp completions/kaz.fish ~/.config/fish/completions/   # fish
@@ -89,16 +88,16 @@ man ./man/kaz.1
 | `spec` | — | render a serialized malevich document | JSON |
 | `caps` | — | what detection sees for this terminal | — |
 
-`ecdf`, `violin`, and `hist2d` are charts no other CLI plotter ships.
+No other CLI plotter ships `ecdf`, `violin`, or `hist2d`.
 
 ## Input
 
-Fields are separated by **any run of whitespace** by default — bare numbers,
-TSV, and `column`-style output all just work. `-d CHAR` sets one explicit
+Fields split on **any run of whitespace** by default, so bare numbers, TSV,
+and `column`-style output all come through. `-d CHAR` sets one explicit
 separator (`-d,` for CSV-shaped data). `-H` reads a header row and uses its
 names to label the series.
 
-`--fmt` decides how columns map onto axes:
+`--fmt` says how the columns sit on the axes:
 
 - `y` — each column is a y-series over its row index *(default: one column)*
 - `xy` — first column x, second column y
@@ -106,10 +105,11 @@ names to label the series.
 - `xyxy` — columns pair up: `(x0,y0) (x1,y1) …`
 - `yx` — first column y, second column x (YouPlot compatibility)
 
-A field that will not parse becomes an honest gap in the plot, and a one-line
-tally (`3 values could not be parsed`) goes to stderr afterward — silenced with
-`-q`. This parses *fields*, not CSV: for quotes and embedded delimiters, shape
-the data upstream (`xsv select …`, `mlr --c2t …`) and pipe the result in.
+A field that will not parse becomes an honest gap in the plot. A one-line
+tally (`3 values could not be parsed`) goes to stderr afterward, and `-q`
+silences it. This parses *fields*, not CSV. For quotes and embedded
+delimiters, shape the data upstream (`xsv select …`, `mlr --c2t …`) and pipe
+the result in.
 
 ## Options
 
@@ -151,16 +151,16 @@ the data upstream (`xsv select …`, `mlr --c2t …`) and pipe the result in.
 --version      --help
 ```
 
-Color auto-detects from the destination stream. The glyph tier defaults to
-quadrants in UTF-8 (ASCII for a non-UTF-8 locale); use `--charset` or
-`MALEVICH_CHARSET` to opt into a denser tier your font supports. Where the terminal
-speaks a pixel protocol the plot panel upgrades to a real image — even
-mid-pipeline; `MALEVICH_GRAPHICS=kitty|sixel|iterm2|none` names the protocol
-when the sniff cannot. `-h` is height; help is `--help` only.
+Color follows the destination stream. The glyph tier defaults to quadrants
+in UTF-8, and to ASCII for a non-UTF-8 locale. Use `--charset` or
+`MALEVICH_CHARSET` to opt into a denser tier your font supports. Where the
+terminal speaks a pixel protocol, the plot panel becomes a real image, even
+mid-pipeline. `MALEVICH_GRAPHICS=kitty|sixel|iterm2|none` names the protocol
+when the sniff cannot. `-h` is height. Help is `--help` only.
 
-`--emit-code` is the bridge out of the shell: once the piped chart looks right,
-it prints the equivalent malevich Rust program — same calls, your parsed data
-inlined as literals — ready to paste into a project:
+`--emit-code` is the way out of the shell. Once the piped chart looks right,
+it prints the equivalent malevich Rust program: the same calls, your parsed
+data inlined as literals, ready to paste into a project:
 
 ```sh
 kaz scatter penguins.tsv -H --by species --emit-code > plot.rs
@@ -168,31 +168,32 @@ kaz scatter penguins.tsv -H --by species --emit-code > plot.rs
 
 ## Live
 
-`--live` reads stdin forever, one value per line, and repaints a sliding line in
-place — no alt-screen, so the final frame stays in your scrollback, and Ctrl-C
-restores the cursor. Each repaint is one synchronized-output frame. When the
-plot's destination is not a terminal (`2>log`), the frames append as plain text
-and no escape byte is written. Line only.
+`--live` reads stdin forever, one value per line, and repaints a sliding line
+in place. There is no alt-screen, so the final frame stays in your scrollback,
+and Ctrl-C restores the cursor. Each repaint is one synchronized-output
+frame. When the plot's destination is not a terminal (`2>log`), the frames
+append as plain text and no escape byte is written. Line only.
 
 ```sh
 ping -i.2 host | grep -oE 'time=[0-9.]+' | tr -d 'time=' | kaz line --live -t ping
 vmstat 1 | awk 'NR>2{print $1}' | kaz line --live -t runnable
 ```
 
-`--window N` sets the window length (1..1000000), `--fps N` the repaint rate
-(1..1000; default 10), and `--rate` plots the per-interval delta of a monotonic
-counter.
+`--window N` sets the window length (1..1000000). `--fps N` sets the repaint
+rate (1..1000; default 10). `--rate` plots the per-interval delta of a
+monotonic counter.
 
-If a live plot looks frozen, the *producer* is buffering — pipes hold output
+If a live plot looks frozen, the *producer* is buffering. Pipes hold output
 until a block fills. Unbuffer at the source: `stdbuf -oL producer`,
 `grep --line-buffered`, or `awk '{print; fflush()}'`.
 
 ## Design
 
-`kaz` contains **zero rendering logic**: it parses arguments, frames stdin, and
-calls the public malevich API. Every flag names an existing library concept — a
-frame field, a preset argument, a scale option, or plot furniture. It is the
-proof of the library's central claim, that a pure string-renderer is enough.
+`kaz` contains **zero rendering logic**. It parses arguments, frames stdin,
+and calls the public malevich API. Every flag names an existing library
+concept: a frame field, a preset argument, a scale option, or plot furniture.
+It is the proof of the library's central claim, that a pure string-renderer
+is enough.
 
 ## License
 

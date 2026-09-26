@@ -2,11 +2,12 @@
 
 The `serde` feature supports two related formats:
 
-- `Document` is the persistent, versioned format for files, caches, and network
-  messages.
-- Raw `Plot`, `Grid`, mark, scale, frame, and theme serde implementations remain
-  available for source compatibility and short-lived interchange. A raw payload has
-  no version discriminator, so new persistent data should not use it directly.
+- `Document` is the persistent, versioned format for files, caches, and
+  network messages.
+- Raw `Plot`, `Grid`, mark, scale, frame, and theme serde implementations
+  stay available for source compatibility and short-lived interchange. A
+  raw payload has no version discriminator, so new persistent data should
+  not use it directly.
 
 ## Version 1
 
@@ -20,12 +21,13 @@ A document is a small envelope around an owned plot or grid:
 }
 ```
 
-Constructing or decoding a `Document` validates the complete payload. Unknown schema
-versions, zero-column grids, ragged channels, invalid mark/scale combinations, and
-other malformed states are errors rather than documents that fail later at render
-time. Unknown additive JSON fields are ignored, and omitted plot fields take their
-documented defaults. Gaps remain `null`; function-backed lines still refuse to
-serialize because closures have no honest data representation.
+Constructing or decoding a `Document` validates the whole payload. Unknown
+schema versions, zero-column grids, ragged channels, invalid mark/scale
+combinations, and other malformed states are errors, not documents that fail
+later at render time. Unknown additive JSON fields are ignored. Omitted plot
+fields take their documented defaults. Gaps stay `null`. Function-backed
+lines still refuse to serialize. Closures have no honest data
+representation.
 
 ```rust
 # #[cfg(feature = "serde")] {
@@ -40,11 +42,11 @@ assert!(!decoded.try_render(&Frame::portable(40, 10))?.is_empty());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-The committed fixtures under `tests/fixtures/serde/` are the compatibility contract.
-Every supported version must continue to decode, validate, and render. Encoder tests
-also compare canonical documents to those fixtures, catching accidental field,
-variant, or tagging changes. JSON whitespace and object-key order are not part of the
-contract.
+The committed fixtures under `tests/fixtures/serde/` are the compatibility
+contract. Every supported version must keep decoding, validating, and
+rendering. Encoder tests also compare canonical documents to those fixtures,
+catching an accidental field, variant, or tagging change. JSON whitespace
+and object-key order are not part of the contract.
 
 To migrate a legacy raw payload, decode it as a `Plot` or `Grid`, pass it through
 `Document::plot` or `Document::grid`, and serialize the returned document. Keep the

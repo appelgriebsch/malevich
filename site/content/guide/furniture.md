@@ -15,19 +15,19 @@ Furniture is everything on a chart that is not data: the title, the axis labels,
 | context note | automatic, when labels leave out a base or a date | y note with the legend, x note with the title |
 | tick labels | computed | last, by thinning |
 
-The legend is built from layer labels in layer order; `color_by` adds one entry per category in first-appearance order, and `Cells::classes` adds swatches. A colorbar labels its ramp with the same exact-decimal formatter as the axes — decade ticks on a log colormap, band boundaries on a stepped one.
+The legend is built from layer labels in layer order. `color_by` adds one entry per category in first-appearance order, and `Cells::classes` adds swatches. A colorbar labels its ramp with the same exact-decimal formatter as the axes — decade ticks on a log colormap, band boundaries on a stepped one.
 
 ## Shedding
 
-When the frame shrinks, the layout sheds furniture instead of failing: legend, then titles, then tick density. The data region is the last thing standing, because a small chart of the real numbers beats a complete frame around nothing. `TERM=dumb` at any width still gets a correct chart.
+When the frame shrinks, the layout sheds furniture and does not fail: legend, then titles, then tick density. The data region is the last thing standing, because a small chart of the real numbers beats a complete frame around nothing. `TERM=dumb` at any width still gets a correct chart.
 
 {{sizes hero 80x18 56x14 40x10 26x7 16x4 | One plot value, five frames. Watch the legend go first, then the title and axis labels, then the tick density, and note that the y labels keep their exact decimals to the end.}}
 
-Rendering therefore never fails on frame grounds; panics belong to construction, at the caller's line, on documented programmer invariants (unequal paired channels, a zero-column grid). A spec that arrives from data — deserialization, a config file — gets the checked twins, `Plot::validate` and `Plot::try_render`, which report the first problem as a typed error instead.
+Rendering therefore never fails on frame grounds. Panics belong to construction, at the caller's line, on documented programmer invariants (unequal paired channels, a zero-column grid). A spec that arrives from data — deserialization, a config file — gets the checked twins, `Plot::validate` and `Plot::try_render`. They report the first problem as a typed error.
 
 ## No axes at all
 
-`axes(false)` removes the axes, tick labels, and gutters, so the data region fills the frame. The `sparkline` preset is bars from zero with the axes off in a one-row frame; a waffle is class cells with the axes off; a thumbnail in a dashboard is anything with the axes off.
+`axes(false)` removes the axes, tick labels, and gutters, so the data region fills the frame. The `sparkline` preset is bars from zero with the axes off in a one-row frame. A waffle is class cells with the axes off. A thumbnail in a dashboard is anything with the axes off.
 
 {{figure furniture_sparkline}}
 
@@ -35,10 +35,10 @@ Rendering therefore never fails on frame grounds; panics belong to construction,
 
 ## The card
 
-The HTML and SVG cards add one more piece of furniture that a tty does not have: the card itself — a rounded rectangle in the theme's background and foreground. `Theme::LIGHT` selects the light card; every other theme takes the dark one. The grid inside is the exact grid the terminal renderer would print.
+The HTML and SVG cards add one more piece of furniture that a tty does not have: the card itself — a rounded rectangle in the theme's background and foreground. `Theme::LIGHT` selects the light card. Every other theme takes the dark one. The grid inside is the exact grid the terminal renderer would print.
 
 {{light hero}}
 
 ## What furniture will not do
 
-There is no legend placement option, no title alignment option, no gutter width option, no font. Each would be a knob on presentation that the frame already decides, and each would be one more thing the layout could not shed. Text the chart needs in a particular place is a `Text` mark at data coordinates; the rest is computed.
+There is no legend placement option, no title alignment option, no gutter width option, no font. Each would be a knob on presentation that the frame already decides, and each would be one more thing the layout could not shed. Text the chart needs in a particular place is a `Text` mark at data coordinates. The rest is computed.

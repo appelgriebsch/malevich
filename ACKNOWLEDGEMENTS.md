@@ -1,8 +1,8 @@
 # Acknowledgements
 
-malevich stands on the shoulders of giants. Before a line of it was written, we studied
-the terminal-plotting field across five language ecosystems — the libraries below are
-not a courtesy list; each one taught this project something specific, named here.
+Before a line of this was written, we read the terminal-plotting field across
+five language ecosystems. The names below are not a courtesy list. Each project
+taught this one something specific, and the line says what it was.
 
 ## Algorithms
 
@@ -95,6 +95,6 @@ not a courtesy list; each one taught this project something specific, named here
 
 ## The name
 
-**Kazimir Malevich** painted *Black Square* in 1915: a small vocabulary of geometric
+**Kazimir Malevich** painted *Black Square* in 1915, a small vocabulary of geometric
 forms, composed deliberately, on a plain ground. That is the design budget of this
 library, and the reason release 0.1.0 carries the painting's name.

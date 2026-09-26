@@ -4,11 +4,12 @@
 millions of points.**
 
 The engine is the [Rust crate](https://crates.io/crates/malevich) 1.x, compiled
-to WASM. A plot is a value. Rendering is a pure function of that value and a
-frame. The library never owns the terminal. Zero native dependencies.
+to WASM. A plot is a value. Hand it a frame and it draws; the function is
+pure. The library never owns the terminal, and it has zero native
+dependencies.
 
-Documentation, with a plate for every mark, stat, and scale, and a playground
-that runs this engine in the browser:
+The docs put a plate on every mark, stat, and scale, and the playground runs
+this same engine in the browser:
 [shergin.github.io/malevich](https://shergin.github.io/malevich/).
 
 ![Loss curves, a calendar time axis, and smoothing](https://raw.githubusercontent.com/shergin/malevich/main/examples/showcase-lines.png)
@@ -19,7 +20,7 @@ npx malevich              # a tour, sized to your terminal
 printf '1 5 2 8' | npx malevich line
 ```
 
-ESM only (Node 18+, Bun, Deno). `require()` is not exported.
+ESM only: Node 18+, Bun, and Deno. `require()` is not exported.
 
 ```js
 import { line } from "malevich";
@@ -51,35 +52,36 @@ console.log(chart.render(Frame.detect()));
 ```
 
 `console.log(plot)` and `String(plot)` detect a frame. `plot.render(frame)` is
-the pure path — pass `Frame.plain` or `Frame.portable` in tests.
+the pure path. In a test, pass `Frame.plain` or `Frame.portable`.
 
-This is **0.x**: the JS API can still move. The renderer is the 1.x Rust crate
+This is **0.x**. The JS API can still move. The renderer is the 1.x Rust crate
 (`engineVersion`).
 
 ## Why malevich
 
 The JS terminal already has charts. What it does not have is this engine.
 
-- **A small grammar, not a chart zoo.** Eight marks (line, points, bars, area,
-  cells, range, rule, text) × a stats layer × shared scales compose into the
-  basic catalog. Presets (`line`, `hist`, `boxPlot`, `violin`, `trend`, …) are
-  packaging: the same plot you would write by hand.
-- **Axes that are actually good.** Extended-Wilkinson tick placement, exact
-  decimal labels that parse back to their values, one SI prefix per axis, log
-  axes, calendar time, band axes. Never `0.30000000000000004`.
-- **Millions of points.** Large lines reduce by M4, bucketed by the rendered
-  column — pixel-identical to drawing every point. Ten million points is a
-  CLI one-shot, not a 50 fps zoom loop in WASM; still tens of milliseconds
-  for typical sizes.
-- **Renders everywhere, honestly.** Charset and color ladders from Unicode 16
-  octants down to plain ASCII, truecolor down to a clean pipe. `NaN` is always
-  a visible gap.
-- **A plot is a value.** Immutable builders, no hidden terminal state.
-  `Plot.render` / `Plot.raster` inspect nothing. Detection lives in
+- **Eight marks, and that is the catalog.** Line, points, bars, area, cells,
+  range, rule, and text, composed with a stats layer and shared scales. That
+  is the basic catalog. Presets (`line`, `hist`, `boxPlot`, `violin`,
+  `trend`, …) are packaging: the same plot you would write by hand.
+- **Axes that are actually good.** Ticks are placed by extended Wilkinson.
+  Labels are exact decimals, and they parse back to their values. One SI
+  prefix per axis. Log axes, calendar time, band axes. Never
+  `0.30000000000000004`.
+- **Millions of points.** A long line reduces by M4, one bucket per rendered
+  column, and the pixels match drawing every point. Ten million points is a
+  CLI one-shot, not a 50 fps zoom loop in WASM. Typical sizes are still tens
+  of milliseconds.
+- **A bad terminal still gets a chart.** The ladders run from Unicode 16
+  octants down to plain ASCII, and from truecolor down to a clean pipe.
+  `NaN` is always a visible gap.
+- **A plot is a value.** Builders are immutable. There is no hidden terminal
+  state. `Plot.render` / `Plot.raster` inspect nothing. Detection lives in
   `Frame.detect`.
 
-The design is argued in the crate's [docs/vision.md](https://github.com/shergin/malevich/blob/main/docs/vision.md).
-This package is the JS rim around that crate — one oracle, not a rewrite.
+The argument is in the crate's [docs/vision.md](https://github.com/shergin/malevich/blob/main/docs/vision.md).
+This package is the JS rim around that crate. One oracle, not a rewrite.
 
 ## Presets and the grammar
 
@@ -97,8 +99,8 @@ console.log(describe(["train", "val"], [trainLoss, valLoss]));
 ```
 
 Eight marks: `Line`, `Points`, `Bars`, `Area`, `Cells`, `Range`, `Rule`,
-`Text`. A preset is a proven composition. Shared goldens prove JS output is
-byte-identical to the crate for the same document and frame.
+`Text`. A preset is a proven composition. Shared goldens prove the JS output
+is byte-identical to the crate, for the same document and frame.
 
 ```js
 import { Bars, Cells, Colormap, Range } from "malevich";
@@ -121,14 +123,14 @@ const chart = new Plot()
   .yLabel("loss");
 ```
 
-`null` / `undefined` in a series become gaps (`NaN`). `Float64Array` is kept
-by reference. Nested `{x, y}[]` is not a series — a mark that wants two
+`null` and `undefined` in a series become gaps (`NaN`). A `Float64Array` is
+kept by reference. Nested `{x, y}[]` is not a series. A mark that wants two
 channels takes two series (`Line.xy(x, y)`, `scatter(x, y)`).
 
 ## Frame
 
-Where and how to render: size, charset, color, theme. Frame is run state, not
-plot state — the same plot renders into many frames.
+Size, charset, color, theme: where and how this drawing goes. A frame is
+run state, not plot state. The same plot renders into many frames.
 
 | constructor | what |
 |---|---|
@@ -137,13 +139,13 @@ plot state — the same plot renders into many frames.
 | `Frame.portable(w, h)` | quadrants, no color — conservative Unicode |
 | `frame.with({ height: 8 })` | copy with fields replaced |
 
-Wasm never reads the environment. Snapshot tests always pass an explicit frame.
+Wasm never reads the environment. A snapshot test always passes an explicit frame.
 
 ## Raster
 
 `plot.render(frame)` is a string. `plot.raster(frame)` is the cell grid
-underneath — glyphs and colors, chrome included — so a TUI host can paint
-cells instead of decoding ANSI.
+under it: glyphs and colors, chrome included, so a TUI host can paint cells
+instead of decoding ANSI.
 
 ```js
 const raster = chart.raster(Frame.plain(40, 10));
@@ -152,15 +154,16 @@ for (const row of raster.rows()) {
 }
 ```
 
-Continuation cells (`columns === 0`) sit to the right of a wide glyph; `rows()`
-skips them.
+A continuation cell (`columns === 0`) sits to the right of a wide glyph, and
+`rows()` skips it.
 
 ## Mapping and viewport
 
-`plot.mapping(frame)` is the resolved geometry of one render: cell ↔ data both
-ways, axis-formatted labels, the plot rectangle. `Viewport` is a pair of
-optional axis windows — a zoom is a scale option, not a render mode, so M4
-re-aggregates to the visible window on the next render.
+`plot.mapping(frame)` is the geometry of one render, already resolved: cell
+to data and data to cell, labels as the axis formatted them, and the plot
+rectangle. `Viewport` is a pair of optional axis windows. A zoom is a scale
+option, not a render mode, so M4 re-aggregates to the visible window on the
+next render.
 
 ```js
 const mapping = chart.mapping(frame);
@@ -169,7 +172,7 @@ const view = mapping.viewport().zoomX(0.8, data[0]);
 console.log(chart.viewport(view.windows()).render(frame));
 ```
 
-Hosts that want different gestures than the Ink widget drive this physics
+A host that wants different gestures from the Ink widget drives this physics
 directly.
 
 ## Ink
@@ -183,8 +186,8 @@ import { PlotWidget } from "malevich/ink";
 <PlotWidget plot={line(loss)} width={80} height={16} />
 ```
 
-That is fire-and-forget. For interaction, keep a `PlotState` in a ref — the
-same controller as the ratatui widget — and feed it mouse coordinates. The
+That paints on its own. For interaction, keep a `PlotState` in a ref, the
+same controller as the ratatui widget, and hand it mouse coordinates. The
 widget never reads the terminal.
 
 ```js
@@ -200,7 +203,7 @@ function Chart({ loss }) {
 }
 ```
 
-The gesture grammar, fixed on purpose:
+The gestures are fixed on purpose:
 
 | input | effect |
 |---|---|
@@ -210,20 +213,20 @@ The gesture grammar, fixed on purpose:
 | right drag | rubber-band selection; zooms to it on release |
 | `+` / `-` / arrows / `r` | zoom, pan, reset (`usePlotInteraction` keys) |
 
-Coordinates outside the plot rectangle are ignored. Band axes have no
-continuous window and stay untouched. A gap at the snapped x reads as `—`,
-never an interpolation. `crosshair={false}`, `readout={false}`, `snap={false}`
-suppress the overlays. Overlays draw into the cells only — the plot value
-renders identically with or without them.
+Coordinates outside the plot rectangle are ignored. A band axis has no
+continuous window, and it stays untouched. A gap at the snapped x reads as `—`,
+never an interpolation. `crosshair={false}`, `readout={false}`, and
+`snap={false}` turn the overlays off. Overlays draw into the cells only. The
+plot value renders identically with them or without them.
 
-`usePlotInteraction` is a proven composition: it enables DECSET mouse tracking
-on Ink's stdout and parses SGR from Ink's stdin. One hook per app — for two
+`usePlotInteraction` is a proven composition. It enables DECSET mouse tracking
+on Ink's stdout and parses SGR from Ink's stdin. One hook per app. For two
 panes, parse at the app level and route (see `examples/ink-linked.tsx`). Skip
-the hook and drive `PlotState.onMouse` yourself if you want different policy.
-Enable and parse helpers (`enableMouse`, `parseMouse`, `linkX`) are public.
+the hook and drive `PlotState.onMouse` yourself if you want a different
+policy. `enableMouse`, `parseMouse`, and `linkX` are public.
 
-**Linked panes.** Two stacked charts share an x view by assignment, not by
-feature. Route the event to the pane it landed on, then:
+**Linked panes.** Two stacked charts share an x view because you assigned
+it, not because a feature did. Route the event to the pane it landed on, then:
 
 ```js
 import { linkX } from "malevich/ink";
@@ -231,13 +234,13 @@ import { linkX } from "malevich/ink";
 linkX(active, passive);   // share the x window; mirror the cursor
 ```
 
-Each pane keeps its own y. The passive pane draws a vertical-only crosshair at
-*its* column for that x (`mapping.columnAt`), snaps its own series, and reads
-out the same instant.
+Each pane keeps its own y. The passive pane draws a vertical-only crosshair
+at *its* column for that x (`mapping.columnAt`), snaps its own series, and
+reads out the same instant.
 
 Wrap stacked panes in `PlotColumn` and each `PlotWidget` gets `origin` from
-the heights above it — no manual row math. Pass `origin` yourself only when
-the layout is not a column.
+the heights above it. No row math by hand. Pass `origin`
+yourself only when the layout is not a column.
 
 ```js
 import { PlotColumn, PlotWidget } from "malevich/ink";
@@ -249,7 +252,7 @@ import { PlotColumn, PlotWidget } from "malevich/ink";
 </PlotColumn>
 ```
 
-A live tour: `npx tsx examples/ink-zoom.tsx` in this repo (two million points,
+A live tour, in this repo: `npx tsx examples/ink-zoom.tsx` (two million points,
 wheel-zoom into any spike). Linked panes: `npx tsx examples/ink-linked.tsx`.
 
 Pixels, when the terminal speaks them:
@@ -259,14 +262,15 @@ console.log(chart.renderBest(Frame.detect()));           // sniff env, then cell
 console.log(chart.renderPixels(frame, { protocol: "kitty" }));
 ```
 
-Detection stays in JS. The wasm path is pure over the protocol you name.
+Detection stays in JS. The wasm path is pure: it encodes the protocol you name.
 
 ## What it will not be
 
-Not a TUI framework (it never owns the terminal or handles input). No
-animations. No file parsing or dataframes — conversion happens once, at the
-rim, into `Float64Array` (`NaN` = gap). No config-object kitchen sink. Not a
-browser charting library — `renderBest` is still a terminal string.
+Not a TUI framework. It never owns the terminal, and it does not handle
+input. No animations. No file parsing, and no dataframes. Conversion happens
+once, at the rim, into a `Float64Array` (`NaN` = gap). Not a config object
+that takes every option at once. Not a browser charting library. `renderBest`
+is still a terminal string.
 
 ## Engine
 
@@ -285,7 +289,7 @@ A full colored tour, sized to your terminal:
 cd js && npm run build && npm run showcase
 ```
 
-Examples live in [`examples/`](examples/). Crate docs: [interaction](https://github.com/shergin/malevich/blob/main/docs/interaction.md),
+Examples are in [`examples/`](examples/). Crate docs: [interaction](https://github.com/shergin/malevich/blob/main/docs/interaction.md),
 [terminology](https://github.com/shergin/malevich/blob/main/docs/terminology.md),
 [vision](https://github.com/shergin/malevich/blob/main/docs/vision.md).
 
@@ -304,4 +308,4 @@ node examples/hello.mjs
 npm run showcase
 ```
 
-Requires a Rust toolchain with `wasm32-unknown-unknown` and `wasm-pack`.
+You need a Rust toolchain with `wasm32-unknown-unknown` and `wasm-pack`.

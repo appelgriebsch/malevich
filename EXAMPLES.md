@@ -13,7 +13,7 @@ is deterministic.
 
 ## First look
 
-One call, a real chart: the shapes a first plot takes.
+One call, and there's a chart. These are the shapes a first plot takes.
 
 ### sine
 
@@ -122,7 +122,7 @@ Chinstrap ┤      68     195.8    7.132     178      191      196       201    
 
 ## Distributions
 
-Where the statistics layer earns its keep: real estimators, honest shapes.
+Where the statistics layer earns its keep: real estimators, lumps and all.
 
 ### boxes
 
@@ -355,7 +355,7 @@ Source: [examples/powerlaw.rs](examples/powerlaw.rs)
 
 ## Relationships
 
-Scatters, fits, and the labeled compositions science actually draws.
+Scatters, fits, and the labeled charts a paper actually draws.
 
 ### clusters
 
@@ -522,7 +522,7 @@ e  97.5 ┤                      ⠚⣿⣿⡏⢀⣸⣀⣇⣀       ⣤⣧⣧⣼�
 
 ## Time
 
-Calendar axes, training logs, and series that arrive in order.
+Calendar axes, training logs, and series that show up in order.
 
 ### timeseries
 
@@ -707,7 +707,7 @@ Source: [examples/bollinger.rs](examples/bollinger.rs)
 
 ## The ML set
 
-The charts a training loop needs, every one a grammar composition.
+The charts a training loop needs. Each one is a few marks put together.
 
 ### roc
 
@@ -1111,7 +1111,7 @@ y      │     ⠱⣸⡟ ⠘⠗⡇  ⢁⡇⡀ ⢠⣧  ⠘⠟  ⠈        ⢠⠄ 
 
 ## Scale
 
-Millions of points, reduced pixel-exactly to the raster.
+Millions of points, reduced to the screen, and the pixels still match.
 
 ### waveform
 
