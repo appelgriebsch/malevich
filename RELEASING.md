@@ -13,7 +13,9 @@ previous tag below when the next release is not based on `v1.14.3`.
   `Unreleased` section.
 - Confirm `BENCHMARKS.md` names the code revision behind every current performance
   claim. Rerun Criterion on an otherwise idle machine when render code or a claim
-  changed; never substitute a shared-runner wall-clock result.
+  changed, print the dated block with `cargo run --example bench_record`, and
+  refresh the current-record table and `docs/performance.md`; never substitute a
+  shared-runner wall-clock result.
 - Review `git diff` and require a clean worktree after committing the release changes.
 
 ## 2. Reproduce the local gates
