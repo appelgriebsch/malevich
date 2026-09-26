@@ -27,9 +27,12 @@ What to read when.
 - **What does it look like?**
   [../EXAMPLES.md](../EXAMPLES.md) — the gallery, every chart real program
   output. `cargo run --example showcase` renders a colored tour. The JS
-  analog is `cd js && npm run showcase`. The browser gallery at
+  analog is `cd js && npm run showcase`.
+- **The long form, illustrated.**
   [shergin.github.io/malevich](https://shergin.github.io/malevich/)
-  ([gallery/](../gallery/README.md)) draws them as ascii beside pixels, with a
-  live M4 plate.
+  ([site/](../site/README.md)) — these files as pages, plus a guide with a
+  plate for every mark, stat, and scale, a playground, and the figures drawn
+  in the browser as ascii beside pixels with a live M4 plate. Every figure is
+  rendered by the library at build time.
 - **API reference** — [docs.rs/malevich](https://docs.rs/malevich); npm
   [malevich](https://www.npmjs.com/package/malevich).

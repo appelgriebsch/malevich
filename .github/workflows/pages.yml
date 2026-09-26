@@ -24,10 +24,12 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: actions/configure-pages@v5
       - run: cargo install wasm-pack --locked
-      - run: chmod +x gallery/build.sh && ./gallery/build.sh
+      # The generator renders every figure with the library, then the wasm
+      # build joins it for the pages that draw in the browser.
+      - run: ./site/build.sh
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: gallery
+          path: site/dist
 
   deploy:
     needs: build
