@@ -15,6 +15,27 @@ freely, without apology.
   library at build time — the code shown beside a plate is the block that
   ran — and the repository's own docs are the text of most pages, with
   plates inserted under their headings. `gallery/` is folded into it.
+- The benchmark record has a current-state table and a second architecture.
+  `BENCHMARKS.md` opens with every row at its latest measurement on each
+  machine that has one, ahead of the dated history, and the recording
+  protocol is written down in one place. The new entry is the whole bench
+  suite on an x86_64 Linux machine: the ten rows the M1 Pro record carries,
+  and the seventeen the suite always had but no record named. Those are the
+  scatter, M4 on its own, histogram binning, the KDE, ANSI encoding, the
+  layout sweep, the streaming frame, the plot clone, tick placement, and the
+  three pixel encoders. `docs/performance.md` quotes the 1.23.0 numbers it
+  had drifted from and shows both machines side by side.
+- `cargo run --example bench_record` prints a record block from Criterion's
+  saved results: revision, machine, OS, compiler, sample count, and one row
+  per benchmark with Criterion's own estimate and 95% interval, in its units
+  and rounding, plus the change against the previous run when it kept one.
+  A benchmark table is program output, like every chart in the docs.
+- The allocation contract is measured again at 1.23.0 on the CI compiler and
+  on current stable, beside the 1.17.0 revision it recorded before. The
+  counts reproduce across machines exactly. The code between the two
+  releases added 40 allocations to the 10k line render, and a bisect names
+  the commit: the per-label tick formatting that units introduced. The
+  headroom under the CI ceiling is known and attributed, not assumed.
 
 ## 1.23.0 (Taking in the Rye) — 2026-09-24
 
